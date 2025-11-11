@@ -124,7 +124,58 @@ export type Database = {
             foreignKeyName: "coffee_transactions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+          referencedRelation: "profiles"
+          referencedColumns: ["id"]
+        },
+      ]
+      }
+      employee_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -663,7 +714,7 @@ export type Database = {
           first_aid_certified: boolean | null
           id: string
           name: string
-          organization_id: string | null
+          organization_id: string
           phone: string | null
           role: Database["public"]["Enums"]["app_role"]
           skills_text: string | null
@@ -679,7 +730,7 @@ export type Database = {
           first_aid_certified?: boolean | null
           id: string
           name: string
-          organization_id?: string | null
+          organization_id: string
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           skills_text?: string | null
@@ -695,7 +746,7 @@ export type Database = {
           first_aid_certified?: boolean | null
           id?: string
           name?: string
-          organization_id?: string | null
+          organization_id?: string
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           skills_text?: string | null
@@ -911,6 +962,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_org_admin_of: { Args: { _user_id: string; _organization_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "SUPER_ADMIN" | "ORG_ADMIN" | "MEMBER"
