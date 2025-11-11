@@ -13,6 +13,7 @@ import LunchRoulette from "./pages/LunchRoulette";
 import AdminLunchRoulette from "./pages/AdminLunchRoulette";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
+import Coffee from "./pages/Coffee";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <QA />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kaffee"
+              element={
+                <ProtectedRoute>
+                  <Coffee />
                 </ProtectedRoute>
               }
             />

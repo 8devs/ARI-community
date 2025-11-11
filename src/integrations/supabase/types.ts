@@ -61,21 +61,35 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          organization_id: string | null
           price_cents: number
+          qr_payload: string | null
         }
         Insert: {
           id?: string
           is_active?: boolean | null
           name: string
+          organization_id?: string | null
           price_cents: number
+          qr_payload?: string | null
         }
         Update: {
           id?: string
           is_active?: boolean | null
           name?: string
+          organization_id?: string | null
           price_cents?: number
+          qr_payload?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "coffee_products_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coffee_transactions: {
         Row: {
@@ -124,10 +138,10 @@ export type Database = {
             foreignKeyName: "coffee_transactions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-          referencedRelation: "profiles"
-          referencedColumns: ["id"]
-        },
-      ]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_invitations: {
         Row: {

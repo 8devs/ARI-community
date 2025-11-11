@@ -7,6 +7,7 @@ type Profile = Tables<'profiles'> & {
   organization?: {
     name: string | null;
     logo_url?: string | null;
+    cost_center_code?: string | null;
   } | null;
 };
 
@@ -27,7 +28,7 @@ export function useCurrentProfile() {
       .from('profiles')
       .select(`
         *,
-        organization:organizations(name, logo_url)
+        organization:organizations(name, logo_url, cost_center_code)
       `)
       .eq('id', user.id)
       .maybeSingle();

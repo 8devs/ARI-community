@@ -11,7 +11,8 @@ import {
   LogOut,
   Bell,
   Shield,
-  IdCard
+  IdCard,
+  Coffee
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -76,6 +77,12 @@ export function Layout({ children }: LayoutProps) {
                   <Link to="/qa">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Q&A
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/kaffee">
+                    <Coffee className="h-4 w-4 mr-2" />
+                    Kaffee
                   </Link>
                 </Button>
                 <Button variant="ghost" size="sm" asChild>
