@@ -1,7 +1,7 @@
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Newspaper, MessageSquare, Calendar, ArrowRight } from 'lucide-react';
+import { Users, Newspaper, MessageSquare, Calendar, ArrowRight, Utensils } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
@@ -88,6 +88,29 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="border-accent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Utensils className="h-5 w-5 text-accent" />
+              Lunch Roulette 🎲
+            </CardTitle>
+            <CardDescription>
+              Lerne neue Kollegen beim gemeinsamen Mittagessen kennen
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Melde Dich für die wöchentliche Runde an und werde zufällig mit Kollegen aus anderen Unternehmen gepaart!
+            </p>
+            <Button variant="default" asChild className="w-full">
+              <Link to="/lunch-roulette">
+                Zur Anmeldung
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

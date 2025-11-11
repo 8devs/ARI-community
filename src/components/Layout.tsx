@@ -80,6 +80,12 @@ export function Layout({ children }: LayoutProps) {
                     Q&A
                   </Link>
                 </Button>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/lunch-roulette">
+                    <Utensils className="h-4 w-4 mr-2" />
+                    Lunch
+                  </Link>
+                </Button>
               </nav>
             </div>
 

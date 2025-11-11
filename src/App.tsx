@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import People from "./pages/People";
 import Pinnwand from "./pages/Pinnwand";
 import QA from "./pages/QA";
+import LunchRoulette from "./pages/LunchRoulette";
+import AdminLunchRoulette from "./pages/AdminLunchRoulette";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +71,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <QA />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lunch-roulette"
+              element={
+                <ProtectedRoute>
+                  <LunchRoulette />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/lunch-roulette"
+              element={
+                <ProtectedRoute>
+                  <AdminLunchRoulette />
                 </ProtectedRoute>
               }
             />
