@@ -11,6 +11,7 @@ import Pinnwand from "./pages/Pinnwand";
 import QA from "./pages/QA";
 import LunchRoulette from "./pages/LunchRoulette";
 import AdminLunchRoulette from "./pages/AdminLunchRoulette";
+import AdminOrganizations from "./pages/AdminOrganizations";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Coffee from "./pages/Coffee";
@@ -60,14 +61,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/pinnwand"
-              element={
-                <ProtectedRoute>
-                  <Pinnwand />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/pinnwand" element={<Pinnwand />} />
             <Route
               path="/qa"
               element={
@@ -105,6 +99,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AdminLunchRoulette />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/organisationen"
+              element={
+                <ProtectedRoute>
+                  <AdminOrganizations />
                 </ProtectedRoute>
               }
             />

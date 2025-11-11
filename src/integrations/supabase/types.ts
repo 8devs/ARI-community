@@ -625,6 +625,7 @@ export type Database = {
           created_at: string
           id: string
           logo_url: string | null
+          location_text: string
           name: string
         }
         Insert: {
@@ -632,6 +633,7 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          location_text?: string
           name: string
         }
         Update: {
@@ -639,6 +641,7 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          location_text?: string
           name?: string
         }
         Relationships: []
@@ -974,6 +977,16 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      get_invitation_details: {
+        Args: { _token: string }
+        Returns: {
+          accepted_at: string | null
+          email: string | null
+          expires_at: string | null
+          organization_name: string | null
+          role: Database["public"]["Enums"]["app_role"] | null
+        }[]
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin_of: { Args: { _user_id: string; _organization_id: string }; Returns: boolean }

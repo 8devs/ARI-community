@@ -32,6 +32,7 @@ export function Layout({ children }: LayoutProps) {
   const { user, signOut } = useAuth();
   const { profile } = useCurrentProfile();
   const navigate = useNavigate();
+  const isAuthenticated = Boolean(user);
 
   const handleSignOut = async () => {
     await signOut();
@@ -55,47 +56,66 @@ export function Layout({ children }: LayoutProps) {
               </Link>
               
               <nav className="hidden md:flex items-center gap-1">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/">
-                    <LayoutDashboard className="h-4 w-4 mr-2" />
-                    Dashboard
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/pinnwand">
-                    <Newspaper className="h-4 w-4 mr-2" />
-                    Pinnwand
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/personen">
-                    <Users className="h-4 w-4 mr-2" />
-                    Personen
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/qa">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Q&A
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/kaffee">
-                    <Coffee className="h-4 w-4 mr-2" />
-                    Kaffee
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/lunch-roulette">
-                    <Utensils className="h-4 w-4 mr-2" />
-                    Lunch
-                  </Link>
-                </Button>
-                {profile && profile.role !== 'MEMBER' && (
+                {isAuthenticated ? (
+                  <>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/">
+                        <LayoutDashboard className="h-4 w-4 mr-2" />
+                        Dashboard
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/pinnwand">
+                        <Newspaper className="h-4 w-4 mr-2" />
+                        Pinnwand
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/personen">
+                        <Users className="h-4 w-4 mr-2" />
+                        Personen
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/qa">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Q&A
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/kaffee">
+                        <Coffee className="h-4 w-4 mr-2" />
+                        Kaffee
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/lunch-roulette">
+                        <Utensils className="h-4 w-4 mr-2" />
+                        Lunch
+                      </Link>
+                    </Button>
+                    {profile && profile.role !== 'MEMBER' && (
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to="/admin/lunch-roulette">
+                          <Shield className="h-4 w-4 mr-2" />
+                          Admin
+                        </Link>
+                      </Button>
+                    )}
+                    {profile?.role === 'SUPER_ADMIN' && (
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to="/admin/organisationen">
+                          <Building2 className="h-4 w-4 mr-2" />
+                          Organisationen
+                        </Link>
+                      </Button>
+                    )}
+                  </>
+                ) : (
                   <Button variant="ghost" size="sm" asChild>
-                    <Link to="/admin/lunch-roulette">
-                      <Shield className="h-4 w-4 mr-2" />
-                      Admin
+                    <Link to="/pinnwand">
+                      <Newspaper className="h-4 w-4 mr-2" />
+                      Pinnwand
                     </Link>
                   </Button>
                 )}
@@ -103,31 +123,39 @@ export function Layout({ children }: LayoutProps) {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
-              </Button>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {getInitials()}
-                      </AvatarFallback>
-                    </Avatar>
+              {isAuthenticated ? (
+                <>
+                  <Button variant="ghost" size="icon">
+                    <Bell className="h-5 w-5" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate('/profil')}>
-                    <IdCard className="mr-2 h-4 w-4" />
-                    Profil
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Abmelden
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {getInitials()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate('/profil')}>
+                        <IdCard className="mr-2 h-4 w-4" />
+                        Profil
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Abmelden
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
+                <Button asChild>
+                  <Link to="/login">Anmelden</Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>

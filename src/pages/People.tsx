@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Search, Mail, Heart, Users, UserPlus, Copy, CheckCircle2, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -52,6 +53,7 @@ export default function People() {
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
   const { profile } = useCurrentProfile();
+  const [invitesUnavailable, setInvitesUnavailable] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     role: 'MEMBER',
@@ -105,6 +107,10 @@ export default function People() {
     }
   };
 
+  const invitationTableMissing = (error: any) =>
+    typeof error?.message === 'string' &&
+    error.message.includes("employee_invitations");
+
   const loadInvitations = async () => {
     if (!profile || profile.role === 'MEMBER') return;
     setInvitationsLoading(true);
@@ -130,8 +136,16 @@ export default function People() {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
-      setInvitations(data || []);
+      if (error) {
+        if (invitationTableMissing(error)) {
+          setInvitesUnavailable(true);
+          toast.error('Einladungen stehen noch nicht zur Verfügung. Bitte die Supabase-Migration für employee_invitations durchführen.');
+        } else {
+          throw error;
+        }
+      } else {
+        setInvitations(data || []);
+      }
     } catch (error: any) {
       console.error('Error loading invitations:', error);
       toast.error('Einladungen konnten nicht geladen werden');
@@ -170,7 +184,14 @@ export default function People() {
         organization_id: inviteForm.organization_id,
         invited_by: profile.id,
       });
-      if (error) throw error;
+      if (error) {
+        if (invitationTableMissing(error)) {
+          setInvitesUnavailable(true);
+          toast.error('Einladungen stehen noch nicht zur Verfügung. Bitte die Supabase-Migration für employee_invitations durchführen.');
+          return;
+        }
+        throw error;
+      }
       toast.success('Einladung erstellt');
       setInviteForm(prev => ({
         ...prev,
@@ -244,7 +265,17 @@ export default function People() {
           </p>
         </div>
 
-        {canInvite && (
+                {canInvite && invitesUnavailable && (
+                  <Alert>
+                    <AlertTitle>Einladungen deaktiviert</AlertTitle>
+                    <AlertDescription>
+                      Die Tabelle <code>employee_invitations</code> ist noch nicht in der Supabase-Datenbank vorhanden.
+                      Bitte führe die neuesten Migrationen aus, um Einladungslinks zu erstellen.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {canInvite && !invitesUnavailable && (
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>

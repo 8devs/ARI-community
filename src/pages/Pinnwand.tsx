@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ export default function Pinnwand() {
     pinned: false,
   });
   const { user } = useAuth();
+  const isAuthenticated = Boolean(user);
   const { profile } = useCurrentProfile();
 
   useEffect(() => {
@@ -160,85 +162,91 @@ export default function Pinnwand() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-4xl font-bold mb-2">Pinnwand</h1>
             <p className="text-lg text-muted-foreground">
               Aktuelle News und Ankündigungen aus der Community
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Neuer Beitrag
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingPostId ? 'Beitrag bearbeiten' : 'Beitrag erstellen'}</DialogTitle>
-                <DialogDescription>
-                  Teile Neuigkeiten oder wichtige Hinweise mit Deiner Organisation oder allen Gästen.
-                </DialogDescription>
-              </DialogHeader>
-              <form className="space-y-4" onSubmit={handleSavePost}>
-                <div className="space-y-2">
-                  <Label htmlFor="post-title">Titel</Label>
-                  <Input
-                    id="post-title"
-                    value={newPost.title}
-                    onChange={(e) => setNewPost(prev => ({ ...prev, title: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="post-content">Inhalt</Label>
-                  <Textarea
-                    id="post-content"
-                    value={newPost.content}
-                    onChange={(e) => setNewPost(prev => ({ ...prev, content: e.target.value }))}
-                    rows={5}
-                    placeholder="Deine Nachricht an die Community..."
-                    required
-                  />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
+          {isAuthenticated ? (
+            <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={openCreateDialog}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Neuer Beitrag
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingPostId ? 'Beitrag bearbeiten' : 'Beitrag erstellen'}</DialogTitle>
+                  <DialogDescription>
+                    Teile Neuigkeiten oder wichtige Hinweise mit Deiner Organisation oder allen Gästen.
+                  </DialogDescription>
+                </DialogHeader>
+                <form className="space-y-4" onSubmit={handleSavePost}>
                   <div className="space-y-2">
-                    <Label>Sichtbarkeit</Label>
-                    <Select
-                      value={newPost.audience}
-                      onValueChange={(value: InfoPost['audience']) =>
-                        setNewPost(prev => ({ ...prev, audience: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sichtbarkeit wählen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="INTERNAL">Nur intern</SelectItem>
-                        <SelectItem value="PUBLIC">Öffentlich</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div>
-                      <p className="font-medium">Anpinnen</p>
-                      <p className="text-sm text-muted-foreground">Wird oben auf der Pinnwand angezeigt</p>
-                    </div>
-                    <Switch
-                      checked={newPost.pinned}
-                      onCheckedChange={(checked) => setNewPost(prev => ({ ...prev, pinned: checked }))}
+                    <Label htmlFor="post-title">Titel</Label>
+                    <Input
+                      id="post-title"
+                      value={newPost.title}
+                      onChange={(e) => setNewPost(prev => ({ ...prev, title: e.target.value }))}
+                      required
                     />
                   </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" disabled={creating}>
-                    {creating ? 'Wird gespeichert...' : editingPostId ? 'Beitrag aktualisieren' : 'Beitrag veröffentlichen'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="space-y-2">
+                    <Label htmlFor="post-content">Inhalt</Label>
+                    <Textarea
+                      id="post-content"
+                      value={newPost.content}
+                      onChange={(e) => setNewPost(prev => ({ ...prev, content: e.target.value }))}
+                      rows={5}
+                      placeholder="Deine Nachricht an die Community..."
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Sichtbarkeit</Label>
+                      <Select
+                        value={newPost.audience}
+                        onValueChange={(value: InfoPost['audience']) =>
+                          setNewPost(prev => ({ ...prev, audience: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sichtbarkeit wählen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="INTERNAL">Nur intern</SelectItem>
+                          <SelectItem value="PUBLIC">Öffentlich</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div>
+                        <p className="font-medium">Anpinnen</p>
+                        <p className="text-sm text-muted-foreground">Wird oben auf der Pinnwand angezeigt</p>
+                      </div>
+                      <Switch
+                        checked={newPost.pinned}
+                        onCheckedChange={(checked) => setNewPost(prev => ({ ...prev, pinned: checked }))}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" disabled={creating}>
+                      {creating ? 'Wird gespeichert...' : editingPostId ? 'Beitrag aktualisieren' : 'Beitrag veröffentlichen'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Button asChild variant="outline">
+              <Link to="/login">Anmelden, um zu posten</Link>
+            </Button>
+          )}
         </div>
 
         {loading ? (
@@ -253,10 +261,16 @@ export default function Pinnwand() {
               <p className="text-muted-foreground mb-4">
                 Sei der Erste und teile etwas mit der Community!
               </p>
-              <Button onClick={() => openCreateDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Ersten Beitrag erstellen
-              </Button>
+              {isAuthenticated ? (
+                <Button onClick={() => openCreateDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Ersten Beitrag erstellen
+                </Button>
+              ) : (
+                <Button asChild variant="outline">
+                  <Link to="/login">Anmelden, um zu posten</Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
