@@ -5,19 +5,16 @@ import {
   Users, 
   LayoutDashboard, 
   Newspaper, 
-  Calendar, 
   MessageSquare, 
-  ShoppingBag,
   Building2,
-  BarChart3,
-  ThumbsUp,
-  Coffee,
   Utensils,
-  Heart,
   LogOut,
-  Bell
+  Bell,
+  Shield,
+  IdCard
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +29,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { user, signOut } = useAuth();
+  const { profile } = useCurrentProfile();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -86,6 +84,14 @@ export function Layout({ children }: LayoutProps) {
                     Lunch
                   </Link>
                 </Button>
+                {profile && profile.role !== 'MEMBER' && (
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/admin/lunch-roulette">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin
+                    </Link>
+                  </Button>
+                )}
               </nav>
             </div>
 
@@ -105,6 +111,10 @@ export function Layout({ children }: LayoutProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate('/profil')}>
+                    <IdCard className="mr-2 h-4 w-4" />
+                    Profil
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Abmelden

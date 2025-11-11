@@ -12,6 +12,7 @@ import QA from "./pages/QA";
 import LunchRoulette from "./pages/LunchRoulette";
 import AdminLunchRoulette from "./pages/AdminLunchRoulette";
 import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <LunchRoulette />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profil"
+              element={
+                <ProtectedRoute>
+                  <Profile />
                 </ProtectedRoute>
               }
             />
