@@ -3,18 +3,20 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Newspaper, Plus, Pin } from 'lucide-react';
+import { Newspaper, Plus, Pin, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
+import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 
 interface InfoPost {
   id: string;
@@ -23,6 +25,7 @@ interface InfoPost {
   audience: 'PUBLIC' | 'INTERNAL';
   pinned: boolean;
   created_at: string;
+  created_by_id: string;
   created_by: {
     name: string;
   };
@@ -33,6 +36,8 @@ export default function Pinnwand() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [newPost, setNewPost] = useState({
     title: '',
     content: '',
@@ -40,6 +45,7 @@ export default function Pinnwand() {
     pinned: false,
   });
   const { user } = useAuth();
+  const { profile } = useCurrentProfile();
 
   useEffect(() => {
     loadPosts();
@@ -56,6 +62,7 @@ export default function Pinnwand() {
           audience,
           pinned,
           created_at,
+          created_by_id,
           created_by:profiles!info_posts_created_by_id_fkey(name)
         `)
         .order('pinned', { ascending: false })
@@ -71,7 +78,24 @@ export default function Pinnwand() {
     }
   };
 
-  const handleCreatePost = async (e: React.FormEvent) => {
+  const openCreateDialog = () => {
+    setEditingPostId(null);
+    setNewPost({ title: '', content: '', audience: 'INTERNAL', pinned: false });
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (post: InfoPost) => {
+    setEditingPostId(post.id);
+    setNewPost({
+      title: post.title,
+      content: post.content,
+      audience: post.audience,
+      pinned: post.pinned,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSavePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) {
       toast.error('Du musst angemeldet sein, um zu posten');
@@ -83,25 +107,55 @@ export default function Pinnwand() {
     }
 
     setCreating(true);
-    const { error } = await supabase.from('info_posts').insert({
-      title: newPost.title.trim(),
-      content: newPost.content.trim(),
-      audience: newPost.audience,
-      pinned: newPost.pinned,
-      created_by_id: user.id,
-    });
+    let error;
+    if (editingPostId) {
+      ({ error } = await supabase
+        .from('info_posts')
+        .update({
+          title: newPost.title.trim(),
+          content: newPost.content.trim(),
+          audience: newPost.audience,
+          pinned: newPost.pinned,
+        })
+        .eq('id', editingPostId));
+    } else {
+      ({ error } = await supabase.from('info_posts').insert({
+        title: newPost.title.trim(),
+        content: newPost.content.trim(),
+        audience: newPost.audience,
+        pinned: newPost.pinned,
+        created_by_id: user.id,
+      }));
+    }
 
     if (error) {
       console.error('Error creating post:', error);
-      toast.error('Beitrag konnte nicht erstellt werden');
+      toast.error('Beitrag konnte nicht gespeichert werden');
     } else {
-      toast.success('Beitrag veröffentlicht');
+      toast.success(editingPostId ? 'Beitrag aktualisiert' : 'Beitrag veröffentlicht');
       setNewPost({ title: '', content: '', audience: 'INTERNAL', pinned: false });
+      setEditingPostId(null);
       setDialogOpen(false);
       loadPosts();
     }
     setCreating(false);
   };
+
+  const handleDeletePost = async (postId: string) => {
+    setDeletingId(postId);
+    const { error } = await supabase.from('info_posts').delete().eq('id', postId);
+    if (error) {
+      console.error('Error deleting post:', error);
+      toast.error('Beitrag konnte nicht gelöscht werden');
+    } else {
+      toast.success('Beitrag gelöscht');
+      loadPosts();
+    }
+    setDeletingId(null);
+  };
+
+  const isAdmin = profile?.role && profile.role !== 'MEMBER';
+  const canManagePost = (post: InfoPost) => user?.id === post.created_by_id || isAdmin;
 
   return (
     <Layout>
@@ -115,19 +169,19 @@ export default function Pinnwand() {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={openCreateDialog}>
                 <Plus className="h-4 w-4 mr-2" />
                 Neuer Beitrag
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Beitrag erstellen</DialogTitle>
+                <DialogTitle>{editingPostId ? 'Beitrag bearbeiten' : 'Beitrag erstellen'}</DialogTitle>
                 <DialogDescription>
                   Teile Neuigkeiten oder wichtige Hinweise mit Deiner Organisation oder allen Gästen.
                 </DialogDescription>
               </DialogHeader>
-              <form className="space-y-4" onSubmit={handleCreatePost}>
+              <form className="space-y-4" onSubmit={handleSavePost}>
                 <div className="space-y-2">
                   <Label htmlFor="post-title">Titel</Label>
                   <Input
@@ -179,7 +233,7 @@ export default function Pinnwand() {
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={creating}>
-                    {creating ? 'Wird veröffentlicht...' : 'Beitrag veröffentlichen'}
+                    {creating ? 'Wird gespeichert...' : editingPostId ? 'Beitrag aktualisieren' : 'Beitrag veröffentlichen'}
                   </Button>
                 </DialogFooter>
               </form>
@@ -199,7 +253,7 @@ export default function Pinnwand() {
               <p className="text-muted-foreground mb-4">
                 Sei der Erste und teile etwas mit der Community!
               </p>
-              <Button onClick={() => setDialogOpen(true)}>
+              <Button onClick={() => openCreateDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Ersten Beitrag erstellen
               </Button>
@@ -235,6 +289,40 @@ export default function Pinnwand() {
                   <p className="text-muted-foreground whitespace-pre-wrap">
                     {post.content}
                   </p>
+                  {canManagePost(post) && (
+                    <div className="flex items-center justify-end gap-2 mt-4">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(post)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Bearbeiten
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Löschen
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Beitrag löschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Diese Aktion kann nicht rückgängig gemacht werden.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => handleDeletePost(post.id)}
+                              disabled={deletingId === post.id}
+                            >
+                              {deletingId === post.id ? 'Löschen...' : 'Löschen'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
