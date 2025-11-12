@@ -1,0 +1,81 @@
+import { Tables } from "@/integrations/supabase/types";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Bell, Check } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { de } from "date-fns/locale";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface NotificationsMenuProps {
+  unread: number;
+  notifications: Tables<"notifications">[];
+  loading: boolean;
+  onMarkAsRead: (id: string) => void | Promise<void>;
+  onOpenNotifications?: () => void;
+}
+
+export function NotificationsMenu({
+  unread,
+  notifications,
+  loading,
+  onMarkAsRead,
+  onOpenNotifications,
+}: NotificationsMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative" onClick={onOpenNotifications}>
+          <Bell className="h-5 w-5" />
+          {unread > 0 && (
+            <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+              {unread}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 p-0">
+        <DropdownMenuLabel className="px-4 py-3">Benachrichtigungen</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <ScrollArea className="max-h-96">
+          {loading ? (
+            <DropdownMenuItem className="text-muted-foreground text-sm">Lädt...</DropdownMenuItem>
+          ) : notifications.length === 0 ? (
+            <DropdownMenuItem className="text-muted-foreground text-sm">Keine Benachrichtigungen</DropdownMenuItem>
+          ) : (
+            notifications.map((notification) => (
+              <DropdownMenuItem
+                key={notification.id}
+                className="flex flex-col items-start gap-1 py-3 cursor-default"
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <p className="font-medium">{notification.title}</p>
+                  {!notification.read_at && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => onMarkAsRead(notification.id)}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">{notification.body}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: de })}
+                </p>
+              </DropdownMenuItem>
+            ))
+          )}
+        </ScrollArea>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

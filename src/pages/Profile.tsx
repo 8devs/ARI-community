@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Building2, UserRound } from 'lucide-react';
+import { Loader2, Building2, UserRound, Bell, Mail } from 'lucide-react';
 
 interface ProfileFormState {
   name: string;
@@ -19,6 +19,8 @@ interface ProfileFormState {
   phone: string;
   first_aid_certified: boolean;
   first_aid_available: boolean;
+  pref_email_notifications: boolean;
+  pref_push_notifications: boolean;
 }
 
 export default function Profile() {
@@ -35,6 +37,8 @@ export default function Profile() {
     phone: '',
     first_aid_certified: false,
     first_aid_available: false,
+    pref_email_notifications: true,
+    pref_push_notifications: false,
   });
 
   useEffect(() => {
@@ -46,12 +50,29 @@ export default function Profile() {
         phone: profile.phone ?? '',
         first_aid_certified: profile.first_aid_certified ?? false,
         first_aid_available: profile.first_aid_available ?? false,
+        pref_email_notifications: profile.pref_email_notifications ?? true,
+        pref_push_notifications: profile.pref_push_notifications ?? false,
       });
     }
   }, [profile]);
 
   const handleChange = (field: keyof ProfileFormState, value: string | boolean) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePushToggle = async (value: boolean) => {
+    if (value) {
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        toast.error('Dein Browser unterstützt keine Push-Benachrichtigungen.');
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        toast.error('Bitte erlaube Benachrichtigungen im Browser.');
+        return;
+      }
+    }
+    handleChange('pref_push_notifications', value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +89,8 @@ export default function Profile() {
         phone: form.phone,
         first_aid_certified: form.first_aid_certified,
         first_aid_available: form.first_aid_available,
+        pref_email_notifications: form.pref_email_notifications,
+        pref_push_notifications: form.pref_push_notifications,
       })
       .eq('id', profile.id);
 
@@ -276,6 +299,41 @@ export default function Profile() {
                   </div>
                   <div className="text-sm text-muted-foreground text-right">
                     Rollenstatus: <span className="font-medium">{profile.role}</span>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div>
+                      <p className="font-medium flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        E-Mail Benachrichtigungen
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Erhalte eine E-Mail, wenn Dich jemand anschreibt oder wichtige Updates erfolgen.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={form.pref_email_notifications}
+                      onCheckedChange={(checked) => handleChange('pref_email_notifications', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div>
+                      <p className="font-medium flex items-center gap-2">
+                        <Bell className="h-4 w-4" />
+                        Push Benachrichtigungen
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Aktiviert Browser-Benachrichtigungen auf diesem Gerät.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={form.pref_push_notifications}
+                      onCheckedChange={handlePushToggle}
+                      disabled={typeof window !== 'undefined' && !('Notification' in window)}
+                    />
                   </div>
                 </div>
 

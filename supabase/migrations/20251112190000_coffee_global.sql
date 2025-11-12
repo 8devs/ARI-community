@@ -1,10 +1,12 @@
 -- Revert coffee products to a global catalog without QR payloads
+-- Drop policies first since they depend on the organization_id column
+DROP POLICY IF EXISTS "Coffee products are scoped to organizations" ON coffee_products;
+DROP POLICY IF EXISTS "Org admins manage coffee products" ON coffee_products;
+
+-- Now safe to drop the columns
 ALTER TABLE coffee_products
   DROP COLUMN IF EXISTS organization_id,
   DROP COLUMN IF EXISTS qr_payload;
-
-DROP POLICY IF EXISTS "Coffee products are scoped to organizations" ON coffee_products;
-DROP POLICY IF EXISTS "Org admins manage coffee products" ON coffee_products;
 
 CREATE POLICY "Coffee products are viewable by members"
   ON coffee_products FOR SELECT

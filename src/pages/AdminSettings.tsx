@@ -610,98 +610,61 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
                     {organizations.map((org) => (
-                      <Card key={org.id} className="border-primary/10">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                          <div className="space-y-1">
-                            <CardTitle>{org.name}</CardTitle>
+                      <div key={org.id} className="rounded-xl border border-border/60 p-4 space-y-4">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            {org.logo_url ? (
+                              <img
+                                src={org.logo_url}
+                                alt={org.name}
+                                className="h-12 w-12 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-12 w-12 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-semibold">
+                                {org.name.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-lg font-semibold">{org.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {org.location_text || 'Standort noch nicht gepflegt'}
+                              </p>
+                            </div>
                           </div>
                           <Badge variant="secondary">
                             {totalMembersPerOrg[org.id] || 0} Mitglieder
                           </Badge>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                <form className="space-y-4" onSubmit={handleCreateProduct}>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="coffee-name">Name</Label>
-                      <Input
-                        id="coffee-name"
-                        value={productForm.name}
-                        onChange={(e) => handleProductInputChange('name', e.target.value)}
-                        placeholder="z.B. Cappuccino"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="coffee-price">Preis (EUR)</Label>
-                      <Input
-                        id="coffee-price"
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={productForm.price}
-                        onChange={(e) => handleProductInputChange('price', e.target.value)}
-                        placeholder="2.50"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={productForm.isActive}
-                      onCheckedChange={(checked) => handleProductInputChange('isActive', checked)}
-                    />
-                    <span className="text-sm text-muted-foreground">Produkt sofort aktiv</span>
-                  </div>
-                  <Button type="submit" disabled={creatingProduct}>
-                    {creatingProduct ? 'Speichern...' : 'Getränk hinzufügen'}
-                  </Button>
-                </form>
-
-                {coffeeError ? (
-                  <Alert>
-                    <AlertTitle>Getränke können nicht geladen werden</AlertTitle>
-                    <AlertDescription>{coffeeError}</AlertDescription>
-                  </Alert>
-                ) : coffeeLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Lädt Getränke...
-                  </div>
-                ) : coffeeProducts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Es sind noch keine Getränke angelegt.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {coffeeProducts.map((product) => (
-                      <div
-                        key={product.id}
-                        className="flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
-                      >
-                        <div>
-                          <p className="font-medium flex items-center gap-2">
-                            {product.name}
-                            <Badge variant={product.is_active ? 'default' : 'secondary'}>
-                              {product.is_active ? 'Aktiv' : 'Inaktiv'}
-                            </Badge>
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(product.price_cents / 100)}
-                          </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleProduct(product.id, !product.is_active)}
-                          >
-                            {product.is_active ? 'Deaktivieren' : 'Aktivieren'}
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          {org.contact_name && <p>Ansprechpartner: {org.contact_name}</p>}
+                          {org.contact_email && <p>E-Mail: {org.contact_email}</p>}
+                          {org.contact_phone && <p>Telefon: {org.contact_phone}</p>}
+                          {org.website_url && (
+                            <p>
+                              Webseite:{' '}
+                              <a
+                                href={org.website_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary underline"
+                              >
+                                {org.website_url}
+                              </a>
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" size="sm" onClick={() => openEditDialog(org)}>
+                            Bearbeiten
+                          </Button>
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link to={`/organisationen?org=${org.id}`}>Öffnen</Link>
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-
               </CardContent>
             </Card>
 

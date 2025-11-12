@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
@@ -9,12 +9,14 @@ import {
   Building2,
   Utensils,
   LogOut,
-  Bell,
   Shield,
   IdCard,
   Coffee,
   Menu,
   CalendarDays,
+  MessageCircle,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -26,6 +28,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useTheme } from 'next-themes';
+import { useNotifications } from '@/hooks/useNotifications';
+import { NotificationsMenu } from '@/components/NotificationsMenu';
 
 interface LayoutProps {
   children: ReactNode;
@@ -38,6 +43,11 @@ export function Layout({ children }: LayoutProps) {
   const isAuthenticated = Boolean(user);
   const canAccessAdmin = profile?.role === 'SUPER_ADMIN' || profile?.role === 'ORG_ADMIN';
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const [themeReady, setThemeReady] = useState(false);
+  const notifications = useNotifications(profile?.id, {
+    enablePush: profile?.pref_push_notifications,
+  });
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,6 +68,7 @@ export function Layout({ children }: LayoutProps) {
         { to: '/organisationen', label: 'Organisationen', icon: Building2 },
         { to: '/events', label: 'Events', icon: CalendarDays },
         { to: '/qa', label: 'Q&A', icon: MessageSquare },
+        { to: '/nachrichten', label: 'Nachrichten', icon: MessageCircle },
         { to: '/kaffee', label: 'Kaffee', icon: Coffee },
         { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
       ];
@@ -69,6 +80,15 @@ export function Layout({ children }: LayoutProps) {
       { to: '/events', label: 'Events', icon: CalendarDays },
     ];
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    setThemeReady(true);
+  }, []);
+
+  const toggleTheme = () => {
+    if (!themeReady) return;
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
 
 
   return (
@@ -131,6 +151,28 @@ export function Layout({ children }: LayoutProps) {
                         </Button>
                       </>
                     )}
+                    {themeReady && (
+                      <Button
+                        variant="outline"
+                        className="justify-start"
+                        onClick={() => {
+                          toggleTheme();
+                          setMobileOpen(false);
+                        }}
+                      >
+                        {resolvedTheme === 'dark' ? (
+                          <>
+                            <Sun className="h-4 w-4 mr-2" />
+                            Helles Design
+                          </>
+                        ) : (
+                          <>
+                            <Moon className="h-4 w-4 mr-2" />
+                            Dunkles Design
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </SheetContent>
               </Sheet>
@@ -166,9 +208,28 @@ export function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-2">
               {isAuthenticated ? (
                 <>
-                  <Button variant="ghost" size="icon">
-                    <Bell className="h-5 w-5" />
-                  </Button>
+                  {themeReady && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={toggleTheme}
+                      aria-label="Theme wechseln"
+                    >
+                      {resolvedTheme === 'dark' ? (
+                        <Sun className="h-[1.2rem] w-[1.2rem]" />
+                      ) : (
+                        <Moon className="h-[1.2rem] w-[1.2rem]" />
+                      )}
+                    </Button>
+                  )}
+
+                  <NotificationsMenu
+                    unread={notifications.unreadCount}
+                    notifications={notifications.items}
+                    onMarkAsRead={notifications.markAsRead}
+                    loading={notifications.loading}
+                    onOpenNotifications={notifications.refresh}
+                  />
                   
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

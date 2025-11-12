@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "@/components/theme-provider";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Auth from "./pages/Auth";
@@ -19,6 +20,7 @@ import Profile from "./pages/Profile";
 import Coffee from "./pages/Coffee";
 import ResetPassword from "./pages/ResetPassword";
 import Events from "./pages/Events";
+import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
 
@@ -42,12 +44,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <HashRouter>
-        <AuthProvider>
-          <Routes>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <HashRouter>
+          <AuthProvider>
+            <Routes>
             <Route path="/login" element={<Auth />} />
             <Route path="/" element={<Index />} />
             <Route
@@ -104,6 +107,14 @@ const App = () => (
               }
             />
             <Route
+              path="/nachrichten"
+              element={
+                <ProtectedRoute>
+                  <Messages />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin/lunch-roulette"
               element={
                 <ProtectedRoute>
@@ -119,11 +130,12 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </HashRouter>
-    </TooltipProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </HashRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
