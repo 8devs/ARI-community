@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Moon,
   Sun,
+  DoorClosed,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -70,6 +71,7 @@ export function Layout({ children }: LayoutProps) {
         { to: '/qa', label: 'Q&A', icon: MessageSquare },
         { to: '/nachrichten', label: 'Nachrichten', icon: MessageCircle },
         { to: '/kaffee', label: 'Kaffee', icon: Coffee },
+        { to: '/raeume', label: 'Räume', icon: DoorClosed },
         { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
       ];
     }

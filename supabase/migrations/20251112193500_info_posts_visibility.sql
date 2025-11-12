@@ -18,7 +18,7 @@ ALTER TABLE info_posts
 
 ALTER TABLE info_posts
   ADD CONSTRAINT info_posts_org_audience_check
-  CHECK (audience <> 'ORG_ONLY' OR target_organization_id IS NOT NULL);
+  CHECK (audience::text <> 'ORG_ONLY' OR target_organization_id IS NOT NULL);
 
 UPDATE info_posts ip
 SET target_organization_id = p.organization_id
@@ -84,9 +84,9 @@ CREATE POLICY "Authenticated users view restricted posts"
   USING (
     public.has_role(auth.uid(), 'SUPER_ADMIN')
     OR (
-      audience IN ('INTERNAL', 'ORG_ONLY')
+      audience::text IN ('INTERNAL', 'ORG_ONLY')
       AND (
-        audience <> 'ORG_ONLY'
+        audience::text <> 'ORG_ONLY'
         OR public.can_view_org_post(auth.uid(), target_organization_id)
       )
     )
@@ -101,7 +101,7 @@ CREATE POLICY "News managers create posts"
     public.can_manage_news(auth.uid())
     AND auth.uid() = created_by_id
     AND (
-      audience <> 'ORG_ONLY'
+      audience::text <> 'ORG_ONLY'
       OR public.has_role(auth.uid(), 'SUPER_ADMIN')
       OR public.can_view_org_post(auth.uid(), target_organization_id)
     )
@@ -122,7 +122,7 @@ CREATE POLICY "News managers update posts"
       OR public.has_role(auth.uid(), 'SUPER_ADMIN')
     )
     AND (
-      audience <> 'ORG_ONLY'
+      audience::text <> 'ORG_ONLY'
       OR public.has_role(auth.uid(), 'SUPER_ADMIN')
       OR public.can_view_org_post(auth.uid(), target_organization_id)
     )

@@ -21,6 +21,7 @@ import Coffee from "./pages/Coffee";
 import ResetPassword from "./pages/ResetPassword";
 import Events from "./pages/Events";
 import Messages from "./pages/Messages";
+import Rooms from "./pages/Rooms";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Coffee />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/raeume"
+              element={
+                <ProtectedRoute>
+                  <Rooms />
                 </ProtectedRoute>
               }
             />
