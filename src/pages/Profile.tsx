@@ -23,6 +23,9 @@ interface ProfileFormState {
 export default function Profile() {
   const { profile, loading, refresh } = useCurrentProfile();
   const [saving, setSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [form, setForm] = useState<ProfileFormState>({
     name: '',
     bio: '',
@@ -75,6 +78,29 @@ export default function Profile() {
     }
 
     setSaving(false);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      toast.error('Das Passwort muss mindestens 8 Zeichen haben.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Die Passwörter stimmen nicht überein.');
+      return;
+    }
+
+    setPasswordSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast.error(error.message ?? 'Passwort konnte nicht geändert werden');
+    } else {
+      toast.success('Passwort aktualisiert');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+    setPasswordSaving(false);
   };
 
   return (
@@ -203,6 +229,40 @@ export default function Profile() {
                 </Button>
               </form>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Passwort ändern</CardTitle>
+            <CardDescription>Lege ein neues Passwort für Deinen Account fest.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handlePasswordChange}>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Neues Passwort</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Passwort bestätigen</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={passwordSaving}>
+                {passwordSaving ? 'Wird gespeichert...' : 'Passwort ändern'}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>

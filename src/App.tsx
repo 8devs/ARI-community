@@ -15,6 +15,7 @@ import AdminOrganizations from "./pages/AdminOrganizations";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Coffee from "./pages/Coffee";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
               }
             />
             <Route path="/pinnwand" element={<Pinnwand />} />
+            <Route path="/passwort/neu" element={<ResetPassword />} />
             <Route
               path="/qa"
               element={

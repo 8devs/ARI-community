@@ -31,8 +31,11 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [signupName, setSignupName] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [signupLoading, setSignupLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showResetForm, setShowResetForm] = useState(false);
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -121,6 +124,29 @@ export default function Auth() {
     }
   };
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail.trim()) {
+      toast.error('Bitte gib Deine E-Mail-Adresse ein.');
+      return;
+    }
+
+    setResetLoading(true);
+    const redirectURL = `${window.location.origin}/passwort/neu`;
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      redirectTo: redirectURL,
+    });
+
+    if (error) {
+      toast.error(error.message ?? 'E-Mail konnte nicht gesendet werden.');
+    } else {
+      toast.success('Wenn die Adresse existiert, erhältst Du gleich eine E-Mail zum Zurücksetzen.');
+      setShowResetForm(false);
+      setResetEmail('');
+    }
+    setResetLoading(false);
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteInfo) return;
@@ -192,11 +218,38 @@ export default function Auth() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Wird angemeldet...' : 'Anmelden'}
               </Button>
-              <p className="text-sm text-muted-foreground text-center">
-                Neue Mitarbeitende werden von Organisations-Admins eingeladen. 
-                Eine Selbst-Registrierung ist nur über einen Einladungslink möglich.
-              </p>
+              <div className="text-sm text-center space-y-1">
+                <p className="text-muted-foreground">
+                  Neue Mitarbeitende werden von Organisations-Admins eingeladen. 
+                  Eine Selbst-Registrierung ist nur über einen Einladungslink möglich.
+                </p>
+                <button
+                  type="button"
+                  className="text-primary hover:underline"
+                  onClick={() => setShowResetForm((prev) => !prev)}
+                >
+                  Passwort vergessen?
+                </button>
+              </div>
             </form>
+            {showResetForm && (
+              <form className="space-y-4 border-t pt-4 mt-4" onSubmit={handlePasswordReset}>
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">E-Mail zum Zurücksetzen</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="deine@email.de"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={resetLoading}>
+                  {resetLoading ? 'Sende E-Mail...' : 'Reset-E-Mail senden'}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
 
