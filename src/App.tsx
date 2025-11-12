@@ -7,11 +7,12 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import People from "./pages/People";
+import Organizations from "./pages/Organizations";
 import Pinnwand from "./pages/Pinnwand";
 import QA from "./pages/QA";
 import LunchRoulette from "./pages/LunchRoulette";
 import AdminLunchRoulette from "./pages/AdminLunchRoulette";
-import AdminOrganizations from "./pages/AdminOrganizations";
+import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Coffee from "./pages/Coffee";
@@ -63,6 +64,14 @@ const App = () => (
               }
             />
             <Route path="/pinnwand" element={<Pinnwand />} />
+            <Route
+              path="/organisationen"
+              element={
+                <ProtectedRoute>
+                  <Organizations />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/passwort/neu" element={<ResetPassword />} />
             <Route
               path="/qa"
@@ -101,6 +110,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AdminLunchRoulette />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminSettings />
                 </ProtectedRoute>
               }
             />

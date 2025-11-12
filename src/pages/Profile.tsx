@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -26,6 +27,7 @@ export default function Profile() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [form, setForm] = useState<ProfileFormState>({
     name: '',
     bio: '',
@@ -103,6 +105,38 @@ export default function Profile() {
     setPasswordSaving(false);
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !profile?.id) return;
+
+    setAvatarUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const filePath = `profiles/${profile.id}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('profile-avatars').upload(filePath, file, {
+        upsert: true,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from('profile-avatars').getPublicUrl(filePath);
+      const publicUrl = data.publicUrl;
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', profile.id);
+      if (updateError) throw updateError;
+      toast.success('Profilbild aktualisiert');
+      refresh();
+    } catch (error) {
+      console.error('Avatar upload failed', error);
+      toast.error('Profilbild konnte nicht hochgeladen werden');
+    } finally {
+      setAvatarUploading(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
   return (
     <Layout>
       <div className="max-w-3xl mx-auto space-y-6">
@@ -121,6 +155,28 @@ export default function Profile() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {profile && (
+              <div className="flex items-center gap-4 mb-6">
+                <Avatar className="h-16 w-16">
+                  {profile.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.name} />}
+                  <AvatarFallback>{profile.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="space-y-2">
+                  <Label htmlFor="avatar-upload">Profilbild</Label>
+                  <Input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    disabled={avatarUploading}
+                    onChange={handleAvatarUpload}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload landet im Bucket <code>profile-avatars</code>.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {loading && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Coffee as CoffeeIcon, Download } from 'lucide-react';
@@ -45,13 +44,6 @@ export default function Coffee() {
   const [exporting, setExporting] = useState(false);
   const [orgOptions, setOrgOptions] = useState<{ id: string; name: string; cost_center_code: string | null }[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
-  const [creatingProduct, setCreatingProduct] = useState(false);
-  const [productForm, setProductForm] = useState({
-    name: '',
-    price: '',
-    qrPayload: '',
-    isActive: true,
-  });
 
   const isOrgAdmin = profile?.role && profile.role !== 'MEMBER';
 
@@ -165,72 +157,6 @@ useEffect(() => {
     }
   };
 
-  const handleProductInputChange = (field: 'name' | 'price' | 'qrPayload' | 'isActive', value: string | boolean) => {
-    setProductForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleCreateProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedOrgId) {
-      toast.error('Bitte wähle zuerst eine Organisation aus.');
-      return;
-    }
-    const priceValue = Number((productForm.price || '').replace(',', '.'));
-    if (isNaN(priceValue) || priceValue <= 0) {
-      toast.error('Bitte gib einen gültigen Preis ein.');
-      return;
-    }
-
-    const priceCents = Math.round(priceValue * 100);
-    setCreatingProduct(true);
-
-    try {
-      const { error } = await supabase.from('coffee_products').insert({
-        name: productForm.name.trim(),
-        price_cents: priceCents,
-        qr_payload: productForm.qrPayload.trim() || null,
-        is_active: productForm.isActive,
-        organization_id: selectedOrgId,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success('Getränk gespeichert');
-      setProductForm({
-        name: '',
-        price: '',
-        qrPayload: '',
-        isActive: true,
-      });
-      loadProducts(selectedOrgId);
-    } catch (error) {
-      console.error('Error creating coffee product', error);
-      toast.error('Getränk konnte nicht angelegt werden');
-    } finally {
-      setCreatingProduct(false);
-    }
-  };
-
-  const handleToggleProduct = async (productId: string, nextState: boolean) => {
-    const { error } = await supabase
-      .from('coffee_products')
-      .update({ is_active: nextState })
-      .eq('id', productId);
-
-    if (error) {
-      console.error('Error updating product', error);
-      toast.error('Status konnte nicht geändert werden');
-      return;
-    }
-    if (selectedOrgId) {
-      loadProducts(selectedOrgId);
-    }
-  };
 
   const handleExportCsv = async () => {
     if (!selectedOrgId) {
@@ -428,156 +354,6 @@ useEffect(() => {
           </CardContent>
         </Card>
 
-        {isOrgAdmin && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Getränke verwalten</CardTitle>
-              <CardDescription>
-                Lege neue Kaffee- oder Getränkeoptionen an und aktiviere/deaktiviere sie bei Bedarf.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {profile?.role === 'SUPER_ADMIN' && (
-                <div className="space-y-2">
-                  <Label>Organisation verwalten</Label>
-                  <Select
-                    value={selectedOrgId ?? undefined}
-                    onValueChange={(value) => setSelectedOrgId(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Organisation wählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {orgOptions.map((org) => (
-                        <SelectItem key={org.id} value={org.id}>
-                          {org.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {!selectedOrgId && (
-                <Alert>
-                  <AlertTitle>Keine Organisation ausgewählt</AlertTitle>
-                  <AlertDescription>
-                    Bitte wähle oben eine Organisation aus, um Getränke zu verwalten.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {selectedOrgId && (
-                <>
-                  <form className="space-y-4" onSubmit={handleCreateProduct}>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="product-name">Name</Label>
-                        <Input
-                          id="product-name"
-                          value={productForm.name}
-                          onChange={(e) => handleProductInputChange('name', e.target.value)}
-                          placeholder="z.B. Cappuccino"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="product-price">Preis (EUR)</Label>
-                        <Input
-                          id="product-price"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          value={productForm.price}
-                          onChange={(e) => handleProductInputChange('price', e.target.value)}
-                          placeholder="2.50"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="product-qr">QR Payload (optional)</Label>
-                      <Input
-                        id="product-qr"
-                        value={productForm.qrPayload}
-                        onChange={(e) => handleProductInputChange('qrPayload', e.target.value)}
-                        placeholder="Beliebiger Text oder Payment-String"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg border p-3">
-                      <div>
-                        <p className="font-medium">Produkt aktiv</p>
-                        <p className="text-sm text-muted-foreground">
-                          Nur aktive Produkte erscheinen in der Liste für Mitarbeitende.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={productForm.isActive}
-                        onCheckedChange={(checked) => handleProductInputChange('isActive', checked)}
-                      />
-                    </div>
-
-                    <Button type="submit" disabled={creatingProduct || !selectedOrgId}>
-                      Getränk speichern
-                    </Button>
-                  </form>
-
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-muted-foreground">
-                      Bestehende Getränke ({products.length})
-                    </h3>
-                    {productsLoading ? (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Lädt Getränke...
-                      </div>
-                    ) : products.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Für diese Organisation sind noch keine Getränke angelegt.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {products.map((product) => (
-                          <div
-                            key={product.id}
-                            className="flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
-                          >
-                            <div>
-                              <p className="font-medium flex items-center gap-2">
-                                {product.name}
-                                <Badge variant={product.is_active ? 'default' : 'secondary'}>
-                                  {product.is_active ? 'Aktiv' : 'Inaktiv'}
-                                </Badge>
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {currencyFormatter.format(product.price_cents / 100)}
-                              </p>
-                              {product.qr_payload && (
-                                <p className="text-xs text-muted-foreground break-all">
-                                  QR: {product.qr_payload}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleToggleProduct(product.id, !product.is_active)}
-                              >
-                                {product.is_active ? 'Deaktivieren' : 'Aktivieren'}
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
@@ -644,13 +420,23 @@ useEffect(() => {
                   />
                 </div>
                 {profile.role === 'SUPER_ADMIN' ? (
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <Label>Organisation</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedOrgId
-                        ? orgOptions.find((org) => org.id === selectedOrgId)?.name ?? 'Bitte oben auswählen'
-                        : 'Bitte oben im Adminbereich eine Organisation auswählen.'}
-                    </p>
+                    <Select
+                      value={selectedOrgId ?? undefined}
+                      onValueChange={(value) => setSelectedOrgId(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Organisation wählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orgOptions.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.name} {org.cost_center_code ? `(${org.cost_center_code})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 ) : (
                   <div className="space-y-1">

@@ -70,17 +70,23 @@ export function Layout({ children }: LayoutProps) {
                         Pinnwand
                       </Link>
                     </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/personen">
-                        <Users className="h-4 w-4 mr-2" />
-                        Personen
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/qa">
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Q&A
-                      </Link>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/personen">
+                    <Users className="h-4 w-4 mr-2" />
+                    Personen
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/organisationen">
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Organisationen
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/qa">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Q&A
+                  </Link>
                     </Button>
                     <Button variant="ghost" size="sm" asChild>
                       <Link to="/kaffee">
@@ -94,14 +100,14 @@ export function Layout({ children }: LayoutProps) {
                         Lunch
                       </Link>
                     </Button>
-                    {profile && profile.role !== 'MEMBER' && (
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to="/admin/lunch-roulette">
-                          <Shield className="h-4 w-4 mr-2" />
-                          Admin
-                        </Link>
-                      </Button>
-                    )}
+                {profile && profile.role !== 'MEMBER' && (
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/admin">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin
+                    </Link>
+                  </Button>
+                )}
                     {profile?.role === 'SUPER_ADMIN' && (
                       <Button variant="ghost" size="sm" asChild>
                         <Link to="/admin/organisationen">

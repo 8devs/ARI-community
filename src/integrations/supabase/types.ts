@@ -621,6 +621,9 @@ export type Database = {
       }
       organizations: {
         Row: {
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
           cost_center_code: string | null
           created_at: string
           id: string
@@ -629,6 +632,9 @@ export type Database = {
           name: string
         }
         Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           cost_center_code?: string | null
           created_at?: string
           id?: string
@@ -637,6 +643,9 @@ export type Database = {
           name: string
         }
         Update: {
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           cost_center_code?: string | null
           created_at?: string
           id?: string
@@ -971,6 +980,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_organizations_with_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          cost_center_code: string | null
+          created_at: string
+          id: string
+          location_text: string
+          logo_url: string | null
+          member_count: number
+          name: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
