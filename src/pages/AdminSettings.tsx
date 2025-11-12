@@ -234,6 +234,10 @@ export default function AdminSettings() {
       toast.error('Bitte einen Namen angeben');
       return;
     }
+    if (!orgForm.logo_url.trim()) {
+      toast.error('Bitte vorher ein Logo hochladen (Pflichtfeld).');
+      return;
+    }
 
     setSavingOrg(true);
     const payload = {
