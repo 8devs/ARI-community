@@ -65,10 +65,12 @@ export default function Auth() {
       return;
     }
 
-    setInviteLoading(true);
-    supabase
-      .rpc('get_invitation_details', { _token: inviteToken })
-      .then(({ data, error }) => {
+    const loadInvitation = async () => {
+      setInviteLoading(true);
+      try {
+        const { data, error } = await supabase
+          .rpc('get_invitation_details', { _token: inviteToken });
+        
         if (error) {
           console.error('Error loading invitation', error);
           setInviteError('Einladung konnte nicht gefunden werden.');
@@ -93,8 +95,12 @@ export default function Auth() {
             setInviteError(null);
           }
         }
-      })
-      .finally(() => setInviteLoading(false));
+      } finally {
+        setInviteLoading(false);
+      }
+    };
+    
+    loadInvitation();
   }, [inviteToken]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -210,6 +216,7 @@ export default function Auth() {
                 <Input
                   id="password"
                   type="password"
+                  placeholder="Dein Passwort"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

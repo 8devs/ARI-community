@@ -109,7 +109,7 @@ useEffect(() => {
     try {
       const { data, error } = await supabase
         .from('coffee_transactions')
-        .select('id, created_at, price_cents_snapshot, product_name_snapshot')
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(10);
