@@ -27,7 +27,17 @@ interface Question {
   created_by: {
     name: string;
   };
-  answers: { count: number }[];
+  answers: Answer[];
+}
+
+interface Answer {
+  id: string;
+  body: string;
+  created_at: string;
+  created_by_id: string;
+  created_by: {
+    name: string;
+  };
 }
 
 export default function QA() {
@@ -42,6 +52,9 @@ export default function QA() {
     body: '',
     tags: '',
   });
+  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
+  const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({});
+  const [answerSubmittingId, setAnswerSubmittingId] = useState<string | null>(null);
   const { user } = useAuth();
   const { profile } = useCurrentProfile();
 
@@ -62,7 +75,13 @@ export default function QA() {
           created_at,
           created_by_id,
           created_by:profiles!questions_created_by_id_fkey(name),
-          answers(count)
+          answers(
+            id,
+            body,
+            created_at,
+            created_by_id,
+            created_by:profiles!answers_created_by_id_fkey(name)
+          )
         `)
         .order('created_at', { ascending: false });
 
@@ -140,6 +159,41 @@ export default function QA() {
     }
 
     setCreating(false);
+  };
+
+  const toggleAnswers = (questionId: string) => {
+    setExpandedQuestionId(prev => (prev === questionId ? null : questionId));
+  };
+
+  const handleAnswerInputChange = (questionId: string, value: string) => {
+    setAnswerInputs(prev => ({ ...prev, [questionId]: value }));
+  };
+
+  const handleSubmitAnswer = async (questionId: string) => {
+    if (!user?.id) {
+      toast.error('Du musst angemeldet sein, um zu antworten');
+      return;
+    }
+    const body = answerInputs[questionId]?.trim();
+    if (!body) {
+      toast.error('Bitte gib eine Antwort ein');
+      return;
+    }
+    setAnswerSubmittingId(questionId);
+    const { error } = await supabase.from('answers').insert({
+      question_id: questionId,
+      body,
+      created_by_id: user.id,
+    });
+    if (error) {
+      console.error('Error creating answer', error);
+      toast.error('Antwort konnte nicht gespeichert werden');
+    } else {
+      toast.success('Antwort veröffentlicht');
+      setAnswerInputs(prev => ({ ...prev, [questionId]: '' }));
+      loadQuestions();
+    }
+    setAnswerSubmittingId(null);
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
@@ -245,7 +299,7 @@ export default function QA() {
         ) : (
           <div className="space-y-4">
             {questions.map(question => (
-              <Card key={question.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Card key={question.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -256,7 +310,7 @@ export default function QA() {
                         )}
                       </div>
                       <CardDescription>
-                        Von {question.created_by.name} • {' '}
+                        Von {question.created_by.name} •{' '}
                         {formatDistanceToNow(new Date(question.created_at), {
                           addSuffix: true,
                           locale: de,
@@ -265,61 +319,115 @@ export default function QA() {
                     </div>
                   </div>
                 </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground line-clamp-2">
-                {question.body}
-              </p>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex flex-wrap gap-2">
+                <CardContent className="space-y-4">
+                  <p className="text-muted-foreground line-clamp-2">
+                    {question.body}
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap gap-2">
                       {question.tags?.map((tag, idx) => (
                         <Badge key={idx} variant="outline">
                           {tag}
                         </Badge>
                       ))}
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MessageSquare className="h-4 w-4" />
-                    <span>{question.answers[0]?.count || 0} Antworten</span>
-                  </div>
-                  {canManageQuestion(question) && (
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(question)}>
-                        <Edit className="h-4 w-4" />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MessageSquare className="h-4 w-4" />
+                        <span>{question.answers.length} Antworten</span>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => toggleAnswers(question.id)}>
+                        {expandedQuestionId === question.id ? 'Antworten verbergen' : 'Antworten anzeigen'}
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                      {canManageQuestion(question) && (
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(question)}>
+                            <Edit className="h-4 w-4" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Frage löschen?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Diese Aktion kann nicht rückgängig gemacht werden.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={() => handleDeleteQuestion(question.id)}
-                              disabled={deletingId === question.id}
-                            >
-                              {deletingId === question.id ? 'Löschen...' : 'Löschen'}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Frage löschen?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Diese Aktion kann nicht rückgängig gemacht werden.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={() => handleDeleteQuestion(question.id)}
+                                  disabled={deletingId === question.id}
+                                >
+                                  {deletingId === question.id ? 'Löschen...' : 'Löschen'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {expandedQuestionId === question.id && (
+                    <div className="space-y-4 border-t pt-4">
+                      <div className="space-y-3">
+                        {question.answers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            Noch keine Antworten vorhanden.
+                          </p>
+                        ) : (
+                          question.answers.map((answer) => (
+                            <div key={answer.id} className="rounded-lg border p-3">
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                {answer.body}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Von {answer.created_by.name} •{' '}
+                                {formatDistanceToNow(new Date(answer.created_at), {
+                                  addSuffix: true,
+                                  locale: de,
+                                })}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {user ? (
+                        <div className="space-y-2">
+                          <Label htmlFor={`answer-${question.id}`}>Eigene Antwort</Label>
+                          <Textarea
+                            id={`answer-${question.id}`}
+                            rows={3}
+                            placeholder="Teile Dein Wissen ..."
+                            value={answerInputs[question.id] ?? ''}
+                            onChange={(e) => handleAnswerInputChange(question.id, e.target.value)}
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleSubmitAnswer(question.id)}
+                            disabled={answerSubmittingId === question.id}
+                          >
+                            {answerSubmittingId === question.id ? 'Wird gesendet...' : 'Antwort veröffentlichen'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Bitte melde Dich an, um zu antworten.
+                        </p>
+                      )}
                     </div>
                   )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}

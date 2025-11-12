@@ -58,12 +58,12 @@ export function Layout({ children }: LayoutProps) {
               <nav className="hidden md:flex items-center gap-1">
                 {isAuthenticated ? (
                   <>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/">
-                        <LayoutDashboard className="h-4 w-4 mr-2" />
-                        Dashboard
-                      </Link>
-                    </Button>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/app">
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Link>
+                </Button>
                     <Button variant="ghost" size="sm" asChild>
                       <Link to="/pinnwand">
                         <Newspaper className="h-4 w-4 mr-2" />
