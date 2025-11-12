@@ -408,7 +408,7 @@ export default function AdminSettings() {
 
         <Tabs defaultValue="organizations">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="organizations">Organisationen</TabsTrigger>
+            <TabsTrigger value="organizations">Organisationen verwalten</TabsTrigger>
             <TabsTrigger value="invites">Einladungen</TabsTrigger>
             <TabsTrigger value="coffee">Getränke</TabsTrigger>
           </TabsList>
