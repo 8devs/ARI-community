@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,14 +75,12 @@ export default function AdminSettings() {
   });
   const [inviting, setInviting] = useState(false);
 
-  const [coffeeOrgId, setCoffeeOrgId] = useState<string | null>(null);
   const [coffeeProducts, setCoffeeProducts] = useState<CoffeeProduct[]>([]);
   const [coffeeLoading, setCoffeeLoading] = useState(false);
   const [coffeeError, setCoffeeError] = useState<string | null>(null);
   const [productForm, setProductForm] = useState({
     name: '',
     price: '',
-    qrPayload: '',
     isActive: true,
   });
   const [creatingProduct, setCreatingProduct] = useState(false);
@@ -100,12 +99,9 @@ export default function AdminSettings() {
     if (!canAccessAdmin) return;
     loadOrganizations();
     loadMembers();
+    loadCoffeeProducts();
     if (!isSuperAdmin) {
       setInviteForm((prev) => ({ ...prev, organization_id: currentProfile?.organization_id ?? '' }));
-      setCoffeeOrgId(currentProfile?.organization_id ?? null);
-      if (currentProfile?.organization_id) {
-        loadCoffeeProducts(currentProfile.organization_id);
-      }
     }
   }, [canAccessAdmin, isSuperAdmin, currentProfile?.organization_id]);
 
@@ -113,11 +109,7 @@ export default function AdminSettings() {
     if (isSuperAdmin && organizations.length && !inviteForm.organization_id) {
       setInviteForm((prev) => ({ ...prev, organization_id: organizations[0].id }));
     }
-    if (isSuperAdmin && organizations.length && !coffeeOrgId) {
-      setCoffeeOrgId(organizations[0].id);
-      loadCoffeeProducts(organizations[0].id);
-    }
-  }, [organizations, isSuperAdmin, inviteForm.organization_id, coffeeOrgId]);
+  }, [organizations, isSuperAdmin, inviteForm.organization_id]);
 
   const loadOrganizations = async () => {
     try {
@@ -156,26 +148,19 @@ export default function AdminSettings() {
     }
   };
 
-  const loadCoffeeProducts = async (orgId: string) => {
+  const loadCoffeeProducts = async () => {
     setCoffeeLoading(true);
     setCoffeeError(null);
     try {
       const { data, error } = await supabase
         .from('coffee_products')
         .select('*')
-        .eq('organization_id', orgId)
         .order('price_cents', { ascending: true });
       if (error) throw error;
       setCoffeeProducts(data || []);
     } catch (error: any) {
       console.error('Error loading coffee products', error);
-      if (error?.code === '42703') {
-        setCoffeeError(
-          'Die Spalte organization_id fehlt noch in coffee_products. Bitte die Migration 20251111225000_coffee_qr.sql ausführen.',
-        );
-      } else {
-        setCoffeeError('Getränke konnten nicht geladen werden.');
-      }
+      setCoffeeError('Getränke konnten nicht geladen werden.');
     } finally {
       setCoffeeLoading(false);
     }
@@ -338,16 +323,12 @@ export default function AdminSettings() {
     }
   };
 
-  const handleProductInputChange = (field: 'name' | 'price' | 'qrPayload' | 'isActive', value: string | boolean) => {
+  const handleProductInputChange = (field: 'name' | 'price' | 'isActive', value: string | boolean) => {
     setProductForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!coffeeOrgId) {
-      toast.error('Bitte wähle zuerst eine Organisation aus.');
-      return;
-    }
     const priceValue = Number((productForm.price || '').replace(',', '.'));
     if (isNaN(priceValue) || priceValue <= 0) {
       toast.error('Bitte gib einen gültigen Preis ein.');
@@ -358,19 +339,16 @@ export default function AdminSettings() {
       const { error } = await supabase.from('coffee_products').insert({
         name: productForm.name.trim(),
         price_cents: Math.round(priceValue * 100),
-        qr_payload: productForm.qrPayload.trim() || null,
         is_active: productForm.isActive,
-        organization_id: coffeeOrgId,
       });
       if (error) throw error;
       toast.success('Getränk gespeichert');
       setProductForm({
         name: '',
         price: '',
-        qrPayload: '',
         isActive: true,
       });
-      loadCoffeeProducts(coffeeOrgId);
+      loadCoffeeProducts();
     } catch (error) {
       console.error('Error creating coffee product', error);
       toast.error('Getränk konnte nicht angelegt werden');
@@ -390,9 +368,7 @@ export default function AdminSettings() {
       toast.error('Status konnte nicht geändert werden');
       return;
     }
-    if (coffeeOrgId) {
-      loadCoffeeProducts(coffeeOrgId);
-    }
+    loadCoffeeProducts();
   };
 
   const handleMemberRoleChange = async (memberId: string, newRole: 'MEMBER' | 'ORG_ADMIN') => {
@@ -612,6 +588,18 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
             </div>
 
             <Card>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Lunch Roulette verwalten</CardTitle>
+                  <CardDescription>Konfiguriere Fragen, Runden und Teilnehmer-Matches.</CardDescription>
+                </div>
+                <Button asChild>
+                  <Link to="/admin/lunch-roulette">Zum Lunch Roulette Admin</Link>
+                </Button>
+              </CardHeader>
+            </Card>
+
+            <Card>
               <CardHeader>
                 <CardTitle>Organisationen</CardTitle>
                 <CardDescription>Alle Firmen im System</CardDescription>
@@ -632,70 +620,88 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                           </Badge>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            {org.logo_url ? (
-                              <img
-                                src={org.logo_url}
-                                alt={`${org.name} Logo`}
-                                className="h-12 w-12 rounded-md border object-contain bg-white"
-                              />
-                            ) : (
-                              <div className="h-12 w-12 rounded-md border flex items-center justify-center text-muted-foreground">
-                                <Building2 className="h-5 w-5" />
-                              </div>
-                            )}
-                            <div className="text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1 font-medium">
-                                <MapPin className="h-4 w-4" />
-                                Standort
-                              </div>
-                              <p className="line-clamp-2">{org.location_text || 'Nicht angegeben'}</p>
-                            </div>
-                          </div>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            {org.contact_name && (
-                              <p className="flex items-center gap-2">
-                                <Users className="h-4 w-4" />
-                                {org.contact_name}
-                              </p>
-                            )}
-                            {org.contact_email && (
-                              <p className="flex items-center gap-2">
-                                <Mail className="h-4 w-4" />
-                                <a href={`mailto:${org.contact_email}`} className="hover:text-primary truncate">
-                                  {org.contact_email}
-                                </a>
-                              </p>
-                            )}
-                            {org.contact_phone && (
-                              <p className="flex items-center gap-2">
-                                <Phone className="h-4 w-4" />
-                                {org.contact_phone}
-                              </p>
-                            )}
-                            {org.website_url && (
-                              <p className="flex items-center gap-2">
-                                <Globe className="h-4 w-4" />
-                                <a
-                                  href={org.website_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="hover:text-primary truncate"
-                                >
-                                  {org.website_url.replace(/^https?:\/\//, '')}
-                                </a>
-                              </p>
-                            )}
-                          </div>
-                          <Button variant="outline" size="sm" className="w-full" onClick={() => openEditDialog(org)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Bearbeiten
+                <form className="space-y-4" onSubmit={handleCreateProduct}>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="coffee-name">Name</Label>
+                      <Input
+                        id="coffee-name"
+                        value={productForm.name}
+                        onChange={(e) => handleProductInputChange('name', e.target.value)}
+                        placeholder="z.B. Cappuccino"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="coffee-price">Preis (EUR)</Label>
+                      <Input
+                        id="coffee-price"
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={productForm.price}
+                        onChange={(e) => handleProductInputChange('price', e.target.value)}
+                        placeholder="2.50"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={productForm.isActive}
+                      onCheckedChange={(checked) => handleProductInputChange('isActive', checked)}
+                    />
+                    <span className="text-sm text-muted-foreground">Produkt sofort aktiv</span>
+                  </div>
+                  <Button type="submit" disabled={creatingProduct}>
+                    {creatingProduct ? 'Speichern...' : 'Getränk hinzufügen'}
+                  </Button>
+                </form>
+
+                {coffeeError ? (
+                  <Alert>
+                    <AlertTitle>Getränke können nicht geladen werden</AlertTitle>
+                    <AlertDescription>{coffeeError}</AlertDescription>
+                  </Alert>
+                ) : coffeeLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Lädt Getränke...
+                  </div>
+                ) : coffeeProducts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Es sind noch keine Getränke angelegt.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {coffeeProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className="flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
+                      >
+                        <div>
+                          <p className="font-medium flex items-center gap-2">
+                            {product.name}
+                            <Badge variant={product.is_active ? 'default' : 'secondary'}>
+                              {product.is_active ? 'Aktiv' : 'Inaktiv'}
+                            </Badge>
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(product.price_cents / 100)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleProduct(product.id, !product.is_active)}
+                          >
+                            {product.is_active ? 'Deaktivieren' : 'Aktivieren'}
                           </Button>
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
+
               </CardContent>
             </Card>
 
@@ -961,148 +967,88 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {isSuperAdmin && (
+                <form className="space-y-4" onSubmit={handleCreateProduct}>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="coffee-name">Name</Label>
+                      <Input
+                        id="coffee-name"
+                        value={productForm.name}
+                        onChange={(e) => handleProductInputChange('name', e.target.value)}
+                        placeholder="z.B. Cappuccino"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="coffee-price">Preis (EUR)</Label>
+                      <Input
+                        id="coffee-price"
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={productForm.price}
+                        onChange={(e) => handleProductInputChange('price', e.target.value)}
+                        placeholder="2.50"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={productForm.isActive}
+                      onCheckedChange={(checked) => handleProductInputChange('isActive', checked)}
+                    />
+                    <span className="text-sm text-muted-foreground">Produkt sofort aktiv</span>
+                  </div>
+                  <Button type="submit" disabled={creatingProduct}>
+                    {creatingProduct ? 'Speichern...' : 'Getränk hinzufügen'}
+                  </Button>
+                </form>
+
+                {coffeeError ? (
+                  <Alert>
+                    <AlertTitle>Getränke können nicht geladen werden</AlertTitle>
+                    <AlertDescription>{coffeeError}</AlertDescription>
+                  </Alert>
+                ) : coffeeLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Lädt Getränke...
+                  </div>
+                ) : coffeeProducts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Es sind noch keine Getränke angelegt.</p>
+                ) : (
                   <div className="space-y-2">
-                    <Label>Organisation auswählen</Label>
-                    <Select
-                      value={coffeeOrgId ?? undefined}
-                      onValueChange={(value) => {
-                        setCoffeeOrgId(value);
-                        loadCoffeeProducts(value);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Organisation wählen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {organizations.map((org) => (
-                          <SelectItem key={org.id} value={org.id}>
-                            {org.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {coffeeProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className="flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
+                      >
+                        <div>
+                          <p className="font-medium flex items-center gap-2">
+                            {product.name}
+                            <Badge variant={product.is_active ? 'default' : 'secondary'}>
+                              {product.is_active ? 'Aktiv' : 'Inaktiv'}
+                            </Badge>
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(product.price_cents / 100)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleProduct(product.id, !product.is_active)}
+                          >
+                            {product.is_active ? 'Deaktivieren' : 'Aktivieren'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {!coffeeOrgId ? (
-                  <Alert>
-                    <AlertTitle>Keine Organisation ausgewählt</AlertTitle>
-                    <AlertDescription>
-                      Bitte wähle eine Organisation aus, um Getränke zu verwalten.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <>
-                    <form className="space-y-4" onSubmit={handleCreateProduct}>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="coffee-name">Name</Label>
-                          <Input
-                            id="coffee-name"
-                            value={productForm.name}
-                            onChange={(e) => handleProductInputChange('name', e.target.value)}
-                            placeholder="z.B. Cappuccino"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="coffee-price">Preis (EUR)</Label>
-                          <Input
-                            id="coffee-price"
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={productForm.price}
-                            onChange={(e) => handleProductInputChange('price', e.target.value)}
-                            placeholder="2.50"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="coffee-qr">QR Payload (optional)</Label>
-                        <Input
-                          id="coffee-qr"
-                          value={productForm.qrPayload}
-                          onChange={(e) => handleProductInputChange('qrPayload', e.target.value)}
-                          placeholder="Payment-Link oder Beschreibung"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between rounded-lg border p-3">
-                        <div>
-                          <p className="font-medium">Produkt aktiv</p>
-                          <p className="text-sm text-muted-foreground">
-                            Nur aktive Produkte erscheinen im Self-Service.
-                          </p>
-                        </div>
-                        <Switch
-                          checked={productForm.isActive}
-                          onCheckedChange={(checked) => handleProductInputChange('isActive', checked)}
-                        />
-                      </div>
-                      <Button type="submit" disabled={creatingProduct}>
-                        {creatingProduct ? 'Wird gespeichert...' : 'Getränk speichern'}
-                      </Button>
-                    </form>
-
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium text-muted-foreground">
-                        Bestehende Getränke
-                      </h3>
-                      {coffeeError ? (
-                        <Alert>
-                          <AlertTitle>Getränke können nicht geladen werden</AlertTitle>
-                          <AlertDescription>{coffeeError}</AlertDescription>
-                        </Alert>
-                      ) : coffeeLoading ? (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Lädt Getränke...
-                        </div>
-                      ) : coffeeProducts.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          Für diese Organisation sind noch keine Getränke angelegt.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {coffeeProducts.map((product) => (
-                            <div
-                              key={product.id}
-                              className="flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
-                            >
-                              <div>
-                                <p className="font-medium flex items-center gap-2">
-                                  {product.name}
-                                  <Badge variant={product.is_active ? 'default' : 'secondary'}>
-                                    {product.is_active ? 'Aktiv' : 'Inaktiv'}
-                                  </Badge>
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(product.price_cents / 100)}
-                                </p>
-                                {product.qr_payload && (
-                                  <p className="text-xs text-muted-foreground break-all">
-                                    QR: {product.qr_payload}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleToggleProduct(product.id, !product.is_active)}
-                                >
-                                  {product.is_active ? 'Deaktivieren' : 'Aktivieren'}
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
               </CardContent>
             </Card>
           </TabsContent>

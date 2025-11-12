@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import type { ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Newspaper, Plus, Pin, Edit, Trash2 } from 'lucide-react';
+import { Newspaper, Plus, Pin, Edit, Trash2, Paperclip } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -23,11 +24,16 @@ interface InfoPost {
   id: string;
   title: string;
   content: string;
-  audience: 'PUBLIC' | 'INTERNAL';
+  audience: 'PUBLIC' | 'INTERNAL' | 'ORG_ONLY';
   pinned: boolean;
   created_at: string;
   created_by_id: string;
   created_by: {
+    name: string | null;
+  } | null;
+  attachment_url: string | null;
+  target_organization_id: string | null;
+  target_organization?: {
     name: string | null;
   } | null;
 }
@@ -44,14 +50,25 @@ export default function Pinnwand() {
     content: '',
     audience: 'INTERNAL' as InfoPost['audience'],
     pinned: false,
+    attachment_url: null as string | null,
+    target_organization_id: null as string | null,
   });
   const { user } = useAuth();
   const isAuthenticated = Boolean(user);
   const { profile } = useCurrentProfile();
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [removeAttachment, setRemoveAttachment] = useState(false);
+  const [availableOrgs, setAvailableOrgs] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     loadPosts();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (profile?.role === 'SUPER_ADMIN') {
+      loadOrganizations();
+    }
+  }, [profile?.role]);
 
   const loadPosts = async () => {
     try {
@@ -65,7 +82,10 @@ export default function Pinnwand() {
           pinned,
           created_at,
           created_by_id,
-          created_by:profiles!info_posts_created_by_id_fkey(name)
+          attachment_url,
+          target_organization_id,
+          created_by:profiles!info_posts_created_by_id_fkey(name),
+          target_organization:organizations(name)
         `)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
@@ -86,9 +106,28 @@ export default function Pinnwand() {
     }
   };
 
+  const loadOrganizations = async () => {
+    try {
+      const { data, error } = await supabase.from('organizations').select('id, name').order('name');
+      if (error) throw error;
+      setAvailableOrgs(data || []);
+    } catch (error) {
+      console.error('Error loading organizations', error);
+    }
+  };
+
   const openCreateDialog = () => {
     setEditingPostId(null);
-    setNewPost({ title: '', content: '', audience: 'INTERNAL', pinned: false });
+    setNewPost({
+      title: '',
+      content: '',
+      audience: 'INTERNAL',
+      pinned: false,
+      attachment_url: null,
+      target_organization_id: profile?.organization_id ?? null,
+    });
+    setAttachmentFile(null);
+    setRemoveAttachment(false);
     setDialogOpen(true);
   };
 
@@ -99,7 +138,11 @@ export default function Pinnwand() {
       content: post.content,
       audience: post.audience,
       pinned: post.pinned,
+      attachment_url: post.attachment_url,
+      target_organization_id: post.target_organization_id ?? profile?.organization_id ?? null,
     });
+    setAttachmentFile(null);
+    setRemoveAttachment(false);
     setDialogOpen(true);
   };
 
@@ -114,39 +157,75 @@ export default function Pinnwand() {
       return;
     }
 
+    let targetOrgId =
+      newPost.audience === 'ORG_ONLY'
+        ? newPost.target_organization_id ?? profile?.organization_id ?? null
+        : null;
+
+    if (newPost.audience === 'ORG_ONLY' && !targetOrgId) {
+      toast.error('Bitte wähle eine Organisation für org-interne Beiträge.');
+      return;
+    }
+
     setCreating(true);
-    let error;
-    if (editingPostId) {
-      ({ error } = await supabase
-        .from('info_posts')
-        .update({
+    try {
+      let attachmentUrl = newPost.attachment_url;
+      if (removeAttachment) {
+        attachmentUrl = null;
+      }
+      if (attachmentFile) {
+        attachmentUrl = await uploadAttachment(attachmentFile);
+      }
+
+      let error;
+      if (editingPostId) {
+        ({ error } = await supabase
+          .from('info_posts')
+          .update({
+            title: newPost.title.trim(),
+            content: newPost.content.trim(),
+            audience: newPost.audience,
+            pinned: newPost.pinned,
+            attachment_url: attachmentUrl,
+            target_organization_id: targetOrgId,
+          })
+          .eq('id', editingPostId));
+      } else {
+        ({ error } = await supabase.from('info_posts').insert({
           title: newPost.title.trim(),
           content: newPost.content.trim(),
           audience: newPost.audience,
           pinned: newPost.pinned,
-        })
-        .eq('id', editingPostId));
-    } else {
-      ({ error } = await supabase.from('info_posts').insert({
-        title: newPost.title.trim(),
-        content: newPost.content.trim(),
-        audience: newPost.audience,
-        pinned: newPost.pinned,
-        created_by_id: user.id,
-      }));
-    }
+          attachment_url: attachmentUrl,
+          target_organization_id: targetOrgId,
+          created_by_id: user.id,
+        }));
+      }
 
-    if (error) {
-      console.error('Error creating post:', error);
-      toast.error('Beitrag konnte nicht gespeichert werden');
-    } else {
+      if (error) {
+        throw error;
+      }
+
       toast.success(editingPostId ? 'Beitrag aktualisiert' : 'Beitrag veröffentlicht');
-      setNewPost({ title: '', content: '', audience: 'INTERNAL', pinned: false });
+      setNewPost({
+        title: '',
+        content: '',
+        audience: 'INTERNAL',
+        pinned: false,
+        attachment_url: null,
+        target_organization_id: profile?.organization_id ?? null,
+      });
+      setAttachmentFile(null);
+      setRemoveAttachment(false);
       setEditingPostId(null);
       setDialogOpen(false);
       loadPosts();
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast.error('Beitrag konnte nicht gespeichert werden');
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   };
 
   const handleDeletePost = async (postId: string) => {
@@ -168,6 +247,26 @@ export default function Pinnwand() {
     if (profile?.role === 'SUPER_ADMIN') return true;
     return profile?.is_news_manager && user.id === post.created_by_id;
   };
+  const canSelectTargetOrg = profile?.role === 'SUPER_ADMIN';
+
+  const generateAttachmentPath = (file: File) => {
+    const ext = file.name.split('.').pop();
+    const randomId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    return `attachments/${randomId}.${ext}`;
+  };
+
+  const uploadAttachment = async (file: File) => {
+    const filePath = generateAttachmentPath(file);
+    const { error } = await supabase.storage.from('info-post-attachments').upload(filePath, file, {
+      upsert: true,
+    });
+    if (error) throw error;
+    const { data } = supabase.storage.from('info-post-attachments').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
 
   return (
     <Layout>
@@ -180,7 +279,16 @@ export default function Pinnwand() {
             </p>
           </div>
           {canManagePosts ? (
-            <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) {
+                  setAttachmentFile(null);
+                  setRemoveAttachment(false);
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button onClick={openCreateDialog}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -215,6 +323,47 @@ export default function Pinnwand() {
                       required
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="post-attachment">Datei (optional)</Label>
+                    <Input
+                      id="post-attachment"
+                      type="file"
+                      onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                        const file = event.target.files?.[0] ?? null;
+                        setAttachmentFile(file);
+                        setRemoveAttachment(false);
+                      }}
+                    />
+                    {attachmentFile && (
+                      <p className="text-xs text-muted-foreground">Ausgewählt: {attachmentFile.name}</p>
+                    )}
+                    {newPost.attachment_url && !removeAttachment && (
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <a
+                          href={newPost.attachment_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Aktuellen Anhang öffnen
+                        </a>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setRemoveAttachment(true);
+                            setNewPost((prev) => ({ ...prev, attachment_url: null }));
+                          }}
+                        >
+                          Entfernen
+                        </Button>
+                      </div>
+                    )}
+                    {removeAttachment && (
+                      <p className="text-xs text-destructive">Der bestehende Anhang wird entfernt.</p>
+                    )}
+                  </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Sichtbarkeit</Label>
@@ -230,9 +379,38 @@ export default function Pinnwand() {
                         <SelectContent>
                           <SelectItem value="INTERNAL">Nur intern</SelectItem>
                           <SelectItem value="PUBLIC">Öffentlich</SelectItem>
+                          <SelectItem value="ORG_ONLY">Organisationsintern</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    {newPost.audience === 'ORG_ONLY' && (
+                      <div className="space-y-2">
+                        <Label>Ziel-Organisation</Label>
+                        {canSelectTargetOrg ? (
+                          <Select
+                            value={newPost.target_organization_id ?? undefined}
+                            onValueChange={(value) =>
+                              setNewPost((prev) => ({ ...prev, target_organization_id: value }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Organisation wählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableOrgs.map((org) => (
+                                <SelectItem key={org.id} value={org.id}>
+                                  {org.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Sichtbar nur für {profile?.organization?.name ?? 'Deine Organisation'}.
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <div className="flex items-center justify-between rounded-lg border p-4">
                       <div>
                         <p className="font-medium">Anpinnen</p>
@@ -300,15 +478,33 @@ export default function Pinnwand() {
                         })}
                       </CardDescription>
                     </div>
-                    <Badge variant={post.audience === 'PUBLIC' ? 'default' : 'secondary'}>
-                      {post.audience === 'PUBLIC' ? 'Öffentlich' : 'Intern'}
+                    <Badge variant={post.audience === 'PUBLIC' ? 'default' : post.audience === 'INTERNAL' ? 'secondary' : 'outline'}>
+                      {post.audience === 'PUBLIC'
+                        ? 'Öffentlich'
+                        : post.audience === 'INTERNAL'
+                        ? 'Intern'
+                        : 'Org-intern'}
                     </Badge>
+                    {post.audience === 'ORG_ONLY' && post.target_organization?.name && (
+                      <Badge variant="secondary">{post.target_organization.name}</Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground whitespace-pre-wrap">
                     {post.content}
                   </p>
+                  {post.attachment_url && (
+                    <a
+                      href={post.attachment_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 text-sm text-primary hover:underline mt-3"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                      Anhang öffnen
+                    </a>
+                  )}
                   {canManagePost(post) && (
                     <div className="flex items-center justify-end gap-2 mt-4">
                       <Button variant="ghost" size="sm" onClick={() => openEditDialog(post)}>

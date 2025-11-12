@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import QRCode from 'react-qr-code';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,18 +70,16 @@ useEffect(() => {
 }, [orgOptions, profile?.role, selectedOrgId]);
 
   useEffect(() => {
-    if (selectedOrgId) {
-      loadProducts(selectedOrgId);
-    }
-  }, [selectedOrgId]);
+    loadProducts();
+  }, []);
 
-  const loadProducts = async (organizationId: string) => {
+  const loadProducts = async () => {
     setProductsLoading(true);
     try {
       const { data, error } = await supabase
         .from('coffee_products')
         .select('*')
-        .eq('organization_id', organizationId)
+        .eq('is_active', true)
         .order('price_cents', { ascending: true });
 
       if (error) throw error;
@@ -244,13 +241,6 @@ useEffect(() => {
   );
 
   const activeProducts = products.filter((product) => product.is_active);
-
-  const qrValue =
-    selectedProduct &&
-    (selectedProduct.qr_payload ||
-      `COFFEE|${profile?.organization?.name ?? 'Organisation'}|${
-        selectedProduct.name
-      }|${(selectedProduct.price_cents / 100).toFixed(2)}`);
 
   if (profileLoading) {
     return (
@@ -485,30 +475,13 @@ useEffect(() => {
                   Preis: {currencyFormatter.format(selectedProduct.price_cents / 100)}
                 </DialogDescription>
               </DialogHeader>
-              <div className="flex flex-col items-center gap-4 py-4">
-                {qrValue ? (
-                  <>
-                    <div className="rounded-lg border p-4 bg-white">
-                      <QRCode value={qrValue} size={200} />
-                    </div>
-                    <p className="text-sm text-muted-foreground text-center">
-                      Zeige den QR-Code an der Kaffeemaschine oder speichere ihn in Deinem Wallet.
-                    </p>
-                  </>
-                ) : (
-                  <Alert>
-                    <AlertTitle>Kein QR-Code hinterlegt</AlertTitle>
-                    <AlertDescription>
-                      Bitte informiere Deinen Organisations-Admin, damit ein QR-Payload für dieses Produkt
-                      erfasst wird.
-                    </AlertDescription>
-                  </Alert>
-                )}
+              <div className="py-4 text-sm text-muted-foreground">
+                Bitte bestätige Deinen Kauf, nachdem Du direkt an der Maschine bezahlt hast.
               </div>
               <DialogFooter>
                 <Button
                   onClick={handleConfirmPurchase}
-                  disabled={!qrValue || savingPurchase}
+                  disabled={savingPurchase}
                 >
                   {savingPurchase ? 'Speichern...' : 'Ich habe gezahlt'}
                 </Button>

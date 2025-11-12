@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { Building2, MapPin, Phone, Mail, Users, Globe } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 type Organization = Tables<'organizations'> & {
   member_count: number;
@@ -16,6 +17,7 @@ export default function Organizations() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     loadOrganizations();
@@ -36,11 +38,15 @@ export default function Organizations() {
   };
 
   const handleOrganizationClick = (org: Organization) => {
+    if (user) {
+      navigate(`/personen?organization=${org.id}`);
+      return;
+    }
     if (org.website_url) {
       window.open(org.website_url, '_blank', 'noopener,noreferrer');
       return;
     }
-    navigate(`/personen?organization=${org.id}`);
+    toast.info('Für diese Organisation ist noch keine Webseite hinterlegt.');
   };
 
   return (

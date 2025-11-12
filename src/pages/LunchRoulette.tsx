@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+
+const CONVERSATION_PROMPTS = [
+  'Welche Mittagspause war zuletzt Dein Highlight und warum?',
+  'Wenn Du eine Person zum Lunch einladen könntest – egal wen – wer wäre es?',
+  'Was ist Dein Lieblingsort rund um den Adenauerring für eine Pause?',
+  'Welchen Fun-Fact über Dich kennen die wenigsten Kolleg:innen?',
+  'Welches Gericht erinnert Dich sofort an Zuhause?',
+  'Welche Idee würdest Du gern mal mit anderen im Lunch Roulette diskutieren?',
+];
 
 interface MatchRound {
   id: string;
@@ -44,10 +53,21 @@ export default function LunchRoulette() {
   const [hasOptedIn, setHasOptedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [participants, setParticipants] = useState<number>(0);
+  const [conversationPrompt, setConversationPrompt] = useState('');
+
+  const refreshConversationPrompt = useCallback(() => {
+    if (!CONVERSATION_PROMPTS.length) return;
+    const next = CONVERSATION_PROMPTS[Math.floor(Math.random() * CONVERSATION_PROMPTS.length)];
+    setConversationPrompt(next);
+  }, []);
 
   useEffect(() => {
     loadCurrentRound();
   }, [user]);
+
+  useEffect(() => {
+    refreshConversationPrompt();
+  }, [refreshConversationPrompt, currentRound?.id, myPair?.id]);
 
   const loadCurrentRound = async () => {
     if (!user) return;
@@ -356,6 +376,21 @@ export default function LunchRoulette() {
                   <div className="pt-2 text-sm text-muted-foreground bg-accent/10 p-4 rounded-lg">
                     💡 Tipp: Vereinbart einen Treffpunkt und lernt Euch beim Mittagessen besser kennen!
                   </div>
+                  {conversationPrompt && (
+                    <div className="rounded-lg border p-4 space-y-2">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Gesprächsimpuls</p>
+                      <p className="text-sm text-foreground">{conversationPrompt}</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="px-0 text-primary"
+                        onClick={refreshConversationPrompt}
+                      >
+                        Neue Frage
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

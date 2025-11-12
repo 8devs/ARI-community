@@ -100,35 +100,21 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
-          organization_id: string | null
           price_cents: number
-          qr_payload: string | null
         }
         Insert: {
           id?: string
           is_active?: boolean | null
           name: string
-          organization_id?: string | null
           price_cents: number
-          qr_payload?: string | null
         }
         Update: {
           id?: string
           is_active?: boolean | null
           name?: string
-          organization_id?: string | null
           price_cents?: number
-          qr_payload?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "coffee_products_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       coffee_transactions: {
         Row: {
@@ -289,29 +275,35 @@ export type Database = {
       info_posts: {
         Row: {
           audience: Database["public"]["Enums"]["audience_type"]
+          attachment_url: string | null
           content: string
           created_at: string
           created_by_id: string
           id: string
           pinned: boolean | null
+          target_organization_id: string | null
           title: string
         }
         Insert: {
           audience?: Database["public"]["Enums"]["audience_type"]
+          attachment_url?: string | null
           content: string
           created_at?: string
           created_by_id: string
           id?: string
           pinned?: boolean | null
+          target_organization_id?: string | null
           title: string
         }
         Update: {
           audience?: Database["public"]["Enums"]["audience_type"]
+          attachment_url?: string | null
           content?: string
           created_at?: string
           created_by_id?: string
           id?: string
           pinned?: boolean | null
+          target_organization_id?: string | null
           title?: string
         }
         Relationships: [
@@ -320,6 +312,13 @@ export type Database = {
             columns: ["created_by_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "info_posts_target_organization_id_fkey"
+            columns: ["target_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1070,7 +1069,7 @@ export type Database = {
     }
     Enums: {
       app_role: "SUPER_ADMIN" | "ORG_ADMIN" | "MEMBER"
-      audience_type: "PUBLIC" | "INTERNAL"
+      audience_type: "PUBLIC" | "INTERNAL" | "ORG_ONLY"
       booking_status: "REQUESTED" | "APPROVED" | "DECLINED" | "CANCELLED"
       listing_kind: "OFFER" | "REQUEST" | "LOST_FOUND" | "RIDESHARE"
       match_kind: "LUNCH"
@@ -1213,7 +1212,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["SUPER_ADMIN", "ORG_ADMIN", "MEMBER"],
-      audience_type: ["PUBLIC", "INTERNAL"],
+      audience_type: ["PUBLIC", "INTERNAL", "ORG_ONLY"],
       booking_status: ["REQUESTED", "APPROVED", "DECLINED", "CANCELLED"],
       listing_kind: ["OFFER", "REQUEST", "LOST_FOUND", "RIDESHARE"],
       match_kind: ["LUNCH"],

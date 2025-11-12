@@ -2,24 +2,18 @@
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS is_event_manager BOOLEAN NOT NULL DEFAULT FALSE;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'events'
-      AND column_name = 'audience'
-  ) THEN
-    ALTER TABLE events
-      ADD COLUMN audience audience_type NOT NULL DEFAULT 'INTERNAL';
-  END IF;
-END
-$$;
+ALTER TABLE events
+  ADD COLUMN IF NOT EXISTS audience audience_type;
+
+ALTER TABLE events
+  ALTER COLUMN audience SET DEFAULT 'INTERNAL';
 
 UPDATE events
-SET audience = CASE WHEN is_open_to_all THEN 'PUBLIC' ELSE 'INTERNAL' END
+SET audience = COALESCE(audience, CASE WHEN is_open_to_all THEN 'PUBLIC'::audience_type ELSE 'INTERNAL'::audience_type END)
 WHERE audience IS NULL;
+
+ALTER TABLE events
+  ALTER COLUMN audience SET NOT NULL;
 
 CREATE OR REPLACE FUNCTION public.can_manage_events(_user_id UUID)
 RETURNS BOOLEAN
