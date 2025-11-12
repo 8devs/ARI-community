@@ -18,8 +18,8 @@ interface InfoPost {
   created_at: string;
   pinned: boolean;
   created_by: {
-    name: string;
-  };
+    name: string | null;
+  } | null;
 }
 
 const Index = () => {
@@ -128,7 +128,7 @@ const Index = () => {
                       )}
                     </div>
                     <CardDescription className="text-sm">
-                      Von {post.created_by.name} •{' '}
+                      Von {post.created_by?.name ?? 'Unbekannt'} •{' '}
                       {formatDistanceToNow(new Date(post.created_at), {
                         addSuffix: true,
                         locale: de,

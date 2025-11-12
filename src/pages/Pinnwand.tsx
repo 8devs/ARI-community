@@ -28,8 +28,8 @@ interface InfoPost {
   created_at: string;
   created_by_id: string;
   created_by: {
-    name: string;
-  };
+    name: string | null;
+  } | null;
 }
 
 export default function Pinnwand() {
@@ -301,7 +301,7 @@ export default function Pinnwand() {
                         )}
                       </div>
                       <CardDescription>
-                        Von {post.created_by.name} • {' '}
+                        Von {post.created_by?.name ?? 'Unbekannt'} •{' '}
                         {formatDistanceToNow(new Date(post.created_at), {
                           addSuffix: true,
                           locale: de,
