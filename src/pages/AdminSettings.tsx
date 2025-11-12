@@ -368,6 +368,42 @@ export default function AdminSettings() {
     }
   };
 
+  const canDeleteMember = (member: ProfileRow) => {
+    if (!currentProfile) return false;
+    if (currentProfile.role === 'SUPER_ADMIN') return true;
+    if (currentProfile.role === 'ORG_ADMIN') {
+      return (
+        currentProfile.organization_id &&
+        currentProfile.organization_id === member.organization_id &&
+        member.role !== 'SUPER_ADMIN'
+      );
+    }
+    return false;
+  };
+
+  const handleDeleteMember = async (member: ProfileRow) => {
+    if (!canDeleteMember(member)) {
+      toast.error('Du hast keine Berechtigung, diesen Nutzer zu löschen.');
+      return;
+    }
+    if (!confirm(`Benutzer ${member.name} wirklich löschen?`)) {
+      return;
+    }
+    setDeletingUserId(member.id);
+    const { error } = await supabase.rpc('delete_user_with_scope', {
+      _target_user_id: member.id,
+    });
+    if (error) {
+      console.error('Error deleting user', error);
+      toast.error(error.message ?? 'Nutzer konnte nicht gelöscht werden');
+    } else {
+      toast.success('Nutzer gelöscht');
+      loadMembers();
+      loadOrganizations();
+    }
+    setDeletingUserId(null);
+  };
+
   if (profileLoading) {
     return (
       <Layout>
@@ -413,7 +449,6 @@ export default function AdminSettings() {
             <TabsTrigger value="invites">Einladungen</TabsTrigger>
             <TabsTrigger value="coffee">Getränke</TabsTrigger>
           </TabsList>
-
           <TabsContent value="organizations" className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -440,15 +475,13 @@ export default function AdminSettings() {
                   <p className="text-sm text-muted-foreground">Noch keine Organisationen vorhanden.</p>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
-                {organizations.map((org) => (
-                  <Card key={org.id} className="border-primary/10">
+                    {organizations.map((org) => (
+                      <Card key={org.id} className="border-primary/10">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0">
                           <div className="space-y-1">
                             <CardTitle>{org.name}</CardTitle>
                             <p className="text-sm text-muted-foreground">
-                              {org.cost_center_code
-                                ? `Kostenstelle: ${org.cost_center_code}`
-                                : 'Keine Kostenstelle hinterlegt'}
+                              {org.cost_center_code ? `Kostenstelle: ${org.cost_center_code}` : 'Keine Kostenstelle hinterlegt'}
                             </p>
                           </div>
                           <Badge variant="secondary">
@@ -496,12 +529,7 @@ export default function AdminSettings() {
                               </p>
                             )}
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => openEditDialog(org)}
-                          >
+                          <Button variant="outline" size="sm" className="w-full" onClick={() => openEditDialog(org)}>
                             <Pencil className="mr-2 h-4 w-4" />
                             Bearbeiten
                           </Button>
@@ -517,9 +545,7 @@ export default function AdminSettings() {
               <Card>
                 <CardHeader>
                   <CardTitle>Mitarbeitende verschieben</CardTitle>
-                  <CardDescription>
-                    Weise Mitarbeitende anderen Organisationen zu.
-                  </CardDescription>
+                  <CardDescription>Weise Mitarbeitende anderen Organisationen zu.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {members.length === 0 ? (
@@ -916,38 +942,3 @@ export default function AdminSettings() {
     </Layout>
   );
 }
-  const canDeleteMember = (member: ProfileRow) => {
-    if (!currentProfile) return false;
-    if (currentProfile.role === 'SUPER_ADMIN') return true;
-    if (currentProfile.role === 'ORG_ADMIN') {
-      return (
-        currentProfile.organization_id &&
-        currentProfile.organization_id === member.organization_id &&
-        member.role !== 'SUPER_ADMIN'
-      );
-    }
-    return false;
-  };
-
-  const handleDeleteMember = async (member: ProfileRow) => {
-    if (!canDeleteMember(member)) {
-      toast.error('Du hast keine Berechtigung, diesen Nutzer zu löschen.');
-      return;
-    }
-    if (!confirm(`Benutzer ${member.name} wirklich löschen?`)) {
-      return;
-    }
-    setDeletingUserId(member.id);
-    const { error } = await supabase.rpc('delete_user_with_scope', {
-      _target_user_id: member.id,
-    });
-    if (error) {
-      console.error('Error deleting user', error);
-      toast.error(error.message ?? 'Nutzer konnte nicht gelöscht werden');
-    } else {
-      toast.success('Nutzer gelöscht');
-      loadMembers();
-      loadOrganizations();
-    }
-    setDeletingUserId(null);
-  };
