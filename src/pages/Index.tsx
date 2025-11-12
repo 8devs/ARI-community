@@ -26,6 +26,7 @@ const Index = () => {
   const { user } = useAuth();
   const [posts, setPosts] = useState<InfoPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const PUBLIC_POST_LIMIT = 5;
 
   useEffect(() => {
     loadPublicPosts();
@@ -46,7 +47,7 @@ const Index = () => {
         .eq('audience', 'PUBLIC')
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(PUBLIC_POST_LIMIT);
 
       if (error) throw error;
       setPosts(data || []);
@@ -145,7 +146,7 @@ const Index = () => {
             </div>
           )}
 
-          {!loading && posts.length > 0 && (
+          {!loading && posts.length === PUBLIC_POST_LIMIT && (
             <div className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
               <Newspaper className="h-4 w-4" />
               Tipp: Noch mehr Themen findest Du auf der{" "}

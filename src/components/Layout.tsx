@@ -14,6 +14,7 @@ import {
   IdCard,
   Coffee,
   Menu,
+  CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -55,6 +56,7 @@ export function Layout({ children }: LayoutProps) {
         { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
         { to: '/personen', label: 'Personen', icon: Users },
         { to: '/organisationen', label: 'Organisationen', icon: Building2 },
+        { to: '/events', label: 'Events', icon: CalendarDays },
         { to: '/qa', label: 'Q&A', icon: MessageSquare },
         { to: '/kaffee', label: 'Kaffee', icon: Coffee },
         { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
@@ -64,12 +66,13 @@ export function Layout({ children }: LayoutProps) {
       { to: '/', label: 'Start', icon: LayoutDashboard },
       { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
       { to: '/organisationen', label: 'Organisationen', icon: Building2 },
+      { to: '/events', label: 'Events', icon: CalendarDays },
     ];
   }, [isAuthenticated]);
 
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
@@ -178,9 +181,9 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">{children}</main>
+      <main className="container mx-auto flex-1 px-4 py-8">{children}</main>
 
-      <footer className="border-t border-border bg-card/60">
+      <footer className="mt-auto border-t border-border bg-card/60">
         <div className="container mx-auto flex flex-col gap-3 px-4 py-6 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <a

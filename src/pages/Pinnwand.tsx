@@ -256,11 +256,7 @@ export default function Pinnwand() {
             <p className="text-sm text-muted-foreground">
               Nur Newsmanager können Beiträge erstellen oder bearbeiten.
             </p>
-          ) : (
-            <Button asChild variant="outline">
-              <Link to="/login">Anmelden, um zu posten</Link>
-            </Button>
-          )}
+          ) : null}
         </div>
 
         {loading ? (
@@ -275,14 +271,10 @@ export default function Pinnwand() {
               <p className="text-muted-foreground mb-4">
                 Sei der Erste und teile etwas mit der Community!
               </p>
-              {isAuthenticated ? (
+              {isAuthenticated && (
                 <Button onClick={() => openCreateDialog()}>
                   <Plus className="h-4 w-4 mr-2" />
                   Ersten Beitrag erstellen
-                </Button>
-              ) : (
-                <Button asChild variant="outline">
-                  <Link to="/login">Anmelden, um zu posten</Link>
                 </Button>
               )}
             </CardContent>

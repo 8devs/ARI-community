@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Coffee from "./pages/Coffee";
 import ResetPassword from "./pages/ResetPassword";
+import Events from "./pages/Events";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,7 @@ const App = () => (
             <Route path="/pinnwand" element={<Pinnwand />} />
             <Route path="/organisationen" element={<Organizations />} />
             <Route path="/organisation" element={<Organizations />} />
+            <Route path="/events" element={<Events />} />
             <Route path="/passwort/neu" element={<ResetPassword />} />
             <Route
               path="/qa"

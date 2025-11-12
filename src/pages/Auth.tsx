@@ -183,7 +183,7 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
-      <div className="w-full max-w-3xl grid gap-4 md:grid-cols-2">
+      <div className="w-full max-w-4xl mx-auto grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="space-y-4 text-center">
             <div className="flex justify-center">

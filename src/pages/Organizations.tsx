@@ -35,6 +35,14 @@ export default function Organizations() {
     }
   };
 
+  const handleOrganizationClick = (org: Organization) => {
+    if (org.website_url) {
+      window.open(org.website_url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    navigate(`/personen?organization=${org.id}`);
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -65,11 +73,11 @@ export default function Organizations() {
                 className="flex flex-col cursor-pointer transition hover:shadow-lg focus-visible:ring-2"
                 role="button"
                 tabIndex={0}
-                onClick={() => navigate(`/personen?organization=${org.id}`)}
+                onClick={() => handleOrganizationClick(org)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    navigate(`/personen?organization=${org.id}`);
+                    handleOrganizationClick(org);
                   }
                 }}
               >

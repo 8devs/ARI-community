@@ -235,6 +235,7 @@ export type Database = {
       }
       events: {
         Row: {
+          audience: Database["public"]["Enums"]["audience_type"]
           audience_group: string | null
           created_at: string
           description: string | null
@@ -248,6 +249,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          audience?: Database["public"]["Enums"]["audience_type"]
           audience_group?: string | null
           created_at?: string
           description?: string | null
@@ -261,6 +263,7 @@ export type Database = {
           title: string
         }
         Update: {
+          audience?: Database["public"]["Enums"]["audience_type"]
           audience_group?: string | null
           created_at?: string
           description?: string | null
@@ -782,6 +785,7 @@ export type Database = {
           first_aid_certified: boolean | null
           id: string
           is_news_manager: boolean
+          is_event_manager: boolean
           name: string
           organization_id: string
           phone: string | null
@@ -799,6 +803,7 @@ export type Database = {
           first_aid_certified?: boolean | null
           id: string
           is_news_manager?: boolean
+          is_event_manager?: boolean
           name: string
           organization_id: string
           phone?: string | null
@@ -816,6 +821,7 @@ export type Database = {
           first_aid_certified?: boolean | null
           id?: string
           is_news_manager?: boolean
+          is_event_manager?: boolean
           name?: string
           organization_id?: string
           phone?: string | null

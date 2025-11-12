@@ -70,6 +70,7 @@ export default function AdminSettings() {
     role: 'MEMBER',
     organization_id: '',
     is_news_manager: false,
+    is_event_manager: false,
   });
   const [inviting, setInviting] = useState(false);
 
@@ -315,6 +316,7 @@ export default function AdminSettings() {
             organization_id: inviteForm.organization_id,
             invited_by: currentProfile?.id ?? null,
             is_news_manager: inviteForm.is_news_manager,
+            is_event_manager: inviteForm.is_event_manager,
           },
         },
       });
@@ -326,6 +328,7 @@ export default function AdminSettings() {
         email: '',
         role: 'MEMBER',
         is_news_manager: false,
+        is_event_manager: false,
       }));
     } catch (error: any) {
       console.error('Error sending invite', error);
@@ -409,25 +412,45 @@ export default function AdminSettings() {
     setMemberUpdates((prev) => ({ ...prev, [memberId]: false }));
   };
 
-  const handleNewsManagerToggle = async (member: ProfileRow, nextState: boolean) => {
-    if (!canEditMember(member)) {
-      toast.error('Keine Berechtigung für diese Änderung');
-      return;
-    }
-    setMemberUpdates((prev) => ({ ...prev, [member.id]: true }));
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_news_manager: nextState })
-      .eq('id', member.id);
-    if (error) {
-      console.error('Error updating news manager flag', error);
-      toast.error('Status konnte nicht aktualisiert werden');
-    } else {
-      toast.success(nextState ? 'Als Newsmanager markiert' : 'Newsmanager-Status entfernt');
-      loadMembers();
-    }
-    setMemberUpdates((prev) => ({ ...prev, [member.id]: false }));
-  };
+const handleNewsManagerToggle = async (member: ProfileRow, nextState: boolean) => {
+  if (!canEditMember(member)) {
+    toast.error('Keine Berechtigung für diese Änderung');
+    return;
+  }
+  setMemberUpdates((prev) => ({ ...prev, [member.id]: true }));
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_news_manager: nextState })
+    .eq('id', member.id);
+  if (error) {
+    console.error('Error updating news manager flag', error);
+    toast.error('Status konnte nicht aktualisiert werden');
+  } else {
+    toast.success(nextState ? 'Als Newsmanager markiert' : 'Newsmanager-Status entfernt');
+    loadMembers();
+  }
+  setMemberUpdates((prev) => ({ ...prev, [member.id]: false }));
+};
+
+const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) => {
+  if (!canEditMember(member)) {
+    toast.error('Keine Berechtigung für diese Änderung');
+    return;
+  }
+  setMemberUpdates((prev) => ({ ...prev, [member.id]: true }));
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_event_manager: nextState })
+    .eq('id', member.id);
+  if (error) {
+    console.error('Error updating event manager flag', error);
+    toast.error('Status konnte nicht aktualisiert werden');
+  } else {
+    toast.success(nextState ? 'Als Eventmanager markiert' : 'Eventmanager-Status entfernt');
+    loadMembers();
+  }
+  setMemberUpdates((prev) => ({ ...prev, [member.id]: false }));
+};
 
   const openMemberEditDialog = (member: ProfileRow) => {
     setEditingMember(member);
@@ -680,7 +703,7 @@ export default function AdminSettings() {
               <CardHeader>
                 <CardTitle>Mitarbeitende verwalten</CardTitle>
                 <CardDescription>
-                  Bearbeite Rollen, Newsmanager-Status und Profildaten der Mitarbeitenden.
+                  Bearbeite Rollen, News- und Eventmanager-Status sowie Profildaten der Mitarbeitenden.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -695,6 +718,7 @@ export default function AdminSettings() {
                           {isSuperAdmin && <TableHead>Organisation</TableHead>}
                           <TableHead>Rolle</TableHead>
                           <TableHead>Newsmanager</TableHead>
+                          <TableHead>Eventmanager</TableHead>
                           <TableHead className="w-48 text-right">Aktionen</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -776,6 +800,13 @@ export default function AdminSettings() {
                                 <Switch
                                   checked={Boolean(member.is_news_manager)}
                                   onCheckedChange={(checked) => handleNewsManagerToggle(member, checked)}
+                                  disabled={!canEditMember(member) || isUpdating}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Switch
+                                  checked={Boolean(member.is_event_manager)}
+                                  onCheckedChange={(checked) => handleEventManagerToggle(member, checked)}
                                   disabled={!canEditMember(member) || isUpdating}
                                 />
                               </TableCell>
@@ -890,6 +921,20 @@ export default function AdminSettings() {
                       checked={inviteForm.is_news_manager}
                       onCheckedChange={(checked) =>
                         setInviteForm(prev => ({ ...prev, is_news_manager: checked }))
+                      }
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium">Eventmanager</p>
+                      <p className="text-sm text-muted-foreground">
+                        Kann Veranstaltungen erstellen, bearbeiten und veröffentlichen.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={inviteForm.is_event_manager}
+                      onCheckedChange={(checked) =>
+                        setInviteForm(prev => ({ ...prev, is_event_manager: checked }))
                       }
                     />
                   </div>
