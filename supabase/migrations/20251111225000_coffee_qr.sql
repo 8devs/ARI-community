@@ -7,7 +7,7 @@ ALTER TABLE coffee_products
 UPDATE coffee_products cp
 SET organization_id = sub.organization_id
 FROM (
-  SELECT product_id, MAX(organization_id) AS organization_id
+  SELECT product_id, MAX(organization_id::text)::uuid AS organization_id
   FROM coffee_transactions
   GROUP BY product_id
 ) sub
