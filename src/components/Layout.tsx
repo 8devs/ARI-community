@@ -128,30 +128,17 @@ export function Layout({ children }: LayoutProps) {
                       </Button>
                     ))}
                     {isAuthenticated && canAccessAdmin && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          className="justify-start"
-                          onClick={() => setMobileOpen(false)}
-                          asChild
-                        >
-                          <Link to="/admin">
-                            <Shield className="h-4 w-4 mr-2" />
-                            Admin
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="justify-start"
-                          onClick={() => setMobileOpen(false)}
-                          asChild
-                        >
-                          <Link to="/admin/lunch-roulette">
-                            <Utensils className="h-4 w-4 mr-2" />
-                            Lunch Roulette Admin
-                          </Link>
-                        </Button>
-                      </>
+                      <Button
+                        variant="ghost"
+                        className="justify-start"
+                        onClick={() => setMobileOpen(false)}
+                        asChild
+                      >
+                        <Link to="/admin">
+                          <Shield className="h-4 w-4 mr-2" />
+                          Admin
+                        </Link>
+                      </Button>
                     )}
                     {themeReady && (
                       <Button
@@ -189,20 +176,12 @@ export function Layout({ children }: LayoutProps) {
                   </Button>
                 ))}
                 {isAuthenticated && canAccessAdmin && (
-                  <>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/admin">
-                        <Shield className="h-4 w-4 mr-2" />
-                        Admin
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/admin/lunch-roulette">
-                        <Utensils className="h-4 w-4 mr-2" />
-                        Lunch Admin
-                      </Link>
-                    </Button>
-                  </>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/admin">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin
+                    </Link>
+                  </Button>
                 )}
               </nav>
             </div>

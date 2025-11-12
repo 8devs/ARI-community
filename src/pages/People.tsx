@@ -34,6 +34,7 @@ export default function People() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialOrgFilter = searchParams.get('organization') ?? 'all';
   const [organizationFilter, setOrganizationFilter] = useState(initialOrgFilter);
+  const [firstAidFilter, setFirstAidFilter] = useState<'all' | 'certified' | 'available'>('all');
 
   useEffect(() => {
     loadProfiles();
@@ -99,9 +100,14 @@ export default function People() {
       const matchesOrg =
         organizationFilter === 'all' || profile.organization_id === organizationFilter;
 
-      return matchesSearch && matchesOrg;
+      const matchesFirstAid =
+        firstAidFilter === 'all' ||
+        (firstAidFilter === 'certified' && Boolean(profile.first_aid_certified)) ||
+        (firstAidFilter === 'available' && Boolean(profile.first_aid_available));
+
+      return matchesSearch && matchesOrg && matchesFirstAid;
     });
-  }, [profiles, searchTerm, organizationFilter]);
+  }, [profiles, searchTerm, organizationFilter, firstAidFilter]);
 
   const handleOrganizationFilterChange = (value: string) => {
     setOrganizationFilter(value);
@@ -132,7 +138,7 @@ export default function People() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
@@ -153,6 +159,16 @@ export default function People() {
                   {org.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={firstAidFilter} onValueChange={(value: 'all' | 'certified' | 'available') => setFirstAidFilter(value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Ersthelfer filtern" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Mitarbeitenden</SelectItem>
+              <SelectItem value="certified">Zertifizierte Ersthelfer</SelectItem>
+              <SelectItem value="available">Aktuell einsatzbereit</SelectItem>
             </SelectContent>
           </Select>
         </div>

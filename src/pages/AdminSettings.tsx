@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone, Loader2, Trash2, Globe } from 'lucide-react';
+import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone, Loader2, Trash2, Globe, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -94,6 +94,7 @@ export default function AdminSettings() {
     first_aid_certified: false,
     first_aid_available: false,
   });
+  const [memberSearchTerm, setMemberSearchTerm] = useState('');
 
   useEffect(() => {
     if (!canAccessAdmin) return;
@@ -371,8 +372,14 @@ export default function AdminSettings() {
     loadCoffeeProducts();
   };
 
-  const handleMemberRoleChange = async (memberId: string, newRole: 'MEMBER' | 'ORG_ADMIN') => {
-    if (!isSuperAdmin) return;
+  const handleMemberRoleChange = async (
+    memberId: string,
+    newRole: 'MEMBER' | 'ORG_ADMIN' | 'SUPER_ADMIN',
+  ) => {
+    if (!isSuperAdmin) {
+      toast.error('Nur Superadmins können Rollen vergeben.');
+      return;
+    }
     setMemberUpdates((prev) => ({ ...prev, [memberId]: true }));
     const { error } = await supabase
       .from('profiles')
@@ -503,6 +510,20 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
     return false;
   };
 
+  const filteredMembers = useMemo(() => {
+    if (!memberSearchTerm.trim()) return members;
+    const term = memberSearchTerm.toLowerCase();
+    return members.filter((member) => {
+      const orgName = member.organization?.name?.toLowerCase() ?? '';
+      return (
+        member.name.toLowerCase().includes(term) ||
+        member.email.toLowerCase().includes(term) ||
+        orgName.includes(term) ||
+        (member.phone ?? '').toLowerCase().includes(term)
+      );
+    });
+  }, [members, memberSearchTerm]);
+
   const handleDeleteMember = async (member: ProfileRow) => {
     if (!canDeleteMember(member)) {
       toast.error('Du hast keine Berechtigung, diesen Nutzer zu löschen.');
@@ -566,8 +587,9 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
         </div>
 
         <Tabs defaultValue="organizations">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="organizations">Organisationen verwalten</TabsTrigger>
+            <TabsTrigger value="people">Mitarbeitende</TabsTrigger>
             <TabsTrigger value="invites">Einladungen</TabsTrigger>
             <TabsTrigger value="coffee">Getränke</TabsTrigger>
           </TabsList>
@@ -667,16 +689,33 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
 
+          <TabsContent value="people" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Mitarbeitende verwalten</CardTitle>
                 <CardDescription>
-                  Bearbeite Rollen, News- und Eventmanager-Status sowie Profildaten der Mitarbeitenden.
+                  Suche nach Personen, passe Rollen an und pflege News- bzw. Eventmanager.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                {members.length === 0 ? (
+              <CardContent className="space-y-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="relative w-full md:max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={memberSearchTerm}
+                      onChange={(e) => setMemberSearchTerm(e.target.value)}
+                      placeholder="Nach Name, E-Mail oder Organisation suchen..."
+                      className="pl-9"
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {filteredMembers.length} {filteredMembers.length === 1 ? 'Eintrag' : 'Einträge'}
+                  </p>
+                </div>
+
+                {filteredMembers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Keine Mitarbeitenden gefunden.</p>
                 ) : (
                   <div className="rounded-md border overflow-x-auto">
@@ -692,8 +731,9 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {members.map((member) => {
+                        {filteredMembers.map((member) => {
                           const isUpdating = memberUpdates[member.id];
+                          const isSelf = member.id === currentProfile?.id;
                           return (
                             <TableRow key={member.id}>
                               <TableCell>
@@ -734,14 +774,14 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                   </Select>
                                 </TableCell>
                               )}
-                              <TableCell className="min-w-[140px]">
+                              <TableCell className="min-w-[160px]">
                                 {isSuperAdmin ? (
                                   <Select
                                     value={member.role}
-                                    onValueChange={(value: 'MEMBER' | 'ORG_ADMIN') =>
+                                    onValueChange={(value: 'MEMBER' | 'ORG_ADMIN' | 'SUPER_ADMIN') =>
                                       handleMemberRoleChange(member.id, value)
                                     }
-                                    disabled={member.role === 'SUPER_ADMIN' || isUpdating}
+                                    disabled={!canEditMember(member) || isUpdating || isSelf}
                                   >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Rolle wählen" />
@@ -749,6 +789,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                     <SelectContent>
                                       <SelectItem value="MEMBER">Mitarbeiter</SelectItem>
                                       <SelectItem value="ORG_ADMIN">Organisations-Admin</SelectItem>
+                                      <SelectItem value="SUPER_ADMIN">Superadmin</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 ) : (
