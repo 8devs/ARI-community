@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone, Loader2, Trash2 } from 'lucide-react';
+import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone, Loader2, Trash2, Globe } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -35,6 +35,7 @@ const emptyOrgForm = {
   contact_name: '',
   contact_email: '',
   contact_phone: '',
+  website_url: '',
 };
 
 const generateRandomPath = (prefix: string, file: File) => {
@@ -50,8 +51,9 @@ const generateRandomPath = (prefix: string, file: File) => {
 
 export default function AdminSettings() {
   const { profile: currentProfile, loading: profileLoading } = useCurrentProfile();
-  const isAdmin = currentProfile && currentProfile.role !== 'MEMBER';
+  const canAccessAdmin = currentProfile?.role === 'SUPER_ADMIN' || currentProfile?.role === 'ORG_ADMIN';
   const isSuperAdmin = currentProfile?.role === 'SUPER_ADMIN';
+  const isOrgAdmin = currentProfile?.role === 'ORG_ADMIN';
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [members, setMembers] = useState<ProfileRow[]>([]);
@@ -63,9 +65,11 @@ export default function AdminSettings() {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const [inviteForm, setInviteForm] = useState({
+    name: '',
     email: '',
     role: 'MEMBER',
     organization_id: '',
+    is_news_manager: false,
   });
   const [inviting, setInviting] = useState(false);
 
@@ -80,20 +84,29 @@ export default function AdminSettings() {
     isActive: true,
   });
   const [creatingProduct, setCreatingProduct] = useState(false);
+  const [memberDialogOpen, setMemberDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<ProfileRow | null>(null);
+  const [memberForm, setMemberForm] = useState({
+    name: '',
+    phone: '',
+    bio: '',
+    skills_text: '',
+    first_aid_certified: false,
+    first_aid_available: false,
+  });
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canAccessAdmin) return;
     loadOrganizations();
-    if (isSuperAdmin) {
-      loadMembers();
-    } else {
+    loadMembers();
+    if (!isSuperAdmin) {
       setInviteForm((prev) => ({ ...prev, organization_id: currentProfile?.organization_id ?? '' }));
       setCoffeeOrgId(currentProfile?.organization_id ?? null);
       if (currentProfile?.organization_id) {
         loadCoffeeProducts(currentProfile.organization_id);
       }
     }
-  }, [isAdmin, isSuperAdmin, currentProfile?.organization_id]);
+  }, [canAccessAdmin, isSuperAdmin, currentProfile?.organization_id]);
 
   useEffect(() => {
     if (isSuperAdmin && organizations.length && !inviteForm.organization_id) {
@@ -121,13 +134,19 @@ export default function AdminSettings() {
 
   const loadMembers = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
         .select(`
           *,
           organization:organizations(name)
         `)
         .order('name');
+
+      if (!isSuperAdmin && currentProfile?.organization_id) {
+        query = query.eq('organization_id', currentProfile.organization_id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setMembers(data || []);
     } catch (error: any) {
@@ -177,6 +196,7 @@ export default function AdminSettings() {
       contact_name: org.contact_name ?? '',
       contact_email: org.contact_email ?? '',
       contact_phone: org.contact_phone ?? '',
+      website_url: org.website_url ?? '',
     });
     setOrgDialogOpen(true);
   };
@@ -224,6 +244,7 @@ export default function AdminSettings() {
       contact_name: orgForm.contact_name.trim() || null,
       contact_email: orgForm.contact_email.trim() || null,
       contact_phone: orgForm.contact_phone.trim() || null,
+      website_url: orgForm.website_url.trim() || null,
     };
 
     const query = editingOrg
@@ -276,8 +297,8 @@ export default function AdminSettings() {
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteForm.email.trim() || !inviteForm.organization_id) {
-      toast.error('E-Mail und Organisation sind erforderlich');
+    if (!inviteForm.name.trim() || !inviteForm.email.trim() || !inviteForm.organization_id) {
+      toast.error('Name, E-Mail und Organisation sind erforderlich');
       return;
     }
 
@@ -290,9 +311,11 @@ export default function AdminSettings() {
           shouldCreateUser: true,
           emailRedirectTo: redirectTo,
           data: {
+            name: inviteForm.name.trim(),
             role: inviteForm.role,
             organization_id: inviteForm.organization_id,
             invited_by: currentProfile?.id ?? null,
+            is_news_manager: inviteForm.is_news_manager,
           },
         },
       });
@@ -300,8 +323,10 @@ export default function AdminSettings() {
       toast.success('Einladungs-E-Mail wurde verschickt');
       setInviteForm(prev => ({
         ...prev,
+        name: '',
         email: '',
         role: 'MEMBER',
+        is_news_manager: false,
       }));
     } catch (error: any) {
       console.error('Error sending invite', error);
@@ -368,10 +393,109 @@ export default function AdminSettings() {
     }
   };
 
+  const handleMemberRoleChange = async (memberId: string, newRole: 'MEMBER' | 'ORG_ADMIN') => {
+    if (!isSuperAdmin) return;
+    setMemberUpdates((prev) => ({ ...prev, [memberId]: true }));
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: newRole })
+      .eq('id', memberId);
+    if (error) {
+      console.error('Error updating member role', error);
+      toast.error('Rolle konnte nicht aktualisiert werden');
+    } else {
+      toast.success('Rolle aktualisiert');
+      loadMembers();
+    }
+    setMemberUpdates((prev) => ({ ...prev, [memberId]: false }));
+  };
+
+  const handleNewsManagerToggle = async (member: ProfileRow, nextState: boolean) => {
+    if (!canEditMember(member)) {
+      toast.error('Keine Berechtigung für diese Änderung');
+      return;
+    }
+    setMemberUpdates((prev) => ({ ...prev, [member.id]: true }));
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_news_manager: nextState })
+      .eq('id', member.id);
+    if (error) {
+      console.error('Error updating news manager flag', error);
+      toast.error('Status konnte nicht aktualisiert werden');
+    } else {
+      toast.success(nextState ? 'Als Newsmanager markiert' : 'Newsmanager-Status entfernt');
+      loadMembers();
+    }
+    setMemberUpdates((prev) => ({ ...prev, [member.id]: false }));
+  };
+
+  const openMemberEditDialog = (member: ProfileRow) => {
+    setEditingMember(member);
+    setMemberForm({
+      name: member.name,
+      phone: member.phone ?? '',
+      bio: member.bio ?? '',
+      skills_text: member.skills_text ?? '',
+      first_aid_certified: Boolean(member.first_aid_certified),
+      first_aid_available: Boolean(member.first_aid_available),
+    });
+    setMemberDialogOpen(true);
+  };
+
+  const handleMemberFormChange = (field: keyof typeof memberForm, value: string | boolean) => {
+    setMemberForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveMemberDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember) return;
+    if (!memberForm.name.trim()) {
+      toast.error('Name darf nicht leer sein');
+      return;
+    }
+    const memberId = editingMember.id;
+    setMemberUpdates((prev) => ({ ...prev, [memberId]: true }));
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        name: memberForm.name.trim(),
+        phone: memberForm.phone.trim() || null,
+        bio: memberForm.bio.trim() || null,
+        skills_text: memberForm.skills_text.trim() || null,
+        first_aid_certified: memberForm.first_aid_certified,
+        first_aid_available: memberForm.first_aid_available,
+      })
+      .eq('id', memberId);
+    if (error) {
+      console.error('Error updating member profile', error);
+      toast.error('Profil konnte nicht aktualisiert werden');
+    } else {
+      toast.success('Profil aktualisiert');
+      setMemberDialogOpen(false);
+      setEditingMember(null);
+      loadMembers();
+    }
+    setMemberUpdates((prev) => ({ ...prev, [memberId]: false }));
+  };
+
+  const canEditMember = (member: ProfileRow) => {
+    if (!currentProfile) return false;
+    if (isSuperAdmin) return true;
+    if (isOrgAdmin) {
+      return (
+        currentProfile.organization_id &&
+        currentProfile.organization_id === member.organization_id &&
+        member.role !== 'SUPER_ADMIN'
+      );
+    }
+    return false;
+  };
+
   const canDeleteMember = (member: ProfileRow) => {
     if (!currentProfile) return false;
-    if (currentProfile.role === 'SUPER_ADMIN') return true;
-    if (currentProfile.role === 'ORG_ADMIN') {
+    if (isSuperAdmin) return true;
+    if (isOrgAdmin) {
       return (
         currentProfile.organization_id &&
         currentProfile.organization_id === member.organization_id &&
@@ -420,7 +544,7 @@ export default function AdminSettings() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canAccessAdmin) {
     return (
       <Layout>
         <Card>
@@ -480,9 +604,6 @@ export default function AdminSettings() {
                         <CardHeader className="flex flex-row items-center justify-between space-y-0">
                           <div className="space-y-1">
                             <CardTitle>{org.name}</CardTitle>
-                            <p className="text-sm text-muted-foreground">
-                              {org.cost_center_code ? `Kostenstelle: ${org.cost_center_code}` : 'Keine Kostenstelle hinterlegt'}
-                            </p>
                           </div>
                           <Badge variant="secondary">
                             {totalMembersPerOrg[org.id] || 0} Mitglieder
@@ -519,13 +640,28 @@ export default function AdminSettings() {
                             {org.contact_email && (
                               <p className="flex items-center gap-2">
                                 <Mail className="h-4 w-4" />
-                                {org.contact_email}
+                                <a href={`mailto:${org.contact_email}`} className="hover:text-primary truncate">
+                                  {org.contact_email}
+                                </a>
                               </p>
                             )}
                             {org.contact_phone && (
                               <p className="flex items-center gap-2">
                                 <Phone className="h-4 w-4" />
                                 {org.contact_phone}
+                              </p>
+                            )}
+                            {org.website_url && (
+                              <p className="flex items-center gap-2">
+                                <Globe className="h-4 w-4" />
+                                <a
+                                  href={org.website_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="hover:text-primary truncate"
+                                >
+                                  {org.website_url.replace(/^https?:\/\//, '')}
+                                </a>
                               </p>
                             )}
                           </div>
@@ -541,29 +677,32 @@ export default function AdminSettings() {
               </CardContent>
             </Card>
 
-            {isSuperAdmin && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Mitarbeitende verschieben</CardTitle>
-                  <CardDescription>Weise Mitarbeitende anderen Organisationen zu.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {members.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Keine Mitarbeitenden gefunden.</p>
-                  ) : (
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Organisation</TableHead>
-                            <TableHead>Rolle</TableHead>
-                            <TableHead className="w-56">Neue Organisation</TableHead>
-                            <TableHead className="w-32 text-right">Aktionen</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {members.map((member) => (
+            <Card>
+              <CardHeader>
+                <CardTitle>Mitarbeitende verwalten</CardTitle>
+                <CardDescription>
+                  Bearbeite Rollen, Newsmanager-Status und Profildaten der Mitarbeitenden.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {members.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Keine Mitarbeitenden gefunden.</p>
+                ) : (
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Person</TableHead>
+                          {isSuperAdmin && <TableHead>Organisation</TableHead>}
+                          <TableHead>Rolle</TableHead>
+                          <TableHead>Newsmanager</TableHead>
+                          <TableHead className="w-48 text-right">Aktionen</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {members.map((member) => {
+                          const isUpdating = memberUpdates[member.id];
+                          return (
                             <TableRow key={member.id}>
                               <TableCell>
                                 <div className="flex items-center gap-3">
@@ -577,34 +716,80 @@ export default function AdminSettings() {
                                   <div>
                                     <p className="font-medium">{member.name}</p>
                                     <p className="text-xs text-muted-foreground">{member.email}</p>
+                                    {member.phone && (
+                                      <p className="text-xs text-muted-foreground">{member.phone}</p>
+                                    )}
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>{member.organization?.name ?? '—'}</TableCell>
-                              <TableCell>
-                                <Badge variant={member.role === 'SUPER_ADMIN' ? 'default' : member.role === 'ORG_ADMIN' ? 'secondary' : 'outline'}>
-                                  {member.role}
-                                </Badge>
+                              {isSuperAdmin && (
+                                <TableCell className="min-w-[180px]">
+                                  <Select
+                                    value={member.organization_id ?? undefined}
+                                    onValueChange={(value) => handleMemberOrgChange(member.id, value)}
+                                    disabled={isUpdating}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Organisation wählen" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {organizations.map((org) => (
+                                        <SelectItem key={org.id} value={org.id}>
+                                          {org.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                              )}
+                              <TableCell className="min-w-[140px]">
+                                {isSuperAdmin ? (
+                                  <Select
+                                    value={member.role}
+                                    onValueChange={(value: 'MEMBER' | 'ORG_ADMIN') =>
+                                      handleMemberRoleChange(member.id, value)
+                                    }
+                                    disabled={member.role === 'SUPER_ADMIN' || isUpdating}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Rolle wählen" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="MEMBER">Mitarbeiter</SelectItem>
+                                      <SelectItem value="ORG_ADMIN">Organisations-Admin</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Badge
+                                    variant={
+                                      member.role === 'ORG_ADMIN'
+                                        ? 'secondary'
+                                        : member.role === 'SUPER_ADMIN'
+                                        ? 'default'
+                                        : 'outline'
+                                    }
+                                  >
+                                    {member.role}
+                                  </Badge>
+                                )}
                               </TableCell>
                               <TableCell>
-                                <Select
-                                  value={member.organization_id ?? undefined}
-                                  onValueChange={(value) => handleMemberOrgChange(member.id, value)}
-                                  disabled={memberUpdates[member.id]}
+                                <Switch
+                                  checked={Boolean(member.is_news_manager)}
+                                  onCheckedChange={(checked) => handleNewsManagerToggle(member, checked)}
+                                  disabled={!canEditMember(member) || isUpdating}
+                                />
+                              </TableCell>
+                              <TableCell className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openMemberEditDialog(member)}
+                                  disabled={!canEditMember(member)}
                                 >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Organisation wählen" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {organizations.map((org) => (
-                                      <SelectItem key={org.id} value={org.id}>
-                                        {org.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell className="text-right">
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Bearbeiten
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -615,14 +800,14 @@ export default function AdminSettings() {
                                 </Button>
                               </TableCell>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="invites" className="space-y-6">
@@ -635,6 +820,15 @@ export default function AdminSettings() {
               </CardHeader>
               <CardContent>
                 <form className="space-y-4" onSubmit={handleInviteSubmit}>
+                  <div className="space-y-2">
+                    <Label>Voller Name</Label>
+                    <Input
+                      placeholder="Max Mustermann"
+                      value={inviteForm.name}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))}
+                      required
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label>E-Mail-Adresse</Label>
                     <Input
@@ -685,6 +879,20 @@ export default function AdminSettings() {
                         </p>
                       )}
                     </div>
+                  </div>
+                  <div className="flex flex-col gap-2 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium">Newsmanager</p>
+                      <p className="text-sm text-muted-foreground">
+                        Darf öffentliche Pinnwand-Einträge erstellen und bearbeiten.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={inviteForm.is_news_manager}
+                      onCheckedChange={(checked) =>
+                        setInviteForm(prev => ({ ...prev, is_news_manager: checked }))
+                      }
+                    />
                   </div>
                   <Button type="submit" disabled={inviting}>
                     {inviting ? 'Wird eingeladen...' : 'Einladung senden'}
@@ -895,6 +1103,16 @@ export default function AdminSettings() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="org-website">Webseite</Label>
+              <Input
+                id="org-website"
+                type="url"
+                placeholder="https://example.com"
+                value={orgForm.website_url}
+                onChange={(e) => handleOrgInputChange('website_url', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="org-location">Räumlichkeiten / Standort</Label>
               <Textarea
                 id="org-location"
@@ -937,6 +1155,87 @@ export default function AdminSettings() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={memberDialogOpen} onOpenChange={setMemberDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Profil bearbeiten</DialogTitle>
+          </DialogHeader>
+          {editingMember && (
+            <form className="space-y-4" onSubmit={handleSaveMemberDetails}>
+              <div className="space-y-2">
+                <Label htmlFor="member-name">Name</Label>
+                <Input
+                  id="member-name"
+                  value={memberForm.name}
+                  onChange={(e) => handleMemberFormChange('name', e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="member-phone">Telefon</Label>
+                  <Input
+                    id="member-phone"
+                    value={memberForm.phone}
+                    onChange={(e) => handleMemberFormChange('phone', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="member-skills">Skills / Themen</Label>
+                  <Input
+                    id="member-skills"
+                    value={memberForm.skills_text}
+                    onChange={(e) => handleMemberFormChange('skills_text', e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="member-bio">Kurzprofil</Label>
+                <Textarea
+                  id="member-bio"
+                  rows={3}
+                  value={memberForm.bio}
+                  onChange={(e) => handleMemberFormChange('bio', e.target.value)}
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="font-medium">Ersthelfer</p>
+                    <p className="text-xs text-muted-foreground">
+                      Markiert die Person als zertifizierte Ersthelfer:in.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={memberForm.first_aid_certified}
+                    onCheckedChange={(checked) => handleMemberFormChange('first_aid_certified', checked)}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="font-medium">Verfügbar</p>
+                    <p className="text-xs text-muted-foreground">
+                      Kann aktuell als Ersthelfer:in eingesetzt werden.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={memberForm.first_aid_available}
+                    onCheckedChange={(checked) => handleMemberFormChange('first_aid_available', checked)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  disabled={memberUpdates[editingMember.id]}
+                >
+                  {memberUpdates[editingMember.id] ? 'Speichern...' : 'Speichern'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </Layout>

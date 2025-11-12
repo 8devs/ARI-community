@@ -45,7 +45,7 @@ export default function Coffee() {
   const [orgOptions, setOrgOptions] = useState<{ id: string; name: string; cost_center_code: string | null }[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
-  const isOrgAdmin = profile?.role && profile.role !== 'MEMBER';
+  const isOrgAdmin = profile?.role === 'SUPER_ADMIN' || profile?.role === 'ORG_ADMIN';
 
   useEffect(() => {
     if (!profile?.organization_id) {

@@ -22,6 +22,7 @@ export type Database = {
           id: string
           question_id: string
           upvotes: number | null
+          updated_at: string
         }
         Insert: {
           body: string
@@ -30,6 +31,7 @@ export type Database = {
           id?: string
           question_id: string
           upvotes?: number | null
+          updated_at?: string
         }
         Update: {
           body?: string
@@ -38,6 +40,7 @@ export type Database = {
           id?: string
           question_id?: string
           upvotes?: number | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -52,6 +55,42 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      answer_votes: {
+        Row: {
+          answer_id: string
+          created_at: string
+          id: string
+          voter_id: string
+        }
+        Insert: {
+          answer_id: string
+          created_at?: string
+          id?: string
+          voter_id: string
+        }
+        Update: {
+          answer_id?: string
+          created_at?: string
+          id?: string
+          voter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answer_votes_answer_id_fkey"
+            columns: ["answer_id"]
+            isOneToOne: false
+            referencedRelation: "answers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answer_votes_voter_id_fkey"
+            columns: ["voter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -630,6 +669,7 @@ export type Database = {
           logo_url: string | null
           location_text: string
           name: string
+          website_url: string | null
         }
         Insert: {
           contact_email?: string | null
@@ -641,6 +681,7 @@ export type Database = {
           logo_url?: string | null
           location_text?: string
           name: string
+          website_url?: string | null
         }
         Update: {
           contact_email?: string | null
@@ -652,6 +693,7 @@ export type Database = {
           logo_url?: string | null
           location_text?: string
           name?: string
+          website_url?: string | null
         }
         Relationships: []
       }
@@ -739,6 +781,7 @@ export type Database = {
           first_aid_available_since: string | null
           first_aid_certified: boolean | null
           id: string
+          is_news_manager: boolean
           name: string
           organization_id: string
           phone: string | null
@@ -755,6 +798,7 @@ export type Database = {
           first_aid_available_since?: string | null
           first_aid_certified?: boolean | null
           id: string
+          is_news_manager?: boolean
           name: string
           organization_id: string
           phone?: string | null
@@ -771,6 +815,7 @@ export type Database = {
           first_aid_available_since?: string | null
           first_aid_certified?: boolean | null
           id?: string
+          is_news_manager?: boolean
           name?: string
           organization_id?: string
           phone?: string | null
@@ -993,6 +1038,7 @@ export type Database = {
           location_text: string
           logo_url: string | null
           member_count: number
+          website_url: string | null
           name: string
         }[]
       }

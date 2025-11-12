@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
-import { Building2, MapPin, Phone, Mail, Users } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, Users, Globe } from 'lucide-react';
 
 type Organization = Tables<'organizations'> & {
   member_count: number;
@@ -14,6 +15,7 @@ type Organization = Tables<'organizations'> & {
 export default function Organizations() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadOrganizations();
@@ -58,11 +60,27 @@ export default function Organizations() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {organizations.map((org) => (
-              <Card key={org.id} className="flex flex-col">
+              <Card
+                key={org.id}
+                className="flex flex-col cursor-pointer transition hover:shadow-lg focus-visible:ring-2"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/personen?organization=${org.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate(`/personen?organization=${org.id}`);
+                  }
+                }}
+              >
                 <CardHeader className="flex flex-row items-center gap-4">
                   <Avatar className="h-14 w-14 rounded-lg">
                     {org.logo_url ? (
-                      <AvatarImage src={org.logo_url} alt={org.name} className="object-cover" />
+                      <AvatarImage
+                        src={org.logo_url}
+                        alt={org.name}
+                        className="object-contain rounded-lg bg-white p-1"
+                      />
                     ) : (
                       <AvatarFallback className="rounded-lg bg-primary/10 text-primary">
                         <Building2 className="h-6 w-6" />
@@ -71,9 +89,7 @@ export default function Organizations() {
                   </Avatar>
                   <div>
                     <CardTitle>{org.name}</CardTitle>
-                    <CardDescription>
-                      {org.cost_center_code ? `Kostenstelle ${org.cost_center_code}` : 'Keine Kostenstelle hinterlegt'}
-                    </CardDescription>
+                    <CardDescription>{org.member_count} Mitarbeitende</CardDescription>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4 flex-1">
@@ -104,9 +120,20 @@ export default function Organizations() {
                         </a>
                       </p>
                     )}
-                  </div>
-                  <div className="rounded-lg bg-muted/30 p-2 text-sm text-muted-foreground">
-                    {org.member_count} Mitarbeitende
+                    {org.website_url && (
+                      <p className="flex items-center gap-2">
+                        <Globe className="h-4 w-4" />
+                        <a
+                          href={org.website_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:text-primary"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          Webseite öffnen
+                        </a>
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -14,7 +14,6 @@ import {
   IdCard,
   Coffee,
   Menu,
-  Newspaper,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -36,6 +35,7 @@ export function Layout({ children }: LayoutProps) {
   const { profile } = useCurrentProfile();
   const navigate = useNavigate();
   const isAuthenticated = Boolean(user);
+  const canAccessAdmin = profile?.role === 'SUPER_ADMIN' || profile?.role === 'ORG_ADMIN';
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -102,12 +102,12 @@ export function Layout({ children }: LayoutProps) {
                         </Link>
                       </Button>
                     ))}
-                    {isAuthenticated && profile && profile.role !== 'MEMBER' && (
-                      <Button
-                        variant="ghost"
-                        className="justify-start"
-                        onClick={() => setMobileOpen(false)}
-                        asChild
+                {isAuthenticated && canAccessAdmin && (
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => setMobileOpen(false)}
+                    asChild
                       >
                         <Link to="/admin">
                           <Shield className="h-4 w-4 mr-2" />
@@ -128,7 +128,7 @@ export function Layout({ children }: LayoutProps) {
                     </Link>
                   </Button>
                 ))}
-                {isAuthenticated && profile && profile.role !== 'MEMBER' && (
+                {isAuthenticated && canAccessAdmin && (
                   <Button variant="ghost" size="sm" asChild>
                     <Link to="/admin">
                       <Shield className="h-4 w-4 mr-2" />
@@ -178,9 +178,23 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        {children}
-      </main>
+      <main className="container mx-auto px-4 py-8">{children}</main>
+
+      <footer className="border-t border-border bg-card/60">
+        <div className="container mx-auto flex flex-col gap-3 px-4 py-6 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <a
+              href="https://aiddevs.com/impressum/"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-primary transition-colors"
+            >
+              Impressum
+            </a>
+          </div>
+          <p>Made with ❤️ in Worms by 8devs GmbH</p>
+        </div>
+      </footer>
     </div>
   );
 }

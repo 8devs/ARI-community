@@ -51,11 +51,11 @@ export default function Pinnwand() {
 
   useEffect(() => {
     loadPosts();
-  }, []);
+  }, [isAuthenticated]);
 
   const loadPosts = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('info_posts')
         .select(`
           id,
@@ -69,6 +69,12 @@ export default function Pinnwand() {
         `)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
+
+      if (!isAuthenticated) {
+        query = query.eq('audience', 'PUBLIC');
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setPosts(data || []);
@@ -156,8 +162,12 @@ export default function Pinnwand() {
     setDeletingId(null);
   };
 
-  const isAdmin = profile?.role && profile.role !== 'MEMBER';
-  const canManagePost = (post: InfoPost) => user?.id === post.created_by_id || isAdmin;
+  const canManagePosts = Boolean(profile?.is_news_manager || profile?.role === 'SUPER_ADMIN');
+  const canManagePost = (post: InfoPost) => {
+    if (!user?.id) return false;
+    if (profile?.role === 'SUPER_ADMIN') return true;
+    return profile?.is_news_manager && user.id === post.created_by_id;
+  };
 
   return (
     <Layout>
@@ -169,7 +179,7 @@ export default function Pinnwand() {
               Aktuelle News und Ankündigungen aus der Community
             </p>
           </div>
-          {isAuthenticated ? (
+          {canManagePosts ? (
             <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={openCreateDialog}>
@@ -242,6 +252,10 @@ export default function Pinnwand() {
                 </form>
               </DialogContent>
             </Dialog>
+          ) : isAuthenticated ? (
+            <p className="text-sm text-muted-foreground">
+              Nur Newsmanager können Beiträge erstellen oder bearbeiten.
+            </p>
           ) : (
             <Button asChild variant="outline">
               <Link to="/login">Anmelden, um zu posten</Link>

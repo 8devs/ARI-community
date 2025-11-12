@@ -1,15 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Plus, CheckCircle2, Edit, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, CheckCircle2, Edit, Trash2, ThumbsUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -35,6 +53,7 @@ interface Answer {
   body: string;
   created_at: string;
   created_by_id: string;
+  upvotes: number | null;
   created_by: {
     name: string;
   };
@@ -55,12 +74,25 @@ export default function QA() {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
   const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({});
   const [answerSubmittingId, setAnswerSubmittingId] = useState<string | null>(null);
+  const [userVotes, setUserVotes] = useState<Set<string>>(new Set());
+  const [answerEdits, setAnswerEdits] = useState<Record<string, string>>({});
+  const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
+  const [savingAnswerId, setSavingAnswerId] = useState<string | null>(null);
+  const [deletingAnswerId, setDeletingAnswerId] = useState<string | null>(null);
   const { user } = useAuth();
   const { profile } = useCurrentProfile();
 
   useEffect(() => {
     loadQuestions();
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadUserVotes();
+    } else {
+      setUserVotes(new Set());
+    }
+  }, [user?.id]);
 
   const loadQuestions = async () => {
     try {
@@ -80,6 +112,7 @@ export default function QA() {
             body,
             created_at,
             created_by_id,
+            upvotes,
             created_by:profiles!answers_created_by_id_fkey(name)
           )
         `)
@@ -92,6 +125,20 @@ export default function QA() {
       console.error('Error loading questions:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUserVotes = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('answer_votes')
+        .select('answer_id')
+        .eq('voter_id', user.id);
+      if (error) throw error;
+      setUserVotes(new Set((data || []).map((vote) => vote.answer_id)));
+    } catch (error) {
+      console.error('Error loading answer votes', error);
     }
   };
 
@@ -125,7 +172,7 @@ export default function QA() {
     setCreating(true);
     const tags = newQuestion.tags
       .split(',')
-      .map(tag => tag.trim())
+      .map((tag) => tag.trim())
       .filter(Boolean);
 
     let error;
@@ -162,11 +209,11 @@ export default function QA() {
   };
 
   const toggleAnswers = (questionId: string) => {
-    setExpandedQuestionId(prev => (prev === questionId ? null : questionId));
+    setExpandedQuestionId((prev) => (prev === questionId ? null : questionId));
   };
 
   const handleAnswerInputChange = (questionId: string, value: string) => {
-    setAnswerInputs(prev => ({ ...prev, [questionId]: value }));
+    setAnswerInputs((prev) => ({ ...prev, [questionId]: value }));
   };
 
   const handleSubmitAnswer = async (questionId: string) => {
@@ -190,10 +237,80 @@ export default function QA() {
       toast.error('Antwort konnte nicht gespeichert werden');
     } else {
       toast.success('Antwort veröffentlicht');
-      setAnswerInputs(prev => ({ ...prev, [questionId]: '' }));
+      setAnswerInputs((prev) => ({ ...prev, [questionId]: '' }));
       loadQuestions();
     }
     setAnswerSubmittingId(null);
+  };
+
+  const handleUpvoteAnswer = async (answerId: string) => {
+    if (!user?.id) {
+      toast.error('Bitte melde Dich an, um Antworten zu bewerten');
+      return;
+    }
+    if (userVotes.has(answerId)) {
+      toast.info('Du hast diese Antwort bereits hochgevotet');
+      return;
+    }
+    const { error } = await supabase.from('answer_votes').insert({
+      answer_id: answerId,
+      voter_id: user.id,
+    });
+    if (error) {
+      if (error.code === '23505') {
+        toast.info('Du hast diese Antwort bereits hochgevotet');
+      } else {
+        console.error('Error upvoting answer', error);
+        toast.error('Stimme konnte nicht gespeichert werden');
+      }
+      return;
+    }
+    const next = new Set(userVotes);
+    next.add(answerId);
+    setUserVotes(next);
+    toast.success('Danke für Dein Voting');
+    loadQuestions();
+  };
+
+  const handleStartEditAnswer = (answer: Answer) => {
+    setEditingAnswerId(answer.id);
+    setAnswerEdits((prev) => ({ ...prev, [answer.id]: answer.body }));
+  };
+
+  const handleCancelEditAnswer = () => {
+    setEditingAnswerId(null);
+  };
+
+  const handleSaveAnswerEdit = async (answerId: string) => {
+    const body = answerEdits[answerId]?.trim();
+    if (!body) {
+      toast.error('Antwort darf nicht leer sein');
+      return;
+    }
+    setSavingAnswerId(answerId);
+    const { error } = await supabase.from('answers').update({ body }).eq('id', answerId);
+    if (error) {
+      console.error('Error updating answer', error);
+      toast.error('Antwort konnte nicht aktualisiert werden');
+    } else {
+      toast.success('Antwort aktualisiert');
+      setEditingAnswerId(null);
+      loadQuestions();
+    }
+    setSavingAnswerId(null);
+  };
+
+  const handleDeleteAnswer = async (answerId: string) => {
+    setDeletingAnswerId(answerId);
+    const { error } = await supabase.from('answers').delete().eq('id', answerId);
+    if (error) {
+      console.error('Error deleting answer', error);
+      toast.error('Antwort konnte nicht gelöscht werden');
+    } else {
+      toast.success('Antwort gelöscht');
+      loadQuestions();
+    }
+    setDeletingAnswerId(null);
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
@@ -209,9 +326,9 @@ export default function QA() {
     setDeletingId(null);
   };
 
-  const isAdmin = profile?.role && profile.role !== 'MEMBER';
-  const canManageQuestion = (question: Question) =>
-    user?.id === question.created_by_id || isAdmin;
+  const isAdmin = profile?.role === 'SUPER_ADMIN' || profile?.role === 'ORG_ADMIN';
+  const canManageQuestion = (question: Question) => user?.id === question.created_by_id || isAdmin;
+  const canManageAnswer = (answer: Answer) => user?.id === answer.created_by_id || isAdmin;
 
   return (
     <Layout>
@@ -243,7 +360,7 @@ export default function QA() {
                   <Input
                     id="question-title"
                     value={newQuestion.title}
-                    onChange={(e) => setNewQuestion(prev => ({ ...prev, title: e.target.value }))}
+                    onChange={(e) => setNewQuestion((prev) => ({ ...prev, title: e.target.value }))}
                     placeholder="Kurzer, prägnanter Titel"
                     required
                   />
@@ -253,7 +370,7 @@ export default function QA() {
                   <Textarea
                     id="question-body"
                     value={newQuestion.body}
-                    onChange={(e) => setNewQuestion(prev => ({ ...prev, body: e.target.value }))}
+                    onChange={(e) => setNewQuestion((prev) => ({ ...prev, body: e.target.value }))}
                     rows={5}
                     placeholder="Beschreibe Deine Frage oder Herausforderung..."
                     required
@@ -264,7 +381,7 @@ export default function QA() {
                   <Input
                     id="question-tags"
                     value={newQuestion.tags}
-                    onChange={(e) => setNewQuestion(prev => ({ ...prev, tags: e.target.value }))}
+                    onChange={(e) => setNewQuestion((prev) => ({ ...prev, tags: e.target.value }))}
                     placeholder="IT, Facility, HR..."
                   />
                 </div>
@@ -279,17 +396,13 @@ export default function QA() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-muted-foreground">
-            Lädt Fragen...
-          </div>
+          <div className="text-center py-12 text-muted-foreground">Lädt Fragen...</div>
         ) : questions.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-lg font-medium mb-2">Noch keine Fragen</p>
-              <p className="text-muted-foreground mb-4">
-                Stelle die erste Frage!
-              </p>
+              <p className="text-muted-foreground mb-4">Stelle die erste Frage!</p>
               <Button onClick={() => setDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Erste Frage stellen
@@ -298,16 +411,14 @@ export default function QA() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {questions.map(question => (
+            {questions.map((question) => (
               <Card key={question.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <CardTitle className="text-xl">{question.title}</CardTitle>
-                        {question.is_solved && (
-                          <CheckCircle2 className="h-5 w-5 text-success" />
-                        )}
+                        {question.is_solved && <CheckCircle2 className="h-5 w-5 text-success" />}
                       </div>
                       <CardDescription>
                         Von {question.created_by.name} •{' '}
@@ -320,9 +431,7 @@ export default function QA() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-muted-foreground line-clamp-2">
-                    {question.body}
-                  </p>
+                  <p className="text-muted-foreground line-clamp-2">{question.body}</p>
 
                   <div className="flex items-center justify-between">
                     <div className="flex flex-wrap gap-2">
@@ -380,15 +489,43 @@ export default function QA() {
                     <div className="space-y-4 border-t pt-4">
                       <div className="space-y-3">
                         {question.answers.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">
-                            Noch keine Antworten vorhanden.
-                          </p>
+                          <p className="text-sm text-muted-foreground">Noch keine Antworten vorhanden.</p>
                         ) : (
                           question.answers.map((answer) => (
                             <div key={answer.id} className="rounded-lg border p-3">
-                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                {answer.body}
-                              </p>
+                              {editingAnswerId === answer.id ? (
+                                <>
+                                  <Textarea
+                                    rows={3}
+                                    value={answerEdits[answer.id] ?? ''}
+                                    onChange={(e) =>
+                                      setAnswerEdits((prev) => ({
+                                        ...prev,
+                                        [answer.id]: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSaveAnswerEdit(answer.id)}
+                                      disabled={savingAnswerId === answer.id}
+                                    >
+                                      {savingAnswerId === answer.id ? 'Speichert...' : 'Speichern'}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={handleCancelEditAnswer}
+                                      disabled={savingAnswerId === answer.id}
+                                    >
+                                      Abbrechen
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{answer.body}</p>
+                              )}
                               <p className="text-xs text-muted-foreground mt-2">
                                 Von {answer.created_by.name} •{' '}
                                 {formatDistanceToNow(new Date(answer.created_at), {
@@ -396,6 +533,56 @@ export default function QA() {
                                   locale: de,
                                 })}
                               </p>
+                              <div className="mt-2 flex flex-wrap items-center gap-3">
+                                <Button
+                                  variant={userVotes.has(answer.id) ? 'secondary' : 'outline'}
+                                  size="sm"
+                                  onClick={() => handleUpvoteAnswer(answer.id)}
+                                  disabled={userVotes.has(answer.id)}
+                                >
+                                  <ThumbsUp className="mr-2 h-4 w-4" />
+                                  {answer.upvotes ?? 0}
+                                </Button>
+                                {canManageAnswer(answer) && (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleStartEditAnswer(answer)}
+                                      disabled={editingAnswerId === answer.id && savingAnswerId === answer.id}
+                                    >
+                                      <Edit className="mr-1 h-4 w-4" />
+                                      Bearbeiten
+                                    </Button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="text-destructive">
+                                          <Trash2 className="mr-1 h-4 w-4" />
+                                          Löschen
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Antwort löschen?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Diese Aktion kann nicht rückgängig gemacht werden.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            onClick={() => handleDeleteAnswer(answer.id)}
+                                            disabled={deletingAnswerId === answer.id}
+                                          >
+                                            {deletingAnswerId === answer.id ? 'Löschen...' : 'Löschen'}
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))
                         )}
@@ -420,9 +607,7 @@ export default function QA() {
                           </Button>
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">
-                          Bitte melde Dich an, um zu antworten.
-                        </p>
+                        <p className="text-sm text-muted-foreground">Bitte melde Dich an, um zu antworten.</p>
                       )}
                     </div>
                   )}
