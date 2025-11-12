@@ -6,9 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Search, Mail, Heart, Users, UserPlus, Copy, CheckCircle2, Trash2 } from 'lucide-react';
+import { Search, Mail, Heart, Users, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -26,34 +25,13 @@ interface Profile {
   } | null;
 }
 
-interface Invitation {
-  id: string;
-  email: string;
-  role: string;
-  token: string;
-  created_at: string;
-  expires_at: string;
-  accepted_at: string | null;
-  organization_id: string;
-  organization?: {
-    name: string | null;
-  } | null;
-  invited_by?: {
-    name: string | null;
-  } | null;
-}
-
 export default function People() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [invitationsLoading, setInvitationsLoading] = useState(false);
   const [creatingInvite, setCreatingInvite] = useState(false);
-  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
   const { profile } = useCurrentProfile();
-  const [invitesUnavailable, setInvitesUnavailable] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     role: 'MEMBER',
@@ -71,8 +49,6 @@ export default function People() {
     } else if (profile.organization_id) {
       setInviteForm(prev => ({ ...prev, organization_id: profile.organization_id! }));
     }
-    loadInvitations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, profile?.role, profile?.organization_id]);
 
   useEffect(() => {
@@ -107,53 +83,6 @@ export default function People() {
     }
   };
 
-  const invitationTableMissing = (error: any) =>
-    typeof error?.message === 'string' &&
-    error.message.includes("employee_invitations");
-
-  const loadInvitations = async () => {
-    if (!profile || profile.role === 'MEMBER') return;
-    setInvitationsLoading(true);
-    try {
-      let query = supabase
-        .from('employee_invitations')
-        .select(`
-          id,
-          email,
-          role,
-          token,
-          created_at,
-          expires_at,
-          accepted_at,
-          organization_id,
-          organization:organizations(name),
-          invited_by:profiles!employee_invitations_invited_by_fkey(name)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (profile.role !== 'SUPER_ADMIN') {
-        query = query.eq('organization_id', profile.organization_id);
-      }
-
-      const { data, error } = await query;
-      if (error) {
-        if (invitationTableMissing(error)) {
-          setInvitesUnavailable(true);
-          toast.error('Einladungen stehen noch nicht zur Verfügung. Bitte die Supabase-Migration für employee_invitations durchführen.');
-        } else {
-          throw error;
-        }
-      } else {
-        setInvitations(data || []);
-      }
-    } catch (error: any) {
-      console.error('Error loading invitations:', error);
-      toast.error('Einladungen konnten nicht geladen werden');
-    } finally {
-      setInvitationsLoading(false);
-    }
-  };
-
   const loadOrganizations = async () => {
     try {
       const { data, error } = await supabase
@@ -178,59 +107,33 @@ export default function People() {
 
     setCreatingInvite(true);
     try {
-      const { error } = await supabase.from('employee_invitations').insert({
+      const redirectTo = `${window.location.origin}/passwort/neu`;
+      const { error } = await supabase.auth.signInWithOtp({
         email: inviteForm.email.trim(),
-        role: inviteForm.role,
-        organization_id: inviteForm.organization_id,
-        invited_by: profile.id,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: redirectTo,
+          data: {
+            role: inviteForm.role,
+            organization_id: inviteForm.organization_id,
+            invited_by: profile.id,
+          },
+        },
       });
-      if (error) {
-        if (invitationTableMissing(error)) {
-          setInvitesUnavailable(true);
-          toast.error('Einladungen stehen noch nicht zur Verfügung. Bitte die Supabase-Migration für employee_invitations durchführen.');
-          return;
-        }
-        throw error;
-      }
-      toast.success('Einladung erstellt');
+
+      if (error) throw error;
+
+      toast.success('Einladungs-E-Mail wurde verschickt');
       setInviteForm(prev => ({
         ...prev,
         email: '',
         role: 'MEMBER',
-        organization_id:
-          profile.role === 'SUPER_ADMIN' ? prev.organization_id : profile.organization_id || '',
       }));
-      loadInvitations();
     } catch (error: any) {
-      console.error('Error creating invitation:', error);
-      toast.error(error.message || 'Einladung konnte nicht erstellt werden');
+      console.error('Error sending invite:', error);
+      toast.error(error.message || 'Einladung konnte nicht gesendet werden');
     } finally {
       setCreatingInvite(false);
-    }
-  };
-
-  const handleDeleteInvitation = async (invitation: Invitation) => {
-    if (invitation.accepted_at) return;
-    try {
-      const { error } = await supabase.from('employee_invitations').delete().eq('id', invitation.id);
-      if (error) throw error;
-      toast.success('Einladung gelöscht');
-      loadInvitations();
-    } catch (error: any) {
-      console.error('Error deleting invitation:', error);
-      toast.error('Einladung konnte nicht gelöscht werden');
-    }
-  };
-
-  const handleCopyInviteLink = async (invitation: Invitation) => {
-    const link = `${window.location.origin}/login?invite=${invitation.token}`;
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopiedInviteId(invitation.id);
-      setTimeout(() => setCopiedInviteId(null), 2000);
-    } catch (error) {
-      console.error('Clipboard error', error);
-      toast.error('Link konnte nicht kopiert werden');
     }
   };
 
@@ -265,23 +168,13 @@ export default function People() {
           </p>
         </div>
 
-                {canInvite && invitesUnavailable && (
-                  <Alert>
-                    <AlertTitle>Einladungen deaktiviert</AlertTitle>
-                    <AlertDescription>
-                      Die Tabelle <code>employee_invitations</code> ist noch nicht in der Supabase-Datenbank vorhanden.
-                      Bitte führe die neuesten Migrationen aus, um Einladungslinks zu erstellen.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {canInvite && !invitesUnavailable && (
+        {canInvite && (
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Mitarbeitende einladen</CardTitle>
                 <CardDescription>
-                  Organisationen können neue Kolleg:innen per E-Mail einladen. Einladung ist 14 Tage gültig.
+                  Supabase verschickt automatisch einen persönlichen Link per E-Mail.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -351,81 +244,19 @@ export default function People() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Offene Einladungen</CardTitle>
-                <CardDescription>
-                  Überwache alle Einladungen. Angenommene Einladungen erscheinen automatisch im Mitgliederverzeichnis.
-                </CardDescription>
+                <CardTitle>Was passiert nach dem Versand?</CardTitle>
+                <CardDescription>Kurze Erinnerung für Admins</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {invitationsLoading ? (
-                  <p className="text-sm text-muted-foreground">Einladungen werden geladen...</p>
-                ) : invitations.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Noch keine Einladungen versendet.</p>
-                ) : (
-                  <div className="space-y-4">
-                    {invitations.map(invitation => {
-                      const isAccepted = Boolean(invitation.accepted_at);
-                      const inviteLink = `${window.location.origin}/login?invite=${invitation.token}`;
-                      return (
-                        <div key={invitation.id} className="rounded-lg border p-4 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <div>
-                              <p className="font-medium">{invitation.email}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {invitation.organization?.name || 'Organisation unbekannt'} • {invitation.role}
-                              </p>
-                            </div>
-                            <Badge variant={isAccepted ? 'secondary' : 'default'}>
-                              {isAccepted ? 'Angenommen' : 'Ausstehend'}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Erstellt am {new Date(invitation.created_at).toLocaleDateString('de-DE')}
-                            {' • '}Gültig bis {new Date(invitation.expires_at).toLocaleDateString('de-DE')}
-                          </div>
-                          {!isAccepted && (
-                            <>
-                              <Separator />
-                              <div className="flex flex-wrap items-center gap-2">
-                                <code className="px-2 py-1 rounded bg-muted text-xs break-all flex-1">
-                                  {inviteLink}
-                                </code>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => handleCopyInviteLink(invitation)}
-                                >
-                                  {copiedInviteId === invitation.id ? (
-                                    <>
-                                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                                      Kopiert
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="h-4 w-4 mr-1" />
-                                      Link kopieren
-                                    </>
-                                  )}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-destructive"
-                                  onClick={() => handleDeleteInvitation(invitation)}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-1" />
-                                  Löschen
-                                </Button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <p>• Supabase verschickt automatisch eine Magic-Link-Mail.</p>
+                <p>• Nach dem Klick landet die Person auf <code>/passwort/neu</code> und vergibt ihr Passwort.</p>
+                <p>• Rolle & Organisation übernehmen wir über die Meta-Daten – keine manuelle Zuordnung mehr nötig.</p>
+                <Alert>
+                  <AlertTitle>Tipp</AlertTitle>
+                  <AlertDescription>
+                    Im Supabase-Dashboard unter Auth → Logs kannst Du Versandfehler nachsehen, falls eine Mail nicht ankommt.
+                  </AlertDescription>
+                </Alert>
               </CardContent>
             </Card>
           </div>
@@ -481,7 +312,7 @@ export default function People() {
                       {profile.bio}
                     </p>
                   )}
-                  
+
                   {profile.skills_text && (
                     <div className="flex flex-wrap gap-1">
                       {profile.skills_text.split(',').slice(0, 3).map((skill, idx) => (
