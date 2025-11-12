@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone } from 'lucide-react';
+import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -39,7 +39,10 @@ const emptyOrgForm = {
 
 const generateRandomPath = (prefix: string, file: File) => {
   const ext = file.name.split('.').pop();
-  const cryptoRef = typeof globalThis !== 'undefined' ? (globalThis.crypto as Crypto | undefined) : undefined;
+  const cryptoRef =
+    typeof globalThis !== 'undefined'
+      ? ((globalThis as unknown as { crypto?: Crypto }).crypto as Crypto | undefined)
+      : undefined;
   const randomString =
     cryptoRef?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   return `${prefix}/${randomString}.${ext}`;
@@ -68,6 +71,7 @@ export default function AdminSettings() {
   const [coffeeOrgId, setCoffeeOrgId] = useState<string | null>(null);
   const [coffeeProducts, setCoffeeProducts] = useState<CoffeeProduct[]>([]);
   const [coffeeLoading, setCoffeeLoading] = useState(false);
+  const [coffeeError, setCoffeeError] = useState<string | null>(null);
   const [productForm, setProductForm] = useState({
     name: '',
     price: '',
@@ -133,6 +137,7 @@ export default function AdminSettings() {
 
   const loadCoffeeProducts = async (orgId: string) => {
     setCoffeeLoading(true);
+    setCoffeeError(null);
     try {
       const { data, error } = await supabase
         .from('coffee_products')
@@ -143,7 +148,13 @@ export default function AdminSettings() {
       setCoffeeProducts(data || []);
     } catch (error: any) {
       console.error('Error loading coffee products', error);
-      toast.error('Getränke konnten nicht geladen werden');
+      if (error?.code === '42703') {
+        setCoffeeError(
+          'Die Spalte organization_id fehlt noch in coffee_products. Bitte die Migration 20251111225000_coffee_qr.sql ausführen.',
+        );
+      } else {
+        setCoffeeError('Getränke konnten nicht geladen werden.');
+      }
     } finally {
       setCoffeeLoading(false);
     }
@@ -749,7 +760,12 @@ export default function AdminSettings() {
                       <h3 className="text-sm font-medium text-muted-foreground">
                         Bestehende Getränke
                       </h3>
-                      {coffeeLoading ? (
+                      {coffeeError ? (
+                        <Alert>
+                          <AlertTitle>Getränke können nicht geladen werden</AlertTitle>
+                          <AlertDescription>{coffeeError}</AlertDescription>
+                        </Alert>
+                      ) : coffeeLoading ? (
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
                           Lädt Getränke...
