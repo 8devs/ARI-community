@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone, Loader2 } from 'lucide-react';
+import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -60,6 +60,7 @@ export default function AdminSettings() {
   const [orgForm, setOrgForm] = useState(emptyOrgForm);
   const [savingOrg, setSavingOrg] = useState(false);
   const [memberUpdates, setMemberUpdates] = useState<Record<string, boolean>>({});
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const [inviteForm, setInviteForm] = useState({
     email: '',
@@ -532,6 +533,7 @@ export default function AdminSettings() {
                             <TableHead>Organisation</TableHead>
                             <TableHead>Rolle</TableHead>
                             <TableHead className="w-56">Neue Organisation</TableHead>
+                            <TableHead className="w-32 text-right">Aktionen</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -575,6 +577,16 @@ export default function AdminSettings() {
                                     ))}
                                   </SelectContent>
                                 </Select>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  disabled={!canDeleteMember(member) || deletingUserId === member.id}
+                                  onClick={() => handleDeleteMember(member)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -904,3 +916,38 @@ export default function AdminSettings() {
     </Layout>
   );
 }
+  const canDeleteMember = (member: ProfileRow) => {
+    if (!profile) return false;
+    if (profile.role === 'SUPER_ADMIN') return true;
+    if (profile.role === 'ORG_ADMIN') {
+      return (
+        profile.organization_id &&
+        profile.organization_id === member.organization_id &&
+        member.role !== 'SUPER_ADMIN'
+      );
+    }
+    return false;
+  };
+
+  const handleDeleteMember = async (member: ProfileRow) => {
+    if (!canDeleteMember(member)) {
+      toast.error('Du hast keine Berechtigung, diesen Nutzer zu löschen.');
+      return;
+    }
+    if (!confirm(`Benutzer ${member.name} wirklich löschen?`)) {
+      return;
+    }
+    setDeletingUserId(member.id);
+    const { error } = await supabase.rpc('delete_user_with_scope', {
+      _target_user_id: member.id,
+    });
+    if (error) {
+      console.error('Error deleting user', error);
+      toast.error(error.message ?? 'Nutzer konnte nicht gelöscht werden');
+    } else {
+      toast.success('Nutzer gelöscht');
+      loadMembers();
+      loadOrganizations();
+    }
+    setDeletingUserId(null);
+  };

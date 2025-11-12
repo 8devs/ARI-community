@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
@@ -12,7 +12,9 @@ import {
   Bell,
   Shield,
   IdCard,
-  Coffee
+  Coffee,
+  Menu,
+  Newspaper,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -23,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 interface LayoutProps {
   children: ReactNode;
@@ -33,6 +36,7 @@ export function Layout({ children }: LayoutProps) {
   const { profile } = useCurrentProfile();
   const navigate = useNavigate();
   const isAuthenticated = Boolean(user);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -44,6 +48,26 @@ export function Layout({ children }: LayoutProps) {
     return user.email.charAt(0).toUpperCase();
   };
 
+  const navItems = useMemo(() => {
+    if (isAuthenticated) {
+      return [
+        { to: '/app', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
+        { to: '/personen', label: 'Personen', icon: Users },
+        { to: '/organisationen', label: 'Organisationen', icon: Building2 },
+        { to: '/qa', label: 'Q&A', icon: MessageSquare },
+        { to: '/kaffee', label: 'Kaffee', icon: Coffee },
+        { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
+      ];
+    }
+    return [
+      { to: '/', label: 'Start', icon: LayoutDashboard },
+      { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
+      { to: '/organisationen', label: 'Organisationen', icon: Building2 },
+    ];
+  }, [isAuthenticated]);
+
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -54,90 +78,63 @@ export function Layout({ children }: LayoutProps) {
                 <Building2 className="h-6 w-6" />
                 ARI Community
               </Link>
-              
+
+              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Menü öffnen</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-72 sm:w-80">
+                  <div className="flex flex-col gap-4 mt-6">
+                    {navItems.map(({ to, label, icon: Icon }) => (
+                      <Button
+                        key={to}
+                        variant="ghost"
+                        className="justify-start"
+                        onClick={() => setMobileOpen(false)}
+                        asChild
+                      >
+                        <Link to={to}>
+                          <Icon className="h-4 w-4 mr-2" />
+                          {label}
+                        </Link>
+                      </Button>
+                    ))}
+                    {isAuthenticated && profile && profile.role !== 'MEMBER' && (
+                      <Button
+                        variant="ghost"
+                        className="justify-start"
+                        onClick={() => setMobileOpen(false)}
+                        asChild
+                      >
+                        <Link to="/admin">
+                          <Shield className="h-4 w-4 mr-2" />
+                          Admin
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+
               <nav className="hidden md:flex items-center gap-1">
-                {isAuthenticated ? (
-                  <>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/app">
-                        <LayoutDashboard className="h-4 w-4 mr-2" />
-                        Dashboard
-                      </Link>
-                </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/pinnwand">
-                        <Newspaper className="h-4 w-4 mr-2" />
-                        Pinnwand
-                      </Link>
-                    </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/personen">
-                    <Users className="h-4 w-4 mr-2" />
-                    Personen
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/organisationen">
-                    <Building2 className="h-4 w-4 mr-2" />
-                    Organisationen
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/qa">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Q&A
-                  </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/kaffee">
-                        <Coffee className="h-4 w-4 mr-2" />
-                        Kaffee
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/lunch-roulette">
-                        <Utensils className="h-4 w-4 mr-2" />
-                        Lunch
-                      </Link>
-                    </Button>
-                {profile && profile.role !== 'MEMBER' && (
+                {navItems.map(({ to, label, icon: Icon }) => (
+                  <Button key={to} variant="ghost" size="sm" asChild>
+                    <Link to={to}>
+                      <Icon className="h-4 w-4 mr-2" />
+                      {label}
+                    </Link>
+                  </Button>
+                ))}
+                {isAuthenticated && profile && profile.role !== 'MEMBER' && (
                   <Button variant="ghost" size="sm" asChild>
                     <Link to="/admin">
                       <Shield className="h-4 w-4 mr-2" />
                       Admin
                     </Link>
                   </Button>
-                )}
-                    {profile?.role === 'SUPER_ADMIN' && (
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to="/admin/organisationen">
-                          <Building2 className="h-4 w-4 mr-2" />
-                          Organisationen
-                        </Link>
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/">
-                        <LayoutDashboard className="h-4 w-4 mr-2" />
-                        Start
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/pinnwand">
-                        <Newspaper className="h-4 w-4 mr-2" />
-                        Pinnwand
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to="/organisationen">
-                        <Building2 className="h-4 w-4 mr-2" />
-                        Organisationen
-                      </Link>
-                    </Button>
-                  </>
                 )}
               </nav>
             </div>

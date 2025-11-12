@@ -980,6 +980,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_user_with_scope: { Args: { _target_user_id: string }; Returns: boolean }
       get_organizations_with_counts: {
         Args: Record<PropertyKey, never>
         Returns: {
