@@ -49,9 +49,9 @@ const generateRandomPath = (prefix: string, file: File) => {
 };
 
 export default function AdminSettings() {
-  const { profile, loading: profileLoading } = useCurrentProfile();
-  const isAdmin = profile && profile.role !== 'MEMBER';
-  const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
+  const { profile: currentProfile, loading: profileLoading } = useCurrentProfile();
+  const isAdmin = currentProfile && currentProfile.role !== 'MEMBER';
+  const isSuperAdmin = currentProfile?.role === 'SUPER_ADMIN';
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [members, setMembers] = useState<ProfileRow[]>([]);
@@ -87,13 +87,13 @@ export default function AdminSettings() {
     if (isSuperAdmin) {
       loadMembers();
     } else {
-      setInviteForm((prev) => ({ ...prev, organization_id: profile?.organization_id ?? '' }));
-      setCoffeeOrgId(profile?.organization_id ?? null);
-      if (profile?.organization_id) {
-        loadCoffeeProducts(profile.organization_id);
+      setInviteForm((prev) => ({ ...prev, organization_id: currentProfile?.organization_id ?? '' }));
+      setCoffeeOrgId(currentProfile?.organization_id ?? null);
+      if (currentProfile?.organization_id) {
+        loadCoffeeProducts(currentProfile.organization_id);
       }
     }
-  }, [isAdmin, isSuperAdmin, profile?.organization_id]);
+  }, [isAdmin, isSuperAdmin, currentProfile?.organization_id]);
 
   useEffect(() => {
     if (isSuperAdmin && organizations.length && !inviteForm.organization_id) {
@@ -292,7 +292,7 @@ export default function AdminSettings() {
           data: {
             role: inviteForm.role,
             organization_id: inviteForm.organization_id,
-            invited_by: profile?.id ?? null,
+            invited_by: currentProfile?.id ?? null,
           },
         },
       });
@@ -655,7 +655,7 @@ export default function AdminSettings() {
                         </Select>
                       ) : (
                         <p className="text-sm text-muted-foreground">
-                          {profile?.organization?.name ?? 'Keine Organisation zugeordnet'}
+                          {currentProfile?.organization?.name ?? 'Keine Organisation zugeordnet'}
                         </p>
                       )}
                     </div>
@@ -917,12 +917,12 @@ export default function AdminSettings() {
   );
 }
   const canDeleteMember = (member: ProfileRow) => {
-    if (!profile) return false;
-    if (profile.role === 'SUPER_ADMIN') return true;
-    if (profile.role === 'ORG_ADMIN') {
+    if (!currentProfile) return false;
+    if (currentProfile.role === 'SUPER_ADMIN') return true;
+    if (currentProfile.role === 'ORG_ADMIN') {
       return (
-        profile.organization_id &&
-        profile.organization_id === member.organization_id &&
+        currentProfile.organization_id &&
+        currentProfile.organization_id === member.organization_id &&
         member.role !== 'SUPER_ADMIN'
       );
     }
