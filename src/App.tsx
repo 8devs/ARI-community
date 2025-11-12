@@ -66,14 +66,8 @@ const App = () => (
               }
             />
             <Route path="/pinnwand" element={<Pinnwand />} />
-            <Route
-              path="/organisationen"
-              element={
-                <ProtectedRoute>
-                  <Organizations />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/organisationen" element={<Organizations />} />
+            <Route path="/organisation" element={<Organizations />} />
             <Route path="/passwort/neu" element={<ResetPassword />} />
             <Route
               path="/qa"

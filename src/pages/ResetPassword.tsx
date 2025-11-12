@@ -44,7 +44,7 @@ export default function ResetPassword() {
       toast.error(error.message ?? 'Passwort konnte nicht gesetzt werden.');
     } else {
       toast.success('Passwort gespeichert! Du kannst Dich jetzt anmelden.');
-      navigate('/');
+      navigate('/app');
     }
     setLoading(false);
   };

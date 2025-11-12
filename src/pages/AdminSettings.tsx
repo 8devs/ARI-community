@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Building2, MapPin, Users, Pencil, PlusCircle, Upload, Mail, Phone, CupSoda } from 'lucide-react';
+import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -37,8 +37,16 @@ const emptyOrgForm = {
   contact_phone: '',
 };
 
+const generateRandomPath = (prefix: string, file: File) => {
+  const ext = file.name.split('.').pop();
+  const cryptoRef = typeof globalThis !== 'undefined' ? (globalThis.crypto as Crypto | undefined) : undefined;
+  const randomString =
+    cryptoRef?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}/${randomString}.${ext}`;
+};
+
 export default function AdminSettings() {
-  const { profile } = useCurrentProfile();
+  const { profile, loading: profileLoading } = useCurrentProfile();
   const isAdmin = profile && profile.role !== 'MEMBER';
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
 
@@ -166,8 +174,7 @@ export default function AdminSettings() {
   };
 
   const uploadOrganizationLogo = async (file: File) => {
-    const ext = file.name.split('.').pop();
-    const filePath = `logos/${crypto.randomUUID()}.${ext}`;
+    const filePath = generateRandomPath('logos', file);
     const { error } = await supabase.storage
       .from('organization-logos')
       .upload(filePath, file, { upsert: true });
@@ -349,6 +356,22 @@ export default function AdminSettings() {
     }
   };
 
+  if (profileLoading) {
+    return (
+      <Layout>
+        <Card>
+          <CardHeader>
+            <CardTitle>Lädt...</CardTitle>
+            <CardDescription>Profilinformationen werden geladen.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Bitte einen Moment Geduld.</p>
+          </CardContent>
+        </Card>
+      </Layout>
+    );
+  }
+
   if (!isAdmin) {
     return (
       <Layout>
@@ -405,8 +428,8 @@ export default function AdminSettings() {
                   <p className="text-sm text-muted-foreground">Noch keine Organisationen vorhanden.</p>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
-                    {organizations.map((org) => (
-                      <Card key={org.id} className="border-primary/10">
+                {organizations.map((org) => (
+                  <Card key={org.id} className="border-primary/10">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0">
                           <div className="space-y-1">
                             <CardTitle>{org.name}</CardTitle>

@@ -46,7 +46,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate('/app');
     }
   }, [user, navigate]);
 
@@ -119,7 +119,7 @@ export default function Auth() {
         }
       } else {
         toast.success('Erfolgreich angemeldet!');
-        navigate('/');
+        navigate('/app');
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
