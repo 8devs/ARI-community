@@ -99,9 +99,12 @@ export function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-8">
-              <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary">
-                <Building2 className="h-6 w-6" />
-                ARI Community
+              <Link to="/" className="flex items-center gap-3">
+                <img
+                  src="/ari-logo.svg"
+                  alt="ARI Business Campus"
+                  className="h-10 w-auto object-contain"
+                />
               </Link>
 
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
