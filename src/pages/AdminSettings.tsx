@@ -119,7 +119,6 @@ export default function AdminSettings() {
     bio: '',
     skills_text: '',
     first_aid_certified: false,
-    first_aid_available: false,
   });
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
   const [rounds, setRounds] = useState<LunchRound[]>([]);
@@ -656,7 +655,6 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
       bio: member.bio ?? '',
       skills_text: member.skills_text ?? '',
       first_aid_certified: Boolean(member.first_aid_certified),
-      first_aid_available: Boolean(member.first_aid_available),
     });
     setMemberDialogOpen(true);
   };
@@ -677,12 +675,12 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
     const { error } = await supabase
       .from('profiles')
       .update({
-        name: memberForm.name.trim(),
-        phone: memberForm.phone.trim() || null,
-        bio: memberForm.bio.trim() || null,
-        skills_text: memberForm.skills_text.trim() || null,
-        first_aid_certified: memberForm.first_aid_certified,
-        first_aid_available: memberForm.first_aid_available,
+      name: memberForm.name.trim(),
+      phone: memberForm.phone.trim() || null,
+      bio: memberForm.bio.trim() || null,
+      skills_text: memberForm.skills_text.trim() || null,
+      first_aid_certified: memberForm.first_aid_certified,
+      first_aid_available: false,
       })
       .eq('id', memberId);
     if (error) {
@@ -1526,31 +1524,17 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                   onChange={(e) => handleMemberFormChange('bio', e.target.value)}
                 />
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="font-medium">Ersthelfer</p>
-                    <p className="text-xs text-muted-foreground">
-                      Markiert die Person als zertifizierte Ersthelfer:in.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={memberForm.first_aid_certified}
-                    onCheckedChange={(checked) => handleMemberFormChange('first_aid_certified', checked)}
-                  />
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium">Ersthelfer</p>
+                  <p className="text-xs text-muted-foreground">
+                    Markiert die Person als zertifizierte Ersthelfer:in.
+                  </p>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="font-medium">Verfügbar</p>
-                    <p className="text-xs text-muted-foreground">
-                      Kann aktuell als Ersthelfer:in eingesetzt werden.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={memberForm.first_aid_available}
-                    onCheckedChange={(checked) => handleMemberFormChange('first_aid_available', checked)}
-                  />
-                </div>
+                <Switch
+                  checked={memberForm.first_aid_certified}
+                  onCheckedChange={(checked) => handleMemberFormChange('first_aid_certified', checked)}
+                />
               </div>
               <DialogFooter>
                 <Button

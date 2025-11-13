@@ -18,7 +18,6 @@ interface ProfileRow {
   bio: string | null;
   skills_text: string | null;
   first_aid_certified: boolean | null;
-  first_aid_available: boolean | null;
   phone: string | null;
   organization_id: string;
   organization?: {
@@ -34,7 +33,7 @@ export default function People() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialOrgFilter = searchParams.get('organization') ?? 'all';
   const [organizationFilter, setOrganizationFilter] = useState(initialOrgFilter);
-  const [firstAidFilter, setFirstAidFilter] = useState<'all' | 'certified' | 'available'>('all');
+  const [firstAidFilter, setFirstAidFilter] = useState<'all' | 'certified'>('all');
 
   useEffect(() => {
     loadProfiles();
@@ -58,7 +57,6 @@ export default function People() {
           bio,
           skills_text,
           first_aid_certified,
-          first_aid_available,
           phone,
           organization_id,
           organization:organizations(name)
@@ -102,8 +100,7 @@ export default function People() {
 
       const matchesFirstAid =
         firstAidFilter === 'all' ||
-        (firstAidFilter === 'certified' && Boolean(profile.first_aid_certified)) ||
-        (firstAidFilter === 'available' && Boolean(profile.first_aid_available));
+        (firstAidFilter === 'certified' && Boolean(profile.first_aid_certified));
 
       return matchesSearch && matchesOrg && matchesFirstAid;
     });
@@ -161,14 +158,13 @@ export default function People() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={firstAidFilter} onValueChange={(value: 'all' | 'certified' | 'available') => setFirstAidFilter(value)}>
+          <Select value={firstAidFilter} onValueChange={(value: 'all' | 'certified') => setFirstAidFilter(value)}>
             <SelectTrigger>
               <SelectValue placeholder="Ersthelfer filtern" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alle Mitarbeitenden</SelectItem>
               <SelectItem value="certified">Zertifizierte Ersthelfer</SelectItem>
-              <SelectItem value="available">Aktuell einsatzbereit</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -189,7 +185,7 @@ export default function People() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
             {filtered.map((profile) => (
               <Card key={profile.id} className="flex h-full flex-col hover:shadow-lg transition-shadow">
                 <CardHeader>
@@ -256,9 +252,7 @@ export default function People() {
                         Ersthelfer zertifiziert
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {profile.first_aid_available
-                          ? 'Aktuell einsatzbereit für Notfälle.'
-                          : 'Derzeit nicht eingeteilt, aber geschult.'}
+                        Ausgebildet für Erste Hilfe Einsätze innerhalb der Community.
                       </p>
                     </div>
                   )}

@@ -18,7 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { toast } from 'sonner';
-import { addHours, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths } from 'date-fns';
+import { addHours, addMonths, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -49,11 +49,15 @@ const emptyBookingForm = {
   end: '',
 };
 
+const TIMELINE_START_HOUR = 6;
+const TIMELINE_END_HOUR = 22;
+
 export default function Rooms() {
   const { profile } = useCurrentProfile();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [roomsLoading, setRoomsLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState(startOfDay(new Date()));
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
@@ -331,6 +335,26 @@ export default function Rooms() {
     return map;
   }, [bookings]);
 
+  const dayTimelineBookings = useMemo(() => {
+    const start = startOfDay(selectedDay);
+    const end = endOfDay(selectedDay);
+    return bookings
+      .filter((booking) => {
+        const startTime = new Date(booking.start_time);
+        return startTime >= start && startTime <= end;
+      })
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  }, [bookings, selectedDay]);
+
+  const timelineHours = useMemo(
+    () =>
+      Array.from(
+        { length: TIMELINE_END_HOUR - TIMELINE_START_HOUR + 1 },
+        (_, index) => TIMELINE_START_HOUR + index,
+      ),
+    [],
+  );
+
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) || null;
 
   const canManageBooking = (booking: Booking) => {
@@ -473,10 +497,12 @@ export default function Rooms() {
                           <div
                             key={key}
                             className={cn(
-                              'min-h-[120px] border-border bg-background p-2 align-top text-left text-xs sm:text-sm',
+                              'min-h-[120px] border-border bg-background p-2 align-top text-left text-xs sm:text-sm cursor-pointer transition',
                               !isSameMonth(day, currentMonth) && 'bg-muted/50 text-muted-foreground',
                               isSameDay(day, new Date()) && 'ring-1 ring-primary',
+                              isSameDay(day, selectedDay) && 'border-primary ring-2 ring-primary/60',
                             )}
+                            onClick={() => setSelectedDay(startOfDay(day))}
                           >
                             <p className="font-semibold">{format(day, 'd.', { locale: de })}</p>
                             <div className="mt-1 space-y-1">
@@ -503,6 +529,87 @@ export default function Rooms() {
                   )
                 ) : (
                   <p className="text-muted-foreground text-sm">Bitte wähle einen Raum aus.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle>Zeitstrahl</CardTitle>
+                  <CardDescription>
+                    Buchungen am {format(selectedDay, 'dd.MM.yyyy', { locale: de })} auf einen Blick.
+                  </CardDescription>
+                </div>
+                <Input
+                  type="date"
+                  className="w-full md:w-auto"
+                  value={format(selectedDay, 'yyyy-MM-dd')}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    setSelectedDay(startOfDay(new Date(e.target.value)));
+                  }}
+                />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!selectedRoom ? (
+                  <p className="text-sm text-muted-foreground">Bitte wähle zuerst einen Raum aus.</p>
+                ) : dayTimelineBookings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Keine Buchungen für diesen Tag – der Raum ist durchgehend verfügbar.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      {timelineHours.map((hour) => (
+                        <span key={hour}>{hour}:00</span>
+                      ))}
+                    </div>
+                    <div className="relative h-32 rounded-xl border bg-muted/40 p-2">
+                      {timelineHours.map((hour) => {
+                        const position =
+                          ((hour - TIMELINE_START_HOUR) /
+                            (TIMELINE_END_HOUR - TIMELINE_START_HOUR)) *
+                          100;
+                        return (
+                          <div
+                            key={hour}
+                            className="absolute top-0 bottom-0 border-l border-border/70"
+                            style={{ left: `${position}%` }}
+                          />
+                        );
+                      })}
+                      {dayTimelineBookings.map((booking) => {
+                        const startDate = new Date(booking.start_time);
+                        const endDate = new Date(booking.end_time);
+                        const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+                        const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+                        const minMinutes = TIMELINE_START_HOUR * 60;
+                        const maxMinutes = TIMELINE_END_HOUR * 60;
+                        if (endMinutes <= minMinutes || startMinutes >= maxMinutes) {
+                          return null;
+                        }
+                        const clampedStart = Math.max(minMinutes, Math.min(startMinutes, maxMinutes));
+                        const clampedEnd = Math.max(clampedStart + 15, Math.min(endMinutes, maxMinutes));
+                        const totalMinutes = maxMinutes - minMinutes;
+                        const left = ((clampedStart - minMinutes) / totalMinutes) * 100;
+                        const width = ((clampedEnd - clampedStart) / totalMinutes) * 100;
+
+                        return (
+                          <div
+                            key={booking.id}
+                            className="absolute top-6 rounded-lg bg-primary/80 px-3 py-2 text-xs text-primary-foreground shadow-md"
+                            style={{ left: `${left}%`, width: `${Math.max(width, 6)}%` }}
+                          >
+                            <p className="font-semibold truncate">{booking.title}</p>
+                            <p>
+                              {format(startDate, 'HH:mm')} – {format(endDate, 'HH:mm')}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

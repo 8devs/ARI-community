@@ -18,7 +18,6 @@ interface ProfileFormState {
   skills_text: string;
   phone: string;
   first_aid_certified: boolean;
-  first_aid_available: boolean;
   pref_email_notifications: boolean;
   pref_push_notifications: boolean;
 }
@@ -36,7 +35,6 @@ export default function Profile() {
     skills_text: '',
     phone: '',
     first_aid_certified: false,
-    first_aid_available: false,
     pref_email_notifications: true,
     pref_push_notifications: false,
   });
@@ -49,7 +47,6 @@ export default function Profile() {
         skills_text: profile.skills_text ?? '',
         phone: profile.phone ?? '',
         first_aid_certified: profile.first_aid_certified ?? false,
-        first_aid_available: profile.first_aid_available ?? false,
         pref_email_notifications: profile.pref_email_notifications ?? true,
         pref_push_notifications: profile.pref_push_notifications ?? false,
       });
@@ -88,7 +85,7 @@ export default function Profile() {
         skills_text: form.skills_text,
         phone: form.phone,
         first_aid_certified: form.first_aid_certified,
-        first_aid_available: form.first_aid_available,
+        first_aid_available: false,
         pref_email_notifications: form.pref_email_notifications,
         pref_push_notifications: form.pref_push_notifications,
       })
@@ -252,39 +249,20 @@ export default function Profile() {
                   />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div>
-                      <p className="font-medium flex items-center gap-2">
-                        <HeartBadge />
-                        Ersthelfer-Zertifizierung
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Markiert Dich als ausgebildete Ersthelfer:in in der Community.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={form.first_aid_certified}
-                      onCheckedChange={(checked) => handleChange('first_aid_certified', checked)}
-                    />
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div>
+                    <p className="font-medium flex items-center gap-2">
+                      <HeartBadge />
+                      Ersthelfer-Zertifizierung
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Markiert Dich als ausgebildete Ersthelfer:in in der Community.
+                    </p>
                   </div>
-
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div>
-                      <p className="font-medium flex items-center gap-2">
-                        <HeartBadge active />
-                        Aktuell einsatzbereit
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Nutze diese Option, wenn Du gerade vor Ort bist und im Ernstfall einspringen kannst.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={form.first_aid_available}
-                      onCheckedChange={(checked) => handleChange('first_aid_available', checked)}
-                      disabled={!form.first_aid_certified}
-                    />
-                  </div>
+                  <Switch
+                    checked={form.first_aid_certified}
+                    onCheckedChange={(checked) => handleChange('first_aid_certified', checked)}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between border rounded-lg p-4 bg-muted/30">
