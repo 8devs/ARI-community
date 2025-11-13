@@ -12,6 +12,7 @@ import { Bell, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Link } from "react-router-dom";
 
 interface NotificationsMenuProps {
   unread: number;
@@ -94,6 +95,13 @@ export function NotificationsMenu({
             ))
           )}
         </ScrollArea>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/benachrichtigungen" className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            Benachrichtigungscenter öffnen
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

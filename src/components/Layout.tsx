@@ -18,6 +18,7 @@ import {
   Moon,
   Sun,
   DoorClosed,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -25,6 +26,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -419,6 +421,11 @@ export function Layout({ children }: LayoutProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate('/benachrichtigungen')}>
+                        <Bell className="mr-2 h-4 w-4" />
+                        Benachrichtigungen
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => navigate('/profil')}>
                         <IdCard className="mr-2 h-4 w-4" />
                         Profil

@@ -21,6 +21,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Events from "./pages/Events";
 import Messages from "./pages/Messages";
 import Rooms from "./pages/Rooms";
+import NotificationsCenter from "./pages/NotificationsCenter";
 
 const queryClient = new QueryClient();
 
@@ -123,6 +124,14 @@ const App = () => (
               }
             />
             <Route path="/admin/lunch-roulette" element={<Navigate to="/admin?section=lunch" replace />} />
+            <Route
+              path="/benachrichtigungen"
+              element={
+                <ProtectedRoute>
+                  <NotificationsCenter />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/admin"
               element={

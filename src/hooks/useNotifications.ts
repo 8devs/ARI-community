@@ -7,11 +7,13 @@ type NotificationRow = Tables<"notifications">;
 
 interface UseNotificationsOptions {
   enablePush?: boolean;
+  limit?: number;
 }
 
 export function useNotifications(profileId?: string | null, options?: UseNotificationsOptions) {
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const limit = options?.limit ?? 50;
 
   const fetchNotifications = useCallback(async () => {
     if (!profileId) {
@@ -25,7 +27,7 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
       .select("*")
       .eq("user_id", profileId)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(limit);
 
     if (error) {
       console.error("Error loading notifications", error);
@@ -35,7 +37,7 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
     }
 
     setLoading(false);
-  }, [profileId]);
+  }, [profileId, limit]);
 
   const markAsRead = useCallback(
     async (notificationId: string) => {
@@ -91,11 +93,19 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
       .channel(`notifications-${profileId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${profileId}` },
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${profileId}` },
         (payload) => {
-          const notification = payload.new as NotificationRow;
-          setItems((prev) => [notification, ...prev]);
-          maybeShowNativeNotification(notification);
+          if (payload.eventType === "INSERT") {
+            const notification = payload.new as NotificationRow;
+            setItems((prev) => [notification, ...prev].slice(0, limit));
+            maybeShowNativeNotification(notification);
+          } else if (payload.eventType === "UPDATE") {
+            const next = payload.new as NotificationRow;
+            setItems((prev) => prev.map((item) => (item.id === next.id ? next : item)));
+          } else if (payload.eventType === "DELETE") {
+            const removed = payload.old as NotificationRow;
+            setItems((prev) => prev.filter((item) => item.id !== removed.id));
+          }
         },
       );
 
@@ -103,7 +113,7 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [profileId, maybeShowNativeNotification]);
+  }, [profileId, maybeShowNativeNotification, limit]);
 
   const unreadCount = useMemo(
     () => items.filter((notification) => !notification.read_at).length,
