@@ -1,12 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Newspaper, MessageSquare, Calendar, ArrowRight, Utensils, Loader2 } from 'lucide-react';
+import {
+  Newspaper,
+  MessageSquare,
+  Calendar,
+  ArrowRight,
+  Utensils,
+  Loader2,
+  Bell,
+  UserPlus,
+  MessageCircle,
+  Building2,
+  CheckCircle2,
+  Circle,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useCurrentProfile } from '@/hooks/useCurrentProfile';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 
 type ActivityItem = {
   id: string;
@@ -20,6 +37,15 @@ type ActivityItem = {
 export default function Dashboard() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
+  const { profile } = useCurrentProfile();
+  const [groupJoined, setGroupJoined] = useState(false);
+  const [lunchParticipating, setLunchParticipating] = useState(false);
+  const [onboardingDialogOpen, setOnboardingDialogOpen] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('ari-onboarding-dismissed') === 'true';
+  });
+  const [brandLogo, setBrandLogo] = useState<string | null>(null);
 
   useEffect(() => {
     loadActivities();
@@ -27,6 +53,54 @@ export default function Dashboard() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.sessionStorage.getItem('ari-brand-logo');
+    if (stored) {
+      setBrandLogo(stored);
+    }
+
+    const handleBrandingUpdate = (event: Event) => {
+      const custom = event as CustomEvent<{ logoUrl?: string | null }>;
+      setBrandLogo(custom.detail?.logoUrl ?? null);
+    };
+
+    window.addEventListener('app-branding-updated', handleBrandingUpdate as EventListener);
+    return () => {
+      window.removeEventListener('app-branding-updated', handleBrandingUpdate as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    let ignore = false;
+    const fetchGroups = async () => {
+      const { count, error } = await supabase
+        .from('group_members')
+        .select('group_id', { count: 'exact', head: true })
+        .eq('user_id', profile.id);
+      if (!ignore && !error) {
+        setGroupJoined((count ?? 0) > 0);
+      }
+    };
+
+    const fetchLunch = async () => {
+      const { count, error } = await supabase
+        .from('match_participations')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', profile.id);
+      if (!ignore && !error) {
+        setLunchParticipating((count ?? 0) > 0);
+      }
+    };
+
+    void fetchGroups();
+    void fetchLunch();
+    return () => {
+      ignore = true;
+    };
+  }, [profile?.id]);
 
   const loadActivities = async () => {
     setActivityLoading(true);
@@ -93,83 +167,185 @@ export default function Dashboard() {
     }
   };
 
+  const profileComplete = Boolean(profile?.bio && profile?.skills_text && profile?.avatar_url);
+  const notificationsReady = Boolean(profile?.pref_email_notifications || profile?.pref_push_notifications);
+
+  const onboardingSteps = useMemo(
+    () => [
+      {
+        id: 'profile',
+        title: 'Profil ergänzen',
+        description: 'Foto, Skills und Kontaktdaten aktualisieren.',
+        link: '/profil',
+        completed: profileComplete,
+      },
+      {
+        id: 'groups',
+        title: 'Gruppe beitreten',
+        description: 'Community-Gruppe finden und mitreden.',
+        link: '/gruppen',
+        completed: groupJoined,
+      },
+      {
+        id: 'notifications',
+        title: 'Benachrichtigungen prüfen',
+        description: 'Push- oder E-Mail-Alerts aktivieren.',
+        link: '/benachrichtigungen',
+        completed: notificationsReady,
+      },
+      {
+        id: 'lunch',
+        title: 'Lunch Roulette ausprobieren',
+        description: 'Für die nächste Runde anmelden.',
+        link: '/lunch-roulette',
+        completed: lunchParticipating,
+      },
+    ],
+    [profileComplete, groupJoined, notificationsReady, lunchParticipating],
+  );
+
+  const completedSteps = onboardingSteps.filter((step) => step.completed).length;
+  const onboardingCompleted = completedSteps === onboardingSteps.length;
+
+  useEffect(() => {
+    if (!onboardingCompleted && !onboardingDismissed) {
+      setOnboardingDialogOpen(true);
+    }
+  }, [onboardingCompleted, onboardingDismissed]);
+
+  const dismissOnboarding = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ari-onboarding-dismissed', 'true');
+    }
+    setOnboardingDismissed(true);
+    setOnboardingDialogOpen(false);
+  };
+
+  const resetOnboarding = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ari-onboarding-dismissed');
+    }
+    setOnboardingDismissed(false);
+    setOnboardingDialogOpen(true);
+  };
+
+  const quickActions = [
+    {
+      title: 'Pinnwand',
+      description: 'News & Updates',
+      icon: Newspaper,
+      to: '/pinnwand',
+    },
+    {
+      title: 'Events',
+      description: 'Workshops & Treffen',
+      icon: Calendar,
+      to: '/events',
+    },
+    {
+      title: 'Gruppen',
+      description: 'Gemeinsam aktiv werden',
+      icon: UserPlus,
+      to: '/gruppen',
+    },
+    {
+      title: 'Nachrichten',
+      description: 'Direkter Austausch',
+      icon: MessageCircle,
+      to: '/nachrichten',
+    },
+    {
+      title: 'Q&A',
+      description: 'Fragen stellen & helfen',
+      icon: MessageSquare,
+      to: '/qa',
+    },
+    {
+      title: 'Organisation & Personen',
+      description: 'Teams & Ansprechpartner',
+      icon: Building2,
+      to: '/organisationen',
+    },
+    {
+      title: 'Benachrichtigungen',
+      description: 'Center & Historie',
+      icon: Bell,
+      to: '/benachrichtigungen',
+    },
+    {
+      title: 'Lunch Roulette',
+      description: 'Neue Kontakte beim Essen',
+      icon: Utensils,
+      to: '/lunch-roulette',
+    },
+  ];
+
   return (
     <Layout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-4xl font-bold mb-2">Willkommen in der ARI Community! 👋</h1>
-          <p className="text-lg text-muted-foreground">
-            Vernetze Dich mit Kollegen aus allen Unternehmen am Adenauerring
-          </p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <Users className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>Who-is-Who</CardTitle>
+        <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+          <Card className="border-primary/20">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-3xl font-bold">
+                {profile?.name ? `Hallo ${profile.name.split(' ')[0]} 👋` : 'Willkommen in der ARI Community 👋'}
+              </CardTitle>
               <CardDescription>
-                Lerne Deine Kollegen kennen
+                {profile?.organization?.name
+                  ? `Deine Organisation: ${profile.organization.name}`
+                  : 'Verbinde Dich mit Teams am Adenauerring'}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button variant="ghost" size="sm" asChild className="w-full justify-between">
-                <Link to="/personen">
-                  Personen ansehen
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
+            <CardContent className="space-y-4">
+              {brandLogo && (
+                <div className="flex justify-center">
+                  <img src={brandLogo} alt="ARI Logo" className="h-12 w-auto object-contain" />
+                </div>
+              )}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Rolle</p>
+                  <p className="text-base font-semibold capitalize">{profile?.role?.toLowerCase() ?? 'Mitglied'}</p>
+                </div>
+                <div className="rounded-xl border bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Organisation</p>
+                  <p className="text-base font-semibold">
+                    {profile?.organization?.name ?? 'Noch nicht zugeordnet'}
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Benachrichtigungen</p>
+                  <p className="text-base font-semibold">
+                    {notificationsReady ? 'Aktiv' : 'Noch offen'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild>
+                  <Link to="/profil">Profil bearbeiten</Link>
+                </Button>
+                {!onboardingCompleted && (
+                  <Button variant="outline" onClick={() => setOnboardingDialogOpen(true)}>
+                    Onboarding starten
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
             <CardHeader>
-              <Newspaper className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>Pinnwand</CardTitle>
-              <CardDescription>
-                Aktuelle News & Ankündigungen
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                Neu in Version 0.4
+              </CardTitle>
+              <CardDescription>Gruppen, Benachrichtigungscenter & mehr.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p>★ Trete Community-Gruppen bei und chatte organisationsübergreifend.</p>
+              <p>★ Lass Dich per Push/E-Mail über neue Pinnwand- & Q&A-Beiträge informieren.</p>
               <Button variant="ghost" size="sm" asChild className="w-full justify-between">
-                <Link to="/pinnwand">
-                  Zur Pinnwand
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <MessageSquare className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>Q&A</CardTitle>
-              <CardDescription>
-                Fragen stellen & helfen
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="ghost" size="sm" asChild className="w-full justify-between">
-                <Link to="/qa">
-                  Fragen ansehen
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <Calendar className="h-8 w-8 text-primary mb-2" />
-              <CardTitle>Events</CardTitle>
-              <CardDescription>
-                Kommende Veranstaltungen
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="ghost" size="sm" asChild className="w-full justify-between">
-                <Link to="/events">
-                  Events ansehen
+                <Link to="/changelog">
+                  Zum Changelog
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -177,28 +353,78 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        <Card className="border-accent">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Utensils className="h-5 w-5 text-accent" />
-              Lunch Roulette 🎲
-            </CardTitle>
-            <CardDescription>
-              Lerne neue Kollegen beim gemeinsamen Mittagessen kennen
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Melde Dich für die wöchentliche Runde an und werde zufällig mit Kollegen aus anderen Unternehmen gepaart!
-            </p>
-            <Button variant="default" asChild className="w-full">
-              <Link to="/lunch-roulette">
-                Zur Anmeldung
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Link>
+        {!onboardingCompleted && (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Onboarding für neue Mitarbeitende</CardTitle>
+                <CardDescription>{completedSteps} von {onboardingSteps.length} Aufgaben erledigt</CardDescription>
+              </div>
+              <div className="flex flex-col gap-2 sm:w-48">
+                <Progress value={(completedSteps / onboardingSteps.length) * 100} className="h-2" />
+                <p className="text-xs text-muted-foreground text-right">Fortschritt</p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                {onboardingSteps.map((step) => (
+                  <div key={step.id} className="flex flex-col gap-2 rounded-2xl border bg-white/30 p-3 sm:flex-row sm:items-center">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div
+                        className={cn(
+                          'rounded-full border p-1',
+                          step.completed ? 'border-emerald-500 text-emerald-500' : 'border-muted text-muted-foreground',
+                        )}
+                      >
+                        {step.completed ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+                      </div>
+                      <div>
+                        <p className="font-medium">{step.title}</p>
+                        <p className="text-sm text-muted-foreground">{step.description}</p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={step.link}>Los geht's</Link>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <section className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold">Direkt starten</h2>
+              <p className="text-muted-foreground">Wähle einen Bereich aus, um schnell loszulegen.</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={resetOnboarding}>
+              Onboarding anzeigen
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {quickActions.map((action) => (
+              <Card key={action.title} className="hover:border-primary/50 transition">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <action.icon className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base">{action.title}</CardTitle>
+                  </div>
+                  <CardDescription>{action.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="ghost" size="sm" asChild className="w-full justify-between">
+                    <Link to={action.to}>
+                      Öffnen
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
 
         <Card>
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -245,6 +471,40 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={onboardingDialogOpen} onOpenChange={setOnboardingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Willkommen bei ARI</DialogTitle>
+            <DialogDescription>
+              Diese Schritte helfen Dir, innerhalb weniger Minuten startklar zu sein.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {onboardingSteps.map((step) => (
+              <div key={step.id} className="flex items-center gap-3">
+                {step.completed ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                ) : (
+                  <Circle className="h-5 w-5 text-muted-foreground" />
+                )}
+                <div>
+                  <p className="font-medium">{step.title}</p>
+                  <p className="text-sm text-muted-foreground">{step.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={dismissOnboarding}>
+              Später
+            </Button>
+            <Button asChild>
+              <Link to="/profil">Los geht's</Link>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

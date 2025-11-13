@@ -99,24 +99,23 @@ export function Layout({ children }: LayoutProps) {
   const navItems = useMemo(() => {
     if (isAuthenticated) {
       return [
-        { to: '/app', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/app', label: 'Übersicht', icon: LayoutDashboard },
         { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
-        { to: '/personen', label: 'Personen', icon: Users },
-        { to: '/organisationen', label: 'Organisationen', icon: Building2 },
         { to: '/events', label: 'Events', icon: CalendarDays },
+        { to: '/gruppen', label: 'Gruppen', icon: UserPlus },
         { to: '/qa', label: 'Q&A', icon: MessageSquare },
         { to: '/nachrichten', label: 'Nachrichten', icon: MessageCircle },
-        { to: '/gruppen', label: 'Gruppen', icon: UserPlus },
-        { to: '/kaffee', label: 'Kaffee', icon: Coffee },
         { to: '/raeume', label: 'Räume', icon: DoorClosed },
+        { to: '/kaffee', label: 'Kaffee', icon: Coffee },
         { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
+        { to: '/organisationen', label: 'Organisationen', icon: Building2 },
       ];
     }
     return [
       { to: '/', label: 'Start', icon: LayoutDashboard },
       { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
-      { to: '/organisationen', label: 'Organisationen', icon: Building2 },
       { to: '/events', label: 'Events', icon: CalendarDays },
+      { to: '/organisationen', label: 'Organisationen', icon: Building2 },
     ];
   }, [isAuthenticated]);
 

@@ -1019,8 +1019,8 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
 
         <Tabs value={activeSection} onValueChange={handleSectionChange}>
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[280px,minmax(0,1fr)] lg:items-start">
-            <div className="lg:sticky lg:top-24">
-              <TabsList className="!flex w-full flex-wrap gap-2 rounded-2xl border bg-card p-3 text-foreground shadow-sm lg:flex-col lg:gap-1">
+            <div className="lg:sticky lg:top-24 lg:self-start w-full">
+              <TabsList className="flex w-full flex-col gap-2 rounded-2xl border bg-card p-3 text-foreground shadow-sm">
                 <TabsTrigger value="organizations" className={adminTabTriggerClass}>
                   Organisationen
                 </TabsTrigger>
