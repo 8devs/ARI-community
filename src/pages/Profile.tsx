@@ -18,6 +18,7 @@ interface ProfileFormState {
   skills_text: string;
   phone: string;
   first_aid_certified: boolean;
+  position: string;
   pref_email_notifications: boolean;
   pref_push_notifications: boolean;
 }
@@ -35,6 +36,7 @@ export default function Profile() {
     skills_text: '',
     phone: '',
     first_aid_certified: false,
+    position: '',
     pref_email_notifications: true,
     pref_push_notifications: false,
   });
@@ -47,6 +49,7 @@ export default function Profile() {
         skills_text: profile.skills_text ?? '',
         phone: profile.phone ?? '',
         first_aid_certified: profile.first_aid_certified ?? false,
+        position: profile.position ?? '',
         pref_email_notifications: profile.pref_email_notifications ?? true,
         pref_push_notifications: profile.pref_push_notifications ?? false,
       });
@@ -85,6 +88,7 @@ export default function Profile() {
         skills_text: form.skills_text,
         phone: form.phone,
         first_aid_certified: form.first_aid_certified,
+        position: form.position.trim() || null,
         pref_email_notifications: form.pref_email_notifications,
         pref_push_notifications: form.pref_push_notifications,
       })
@@ -205,26 +209,35 @@ export default function Profile() {
 
             {!loading && profile && (
               <form className="space-y-6" onSubmit={handleSubmit}>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
                       value={form.name}
                       onChange={(e) => handleChange('name', e.target.value)}
                       required
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefon / Mobil</Label>
-                    <Input
-                      id="phone"
-                      value={form.phone}
-                      onChange={(e) => handleChange('phone', e.target.value)}
-                      placeholder="+49 ..."
-                    />
-                  </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="position">Position</Label>
+                  <Input
+                    id="position"
+                    value={form.position}
+                    onChange={(e) => handleChange('position', e.target.value)}
+                    placeholder="z.B. Projektmanagerin"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefon / Mobil</Label>
+                  <Input
+                    id="phone"
+                    value={form.phone}
+                    onChange={(e) => handleChange('phone', e.target.value)}
+                    placeholder="+49 ..."
+                  />
+                </div>
+              </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="bio">Über mich</Label>

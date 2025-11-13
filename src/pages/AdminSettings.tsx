@@ -129,6 +129,7 @@ export default function AdminSettings() {
     bio: '',
     skills_text: '',
     first_aid_certified: false,
+    position: '',
   });
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
   const [rounds, setRounds] = useState<LunchRound[]>([]);
@@ -782,6 +783,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
       bio: member.bio ?? '',
       skills_text: member.skills_text ?? '',
       first_aid_certified: Boolean(member.first_aid_certified),
+      position: member.position ?? '',
     });
     setMemberDialogOpen(true);
   };
@@ -806,6 +808,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
       phone: memberForm.phone.trim() || null,
       bio: memberForm.bio.trim() || null,
       skills_text: memberForm.skills_text.trim() || null,
+      position: memberForm.position.trim() || null,
       first_aid_certified: memberForm.first_aid_certified,
       })
       .eq('id', memberId);
@@ -1101,8 +1104,11 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                       <AvatarFallback>{member.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                                     )}
                                   </Avatar>
-                                  <div>
+                                  <div className="space-y-0.5">
                                     <p className="font-medium">{member.name}</p>
+                                    {member.position && (
+                                      <p className="text-xs text-foreground">{member.position}</p>
+                                    )}
                                     <p className="text-xs text-muted-foreground">{member.email}</p>
                                     {member.phone && (
                                       <p className="text-xs text-muted-foreground">{member.phone}</p>
@@ -1705,6 +1711,15 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                     id="member-phone"
                     value={memberForm.phone}
                     onChange={(e) => handleMemberFormChange('phone', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="member-position">Position</Label>
+                  <Input
+                    id="member-position"
+                    value={memberForm.position}
+                    onChange={(e) => handleMemberFormChange('position', e.target.value)}
+                    placeholder="z.B. Community Manager"
                   />
                 </div>
                 <div className="space-y-2">

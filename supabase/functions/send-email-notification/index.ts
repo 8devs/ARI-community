@@ -3,7 +3,8 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM_EMAIL = Deno.env.get("NOTIFY_FROM_EMAIL") ?? "notifications@ari-worms.de";
 
-const wrapWithAriTemplate = (title: string, innerHtml: string, badge?: string) => `<!DOCTYPE html>
+function wrapWithAriTemplate(title: string, innerHtml: string, badge?: string) {
+  return `<!DOCTYPE html>
 <html lang="de" style="margin:0;padding:0;">
   <head>
     <meta charset="UTF-8" />
@@ -112,7 +113,7 @@ const wrapWithAriTemplate = (title: string, innerHtml: string, badge?: string) =
     </div>
   </body>
 </html>`;
-};
+}
 
 serve(async (req) => {
   if (req.method !== "POST") {

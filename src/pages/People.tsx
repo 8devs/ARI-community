@@ -19,6 +19,7 @@ interface ProfileRow {
   skills_text: string | null;
   first_aid_certified: boolean | null;
   phone: string | null;
+  position: string | null;
   organization_id: string;
   organization?: {
     name: string | null;
@@ -59,6 +60,7 @@ export default function People() {
           first_aid_certified,
           phone,
           organization_id,
+          position,
           organization:organizations(name)
         `)
         .order('name');
@@ -93,6 +95,7 @@ export default function People() {
         profile.email.toLowerCase().includes(search) ||
         profile.skills_text?.toLowerCase().includes(search) ||
         profile.organization?.name?.toLowerCase().includes(search) ||
+        profile.position?.toLowerCase().includes(search) ||
         profile.phone?.toLowerCase().includes(search);
 
       const matchesOrg =
@@ -189,8 +192,8 @@ export default function People() {
             {filtered.map((profile) => (
               <Card key={profile.id} className="flex h-full flex-col hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-14 w-14">
+                    <div className="flex items-start gap-4">
+                      <Avatar className="h-14 w-14">
                       {profile.avatar_url && (
                         <AvatarImage
                           src={profile.avatar_url}
@@ -202,15 +205,20 @@ export default function People() {
                         {getInitials(profile.name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate">{profile.name}</CardTitle>
-                      {profile.organization?.name && (
-                        <p className="text-sm text-muted-foreground truncate">
-                          {profile.organization.name}
-                        </p>
-                      )}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <CardTitle className="text-lg truncate">{profile.name}</CardTitle>
+                        {profile.organization?.name && (
+                          <p className="text-sm text-muted-foreground truncate">
+                            {profile.organization.name}
+                          </p>
+                        )}
+                        {profile.position && (
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {profile.position}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-between space-y-3">
                   {profile.bio && (

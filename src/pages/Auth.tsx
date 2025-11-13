@@ -9,6 +9,7 @@ import { Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 const loginSchema = z.object({
   email: z.string().email('Bitte gib eine gültige E-Mail-Adresse ein'),
@@ -181,9 +182,16 @@ export default function Auth() {
     }
   };
 
+  const hasInvite = Boolean(inviteToken);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
-      <div className="w-full max-w-4xl mx-auto grid gap-4 md:grid-cols-2">
+      <div
+        className={cn(
+          'w-full mx-auto',
+          hasInvite ? 'max-w-4xl grid gap-4 md:grid-cols-2' : 'max-w-lg',
+        )}
+      >
         <Card>
           <CardHeader className="space-y-4 text-center">
             <div className="flex justify-center">

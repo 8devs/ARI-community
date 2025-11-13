@@ -878,6 +878,7 @@ export type Database = {
           name: string
           organization_id: string
           phone: string | null
+          position: string | null
           pref_email_notifications: boolean
           pref_push_notifications: boolean
           role: Database["public"]["Enums"]["app_role"]
@@ -898,6 +899,7 @@ export type Database = {
           name: string
           organization_id: string
           phone?: string | null
+          position?: string | null
           pref_email_notifications?: boolean
           pref_push_notifications?: boolean
           role?: Database["public"]["Enums"]["app_role"]
@@ -918,6 +920,7 @@ export type Database = {
           name?: string
           organization_id?: string
           phone?: string | null
+          position?: string | null
           pref_email_notifications?: boolean
           pref_push_notifications?: boolean
           role?: Database["public"]["Enums"]["app_role"]
