@@ -24,6 +24,7 @@ import { de } from "date-fns/locale";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import PullToRefresh from "react-simple-pull-to-refresh";
 
 const PAGE_SIZE = 25;
 
@@ -56,7 +57,7 @@ export default function NotificationsCenter() {
         setLoading(false);
         setLoadingMore(false);
         setTotalCount(0);
-        return;
+        return true;
       }
 
       if (append) {
@@ -90,6 +91,7 @@ export default function NotificationsCenter() {
 
       setLoading(false);
       setLoadingMore(false);
+      return true;
     },
     [profile?.id],
   );
@@ -169,7 +171,18 @@ export default function NotificationsCenter() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <PullToRefresh
+        onRefresh={() => fetchNotifications(false)}
+        pullingContent={<p className="text-xs text-muted-foreground py-2 text-center">Zum Aktualisieren nach unten ziehen…</p>}
+        refreshingContent={
+          <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Aktualisiere…
+          </div>
+        }
+        className="h-full"
+      >
+        <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Benachrichtigungen</h1>
@@ -337,7 +350,8 @@ export default function NotificationsCenter() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </PullToRefresh>
     </Layout>
   );
 }
