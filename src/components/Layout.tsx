@@ -269,7 +269,7 @@ export function Layout({ children }: LayoutProps) {
   };
 
   const navButtonClasses = 'transition-colors data-[active=true]:bg-muted data-[active=true]:text-foreground';
-  const displayLogo = brandLogoUrl ?? defaultBrandLogo;
+  const displayLogo = defaultBrandLogo;
 
 
   return (

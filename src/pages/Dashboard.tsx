@@ -15,6 +15,7 @@ import {
   Building2,
   CheckCircle2,
   Circle,
+  X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,6 +47,15 @@ export default function Dashboard() {
     return localStorage.getItem('ari-onboarding-dismissed') === 'true';
   });
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
+  const [orgLogo, setOrgLogo] = useState<string | null>(null);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('ari-onboarding-seen') === 'true';
+  });
+  const [showVersionCard, setShowVersionCard] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('ari-version-card-dismissed') !== 'true';
+  });
 
   useEffect(() => {
     loadActivities();
@@ -71,6 +81,10 @@ export default function Dashboard() {
       window.removeEventListener('app-branding-updated', handleBrandingUpdate as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    setOrgLogo(profile?.organization?.logo_url ?? brandLogo ?? null);
+  }, [profile?.organization?.logo_url, brandLogo]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -208,10 +222,14 @@ export default function Dashboard() {
   const onboardingCompleted = completedSteps === onboardingSteps.length;
 
   useEffect(() => {
-    if (!onboardingCompleted && !onboardingDismissed) {
+    if (!onboardingCompleted && !onboardingDismissed && !hasSeenOnboarding) {
       setOnboardingDialogOpen(true);
+      setHasSeenOnboarding(true);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ari-onboarding-seen', 'true');
+      }
     }
-  }, [onboardingCompleted, onboardingDismissed]);
+  }, [onboardingCompleted, onboardingDismissed, hasSeenOnboarding]);
 
   const dismissOnboarding = () => {
     if (typeof window !== 'undefined') {
@@ -224,9 +242,18 @@ export default function Dashboard() {
   const resetOnboarding = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('ari-onboarding-dismissed');
+      localStorage.removeItem('ari-onboarding-seen');
     }
     setOnboardingDismissed(false);
+    setHasSeenOnboarding(false);
     setOnboardingDialogOpen(true);
+  };
+
+  const dismissVersionCard = () => {
+    setShowVersionCard(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ari-version-card-dismissed', 'true');
+    }
   };
 
   const quickActions = [
@@ -296,9 +323,9 @@ export default function Dashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {brandLogo && (
+              {orgLogo && (
                 <div className="flex justify-center">
-                  <img src={brandLogo} alt="ARI Logo" className="h-12 w-auto object-contain" />
+                  <img src={orgLogo} alt="Organisationslogo" className="h-12 w-auto object-contain" />
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-3">
@@ -332,28 +359,37 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-primary" />
-                Neu in Version 0.4
-              </CardTitle>
-              <CardDescription>Gruppen, Benachrichtigungscenter & mehr.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <p>★ Trete Community-Gruppen bei und chatte organisationsübergreifend.</p>
-              <p>★ Lass Dich per Push/E-Mail über neue Pinnwand- & Q&A-Beiträge informieren.</p>
-              <Button variant="ghost" size="sm" asChild className="w-full justify-between">
-                <Link to="/changelog">
-                  Zum Changelog
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          {showVersionCard && (
+            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Bell className="h-5 w-5 text-primary" />
+                      Neu in Version 0.4
+                    </CardTitle>
+                    <CardDescription>Gruppen, Benachrichtigungscenter & mehr.</CardDescription>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={dismissVersionCard} aria-label="Hinweis ausblenden">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <p>★ Trete Community-Gruppen bei und chatte organisationsübergreifend.</p>
+                <p>★ Lass Dich per Push/E-Mail über neue Pinnwand- & Q&A-Beiträge informieren.</p>
+                <Button variant="ghost" size="sm" asChild className="w-full justify-between">
+                  <Link to="/changelog">
+                    Zum Changelog
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {!onboardingCompleted && (
+        {!hasSeenOnboarding && !onboardingCompleted && (
           <Card className="border-primary/40 bg-primary/5">
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>

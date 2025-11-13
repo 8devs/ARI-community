@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import People from "./pages/People";
+import PersonProfile from "./pages/PersonProfile";
 import Organizations from "./pages/Organizations";
 import Pinnwand from "./pages/Pinnwand";
 import QA from "./pages/QA";
@@ -70,6 +71,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <People />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/personen/:id"
+              element={
+                <ProtectedRoute>
+                  <PersonProfile />
                 </ProtectedRoute>
               }
             />

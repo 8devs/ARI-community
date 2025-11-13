@@ -15,8 +15,7 @@ export default function Changelog() {
             <Badge variant="secondary">veröffentlicht am {APP_RELEASE_DATE}</Badge>
           </div>
           <p className="text-muted-foreground max-w-2xl">
-            Der Verlauf zeigt, welche Features wann in die ARI Community eingeflossen sind. Bitte ergänze jede Änderung hier,
-            damit alle Nutzer:innen den Fortschritt nachvollziehen können.
+            Der Verlauf zeigt, welche Features wann in die ARI Community eingeflossen sind.
           </p>
         </div>
 

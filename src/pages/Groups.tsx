@@ -9,7 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, MessageSquare, Plus, Shield, Users, Lock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -53,8 +63,8 @@ export default function Groups() {
   const [groupForm, setGroupForm] = useState({
     name: "",
     description: "",
-    visibility: "PUBLIC" as "PUBLIC" | "PRIVATE",
   });
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
 
   const groupsQuery = useQuery({
     queryKey: ["community-groups"],
@@ -195,7 +205,7 @@ export default function Groups() {
     }
     setMessageInput("");
     queryClient.invalidateQueries({ queryKey: ["group-messages", selectedGroupId] });
-  };
+  };  
 
   const handleCreateGroup = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -210,7 +220,7 @@ export default function Groups() {
       .insert({
         name: groupForm.name.trim(),
         description: groupForm.description.trim() || null,
-        visibility: groupForm.visibility,
+        visibility: 'PUBLIC',
         created_by_id: profile.id,
       })
       .select('id')
@@ -231,6 +241,24 @@ export default function Groups() {
     if (data?.id) {
       setSelectedGroupId(data.id);
     }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!groupId) return;
+    setDeletingGroupId(groupId);
+    const { error } = await supabase.from('community_groups').delete().eq('id', groupId);
+    setDeletingGroupId(null);
+    if (error) {
+      toast.error('Gruppe konnte nicht gelöscht werden');
+      console.error('delete group failed', error);
+      return;
+    }
+    toast.success('Gruppe gelöscht');
+    if (selectedGroupId === groupId) {
+      setSelectedGroupId(null);
+    }
+    queryClient.invalidateQueries({ queryKey: ['community-groups'] });
+    queryClient.invalidateQueries({ queryKey: ['group-memberships', profile?.id] });
   };
 
   return (
@@ -277,15 +305,10 @@ export default function Groups() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Sichtbarkeit</label>
-                  <Tabs value={groupForm.visibility} onValueChange={(value) => setGroupForm((prev) => ({ ...prev, visibility: value as 'PUBLIC' | 'PRIVATE' }))}>
-                    <TabsList className="grid grid-cols-2">
-                      <TabsTrigger value="PUBLIC">Öffentlich</TabsTrigger>
-                      <TabsTrigger value="PRIVATE">Privat</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  <p className="text-xs text-muted-foreground">
-                    Private Gruppen sind nur für Mitglieder sichtbar.
-                  </p>
+                  <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    Gruppen sind derzeit immer <span className="font-semibold text-foreground">öffentlich</span> und
+                    für alle sichtbar. Zugang kann über Mitgliedschaft gesteuert werden.
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={creatingGroup}>
@@ -385,7 +408,7 @@ export default function Groups() {
           <Card className="min-h-[70vh]">
             {activeGroup ? (
               <>
-                <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       {activeGroup.name}
@@ -395,15 +418,43 @@ export default function Groups() {
                     </CardTitle>
                     <CardDescription>{activeGroup.description || 'Noch keine Beschreibung'}</CardDescription>
                   </div>
-                  {isMember(activeGroup.id) ? (
-                    <Button variant="outline" onClick={() => handleLeaveGroup(activeGroup.id)}>
-                      Verlassen
-                    </Button>
-                  ) : activeGroup.visibility === 'PUBLIC' ? (
-                    <Button onClick={() => handleJoinGroup(activeGroup)}>
-                      Beitreten
-                    </Button>
-                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {isAdmin(activeGroup.id) && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm">
+                            Gruppe löschen
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Gruppe wirklich löschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Alle Nachrichten und Mitgliederzuordnungen gehen verloren. Dieser Vorgang kann nicht rückgängig gemacht werden.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteGroup(activeGroup.id)}
+                              disabled={deletingGroupId === activeGroup.id}
+                            >
+                              Löschen
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    {isMember(activeGroup.id) ? (
+                      <Button variant="outline" size="sm" onClick={() => handleLeaveGroup(activeGroup.id)}>
+                        Verlassen
+                      </Button>
+                    ) : activeGroup.visibility === 'PUBLIC' ? (
+                      <Button size="sm" onClick={() => handleJoinGroup(activeGroup)}>
+                        Beitreten
+                      </Button>
+                    ) : null}
+                  </div>
                 </CardHeader>
                 <CardContent className="flex h-full flex-col">
                   <div className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4">

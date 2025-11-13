@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Mail, Heart, Users, Phone } from 'lucide-react';
+import { Search, Mail, Heart, Users, Phone, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -189,8 +190,13 @@ export default function People() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
-            {filtered.map((profile) => (
-              <Card key={profile.id} className="flex h-full flex-col hover:shadow-lg transition-shadow">
+            {filtered.map((profile) => {
+              const skillList = profile.skills_text
+                ?.split(',')
+                .map((skill) => skill.trim())
+                .filter(Boolean) ?? [];
+              return (
+                <Card key={profile.id} className="flex h-full flex-col hover:shadow-lg transition-shadow">
                 <CardHeader>
                     <div className="flex items-start gap-4">
                       <Avatar className="h-14 w-14">
@@ -227,13 +233,18 @@ export default function People() {
                     </p>
                   )}
 
-                  {profile.skills_text && (
+                  {skillList.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {profile.skills_text.split(',').slice(0, 3).map((skill, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
-                          {skill.trim()}
+                      {skillList.slice(0, 3).map((skill) => (
+                        <Badge key={skill} variant="secondary" className="text-xs">
+                          {skill}
                         </Badge>
                       ))}
+                      {skillList.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{skillList.length - 3}
+                        </Badge>
+                      )}
                     </div>
                   )}
 
@@ -264,9 +275,16 @@ export default function People() {
                       </p>
                     </div>
                   )}
+                  <Button variant="ghost" size="sm" asChild className="w-full justify-between mt-2">
+                    <Link to={`/personen/${profile.id}`}>
+                      Profil ansehen
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
                 </CardContent>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
