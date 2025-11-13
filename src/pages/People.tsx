@@ -138,7 +138,7 @@ export default function People() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
@@ -191,7 +191,7 @@ export default function People() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((profile) => (
-              <Card key={profile.id} className="hover:shadow-lg transition-shadow">
+              <Card key={profile.id} className="flex h-full flex-col hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start gap-4">
                     <Avatar className="h-14 w-14">
@@ -216,7 +216,7 @@ export default function People() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="flex flex-1 flex-col justify-between space-y-3">
                   {profile.bio && (
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {profile.bio}
@@ -250,14 +250,16 @@ export default function People() {
                   )}
 
                   {profile.first_aid_certified && (
-                    <div className="flex items-center gap-2">
-                      <Heart className="h-4 w-4 text-destructive" />
-                      <span className="text-sm font-medium">Ersthelfer</span>
-                      {profile.first_aid_available && (
-                        <Badge variant="outline" className="text-xs border-success text-success">
-                          Verfügbar
-                        </Badge>
-                      )}
+                    <div className="rounded-lg border border-success/30 bg-success/5 p-3 space-y-1">
+                      <p className="flex items-center gap-2 text-sm font-medium text-success">
+                        <Heart className="h-4 w-4" />
+                        Ersthelfer zertifiziert
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {profile.first_aid_available
+                          ? 'Aktuell einsatzbereit für Notfälle.'
+                          : 'Derzeit nicht eingeteilt, aber geschult.'}
+                      </p>
                     </div>
                   )}
                 </CardContent>

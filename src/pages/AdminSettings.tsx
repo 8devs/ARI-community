@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,24 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Building2, MapPin, Users, Pencil, PlusCircle, Mail, Phone, Loader2, Trash2, Globe, Search } from 'lucide-react';
+import {
+  Building2,
+  MapPin,
+  Users,
+  Pencil,
+  PlusCircle,
+  Mail,
+  Phone,
+  Loader2,
+  Trash2,
+  Globe,
+  Search,
+  Calendar,
+  Shuffle,
+  CheckCircle2,
+  Settings,
+} from 'lucide-react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -27,6 +44,13 @@ type ProfileRow = Tables<'profiles'> & {
   } | null;
 };
 type CoffeeProduct = Tables<'coffee_products'>;
+type LunchRound = {
+  id: string;
+  scheduled_date: string;
+  status: string | null;
+  weekday: number | null;
+  participants: { count: number }[];
+};
 
 const emptyOrgForm = {
   name: '',
@@ -52,6 +76,9 @@ const generateRandomPath = (prefix: string, file: File) => {
 
 export default function AdminSettings() {
   const { profile: currentProfile, loading: profileLoading } = useCurrentProfile();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSection = searchParams.get('section') ?? 'organizations';
+  const [activeSection, setActiveSection] = useState(initialSection);
   const canAccessAdmin = currentProfile?.role === 'SUPER_ADMIN' || currentProfile?.role === 'ORG_ADMIN';
   const isSuperAdmin = currentProfile?.role === 'SUPER_ADMIN';
   const isOrgAdmin = currentProfile?.role === 'ORG_ADMIN';
@@ -95,6 +122,17 @@ export default function AdminSettings() {
     first_aid_available: false,
   });
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
+  const [rounds, setRounds] = useState<LunchRound[]>([]);
+  const [lunchLoading, setLunchLoading] = useState(true);
+  const [weekday, setWeekday] = useState(4);
+  const [newRoundDate, setNewRoundDate] = useState('');
+  const [savingWeekday, setSavingWeekday] = useState(false);
+  const [creatingRound, setCreatingRound] = useState(false);
+  const [pairingRoundId, setPairingRoundId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setActiveSection(initialSection);
+  }, [initialSection]);
 
   useEffect(() => {
     if (!canAccessAdmin) return;
@@ -111,6 +149,12 @@ export default function AdminSettings() {
       setInviteForm((prev) => ({ ...prev, organization_id: organizations[0].id }));
     }
   }, [organizations, isSuperAdmin, inviteForm.organization_id]);
+
+  useEffect(() => {
+    if (!canAccessAdmin) return;
+    loadLunchSettings();
+    loadLunchRounds();
+  }, [canAccessAdmin]);
 
   const loadOrganizations = async () => {
     try {
@@ -164,6 +208,175 @@ export default function AdminSettings() {
       setCoffeeError('Getränke konnten nicht geladen werden.');
     } finally {
       setCoffeeLoading(false);
+    }
+  };
+
+  const handleSectionChange = (value: string) => {
+    setActiveSection(value);
+    const params = new URLSearchParams(searchParams);
+    if (value === 'organizations') {
+      params.delete('section');
+    } else {
+      params.set('section', value);
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const loadLunchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'lunch_roulette_weekday')
+        .maybeSingle();
+      if (error) throw error;
+      if (data?.value) {
+        const parsed = parseInt(data.value as string, 10);
+        if (!Number.isNaN(parsed)) {
+          setWeekday(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading lunch settings', error);
+    }
+  };
+
+  const loadLunchRounds = async () => {
+    setLunchLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('match_rounds')
+        .select(`
+          id,
+          scheduled_date,
+          status,
+          weekday,
+          participants:match_participations(count)
+        `)
+        .eq('kind', 'LUNCH')
+        .order('scheduled_date', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      setRounds((data as LunchRound[]) || []);
+    } catch (error) {
+      console.error('Error loading lunch rounds', error);
+      toast.error('Lunch-Roulette konnte nicht geladen werden');
+    } finally {
+      setLunchLoading(false);
+    }
+  };
+
+  const handleSaveWeekday = async () => {
+    setSavingWeekday(true);
+    try {
+      const { error } = await supabase
+        .from('settings')
+        .upsert({
+          key: 'lunch_roulette_weekday',
+          value: String(weekday),
+        });
+      if (error) throw error;
+      toast.success('Wochentag gespeichert');
+    } catch (error) {
+      console.error('Error saving weekday', error);
+      toast.error('Wochentag konnte nicht gespeichert werden');
+    } finally {
+      setSavingWeekday(false);
+    }
+  };
+
+  const handleCreateLunchRound = async () => {
+    if (!newRoundDate) {
+      toast.error('Bitte Datum auswählen');
+      return;
+    }
+    setCreatingRound(true);
+    try {
+      const { error } = await supabase.from('match_rounds').insert({
+        kind: 'LUNCH',
+        scheduled_date: newRoundDate,
+        status: 'OPEN',
+        weekday,
+      });
+      if (error) throw error;
+      toast.success('Runde erstellt');
+      setNewRoundDate('');
+      loadLunchRounds();
+    } catch (error) {
+      console.error('Error creating lunch round', error);
+      toast.error('Runde konnte nicht erstellt werden');
+    } finally {
+      setCreatingRound(false);
+    }
+  };
+
+  const handleCreateLunchPairs = async (roundId: string) => {
+    setPairingRoundId(roundId);
+    try {
+      const { data: participants, error: participantsError } = await supabase
+        .from('match_participations')
+        .select('user_id')
+        .eq('round_id', roundId);
+      if (participantsError) throw participantsError;
+      if (!participants || participants.length < 2) {
+        toast.error('Mindestens zwei Teilnehmende erforderlich');
+        return;
+      }
+      const shuffled = [...participants].sort(() => Math.random() - 0.5);
+      const pairs: { round_id: string; user_a_id: string; user_b_id: string }[] = [];
+      for (let i = 0; i < shuffled.length; i += 2) {
+        if (i + 1 < shuffled.length) {
+          pairs.push({
+            round_id: roundId,
+            user_a_id: shuffled[i].user_id,
+            user_b_id: shuffled[i + 1].user_id,
+          });
+        } else if (pairs.length > 0) {
+          pairs.push({
+            round_id: roundId,
+            user_a_id: shuffled[i].user_id,
+            user_b_id: pairs[pairs.length - 1].user_a_id,
+          });
+        }
+      }
+      const { error: pairError } = await supabase.from('match_pairs').insert(pairs);
+      if (pairError) throw pairError;
+      const { error: statusError } = await supabase
+        .from('match_rounds')
+        .update({ status: 'PAIRED' })
+        .eq('id', roundId);
+      if (statusError) throw statusError;
+      toast.success(`${pairs.length} Paarungen erstellt`);
+      loadLunchRounds();
+    } catch (error) {
+      console.error('Error pairing lunch round', error);
+      toast.error('Paarungen konnten nicht erstellt werden');
+    } finally {
+      setPairingRoundId(null);
+    }
+  };
+
+  const weekdayLabels = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+
+  const getWeekdayName = (value: number | null) => {
+    if (value == null || value < 0 || value > 6) return 'Nicht festgelegt';
+    return weekdayLabels[value];
+  };
+
+  const getRoundStatusBadge = (status: string | null) => {
+    switch (status) {
+      case 'OPEN':
+        return <Badge variant="default">Offen</Badge>;
+      case 'PAIRED':
+        return (
+          <Badge variant="outline" className="border-success text-success">
+            Gepaart
+          </Badge>
+        );
+      case 'CLOSED':
+        return <Badge variant="outline">Abgeschlossen</Badge>;
+      default:
+        return <Badge variant="secondary">Entwurf</Badge>;
     }
   };
 
@@ -586,13 +799,27 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
           </p>
         </div>
 
-        <Tabs defaultValue="organizations">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="organizations">Organisationen verwalten</TabsTrigger>
-            <TabsTrigger value="people">Mitarbeitende</TabsTrigger>
-            <TabsTrigger value="invites">Einladungen</TabsTrigger>
-            <TabsTrigger value="coffee">Getränke</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeSection} onValueChange={handleSectionChange}>
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <TabsList className="grid grid-cols-2 gap-2 lg:flex lg:w-64 lg:flex-col lg:gap-2 lg:rounded-2xl lg:border lg:bg-card lg:p-3">
+              <TabsTrigger value="organizations" className="justify-start">
+                Organisationen
+              </TabsTrigger>
+              <TabsTrigger value="people" className="justify-start">
+                Mitarbeitende
+              </TabsTrigger>
+              <TabsTrigger value="invites" className="justify-start">
+                Einladungen
+              </TabsTrigger>
+              <TabsTrigger value="coffee" className="justify-start">
+                Getränke
+              </TabsTrigger>
+              <TabsTrigger value="lunch" className="justify-start">
+                Lunch Roulette
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex-1 space-y-6">
           <TabsContent value="organizations" className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -1056,6 +1283,109 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="lunch" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Einstellungen</CardTitle>
+                <CardDescription>Wahle einen Standardwochentag und lege neue Runden an.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Wochentag für neue Runden</Label>
+                    <Select value={String(weekday)} onValueChange={(value) => setWeekday(Number(value))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wochentag wählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {weekdayLabels.map((label, index) => (
+                          <SelectItem key={index} value={String(index)}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nächste Runde (Datum)</Label>
+                    <Input
+                      type="date"
+                      value={newRoundDate}
+                      onChange={(e) => setNewRoundDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={handleSaveWeekday} disabled={savingWeekday}>
+                    {savingWeekday ? 'Speichert...' : 'Wochentag speichern'}
+                  </Button>
+                  <Button variant="secondary" onClick={handleCreateLunchRound} disabled={creatingRound || !newRoundDate}>
+                    {creatingRound ? 'Wird angelegt...' : 'Neue Runde erstellen'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Rundenübersicht</CardTitle>
+                  <CardDescription>Verwalte die letzten Lunch-Roulette Runden.</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" onClick={loadLunchRounds}>
+                  Neu laden
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {lunchLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Runden werden geladen...
+                  </div>
+                ) : rounds.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Es wurden noch keine Lunch-Roulette Runden angelegt.</p>
+                ) : (
+                  rounds.map((round) => (
+                    <div key={round.id} className="rounded-xl border p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="font-semibold flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          {format(new Date(round.scheduled_date), 'dd.MM.yyyy')}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {getWeekdayName(round.weekday)} • {round.participants?.[0]?.count ?? 0} Teilnehmende
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getRoundStatusBadge(round.status)}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCreateLunchPairs(round.id)}
+                          disabled={pairingRoundId === round.id}
+                        >
+                          {pairingRoundId === round.id ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Erstellt...
+                            </>
+                          ) : (
+                            <>
+                              <Shuffle className="mr-2 h-4 w-4" />
+                              Paarungen erstellen
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+            </div>
+          </div>
         </Tabs>
       </div>
 

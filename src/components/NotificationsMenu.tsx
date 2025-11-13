@@ -19,6 +19,7 @@ interface NotificationsMenuProps {
   loading: boolean;
   onMarkAsRead: (id: string) => void | Promise<void>;
   onOpenNotifications?: () => void;
+  onNavigate?: (url: string | null) => void;
 }
 
 export function NotificationsMenu({
@@ -27,7 +28,17 @@ export function NotificationsMenu({
   loading,
   onMarkAsRead,
   onOpenNotifications,
+  onNavigate,
 }: NotificationsMenuProps) {
+  const handleNavigate = (notification: Tables<"notifications">) => {
+    if (!notification.read_at) {
+      void onMarkAsRead(notification.id);
+    }
+    if (notification.url) {
+      onNavigate?.(notification.url);
+    }
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -52,7 +63,11 @@ export function NotificationsMenu({
             notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className="flex flex-col items-start gap-1 py-3 cursor-default"
+                className="flex flex-col items-start gap-1 py-3 cursor-pointer"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  handleNavigate(notification);
+                }}
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <p className="font-medium">{notification.title}</p>
@@ -61,7 +76,11 @@ export function NotificationsMenu({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => onMarkAsRead(notification.id)}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onMarkAsRead(notification.id);
+                      }}
                     >
                       <Check className="h-4 w-4" />
                     </Button>

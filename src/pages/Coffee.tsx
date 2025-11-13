@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -38,6 +39,7 @@ export default function Coffee() {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<CoffeeProduct | null>(null);
   const [savingPurchase, setSavingPurchase] = useState(false);
+  const [confirmCharge, setConfirmCharge] = useState(false);
 
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [exporting, setExporting] = useState(false);
@@ -330,6 +332,7 @@ useEffect(() => {
                         variant="outline"
                         onClick={() => {
                           setSelectedProduct(product);
+                          setConfirmCharge(false);
                           setProductDialogOpen(true);
                         }}
                       >
@@ -463,6 +466,7 @@ useEffect(() => {
           if (!open) {
             setSelectedProduct(null);
             setSavingPurchase(false);
+            setConfirmCharge(false);
           }
         }}
       >
@@ -475,15 +479,32 @@ useEffect(() => {
                   Preis: {currencyFormatter.format(selectedProduct.price_cents / 100)}
                 </DialogDescription>
               </DialogHeader>
-              <div className="py-4 text-sm text-muted-foreground">
-                Bitte bestätige Deinen Kauf, nachdem Du direkt an der Maschine bezahlt hast.
+              <div className="space-y-3 py-4 text-sm text-muted-foreground">
+                <p>
+                  Die Kosten werden Deiner Organisation{' '}
+                  <span className="font-medium text-foreground">
+                    {profile?.organization?.name ?? 'Deiner Organisation'}
+                  </span>{' '}
+                  zugeordnet.
+                </p>
+                <div className="flex items-start gap-3 rounded-lg border p-3">
+                  <Checkbox
+                    id="coffee-confirm"
+                    checked={confirmCharge}
+                    onCheckedChange={(checked) => setConfirmCharge(Boolean(checked))}
+                  />
+                  <Label htmlFor="coffee-confirm" className="text-sm leading-tight">
+                    Ich bestätige, dass ich das Getränk selbst bezahlt habe und die Abbuchung
+                    kostenpflichtig auf meine Organisation erfolgen darf.
+                  </Label>
+                </div>
               </div>
               <DialogFooter>
                 <Button
                   onClick={handleConfirmPurchase}
-                  disabled={savingPurchase}
+                  disabled={savingPurchase || !confirmCharge}
                 >
-                  {savingPurchase ? 'Speichern...' : 'Ich habe gezahlt'}
+                  {savingPurchase ? 'Speichern...' : 'Kauf bestätigen'}
                 </Button>
               </DialogFooter>
             </>

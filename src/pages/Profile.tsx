@@ -257,10 +257,10 @@ export default function Profile() {
                     <div>
                       <p className="font-medium flex items-center gap-2">
                         <HeartBadge />
-                        Ersthelfer
+                        Ersthelfer-Zertifizierung
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Zeigt anderen, dass Du Ersthelfer bist.
+                        Markiert Dich als ausgebildete Ersthelfer:in in der Community.
                       </p>
                     </div>
                     <Switch
@@ -273,10 +273,10 @@ export default function Profile() {
                     <div>
                       <p className="font-medium flex items-center gap-2">
                         <HeartBadge active />
-                        Einsatzbereit
+                        Aktuell einsatzbereit
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Kennzeichnet Dich als verfügbaren Ersthelfer.
+                        Nutze diese Option, wenn Du gerade vor Ort bist und im Ernstfall einspringen kannst.
                       </p>
                     </div>
                     <Switch

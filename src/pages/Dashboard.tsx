@@ -1,10 +1,98 @@
+import { useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Newspaper, MessageSquare, Calendar, ArrowRight, Utensils } from 'lucide-react';
+import { Users, Newspaper, MessageSquare, Calendar, ArrowRight, Utensils, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { formatDistanceToNow } from 'date-fns';
+import { de } from 'date-fns/locale';
+
+type ActivityItem = {
+  id: string;
+  type: 'POST' | 'QUESTION' | 'EVENT';
+  title: string;
+  description: string;
+  created_at: string;
+  url: string;
+};
 
 export default function Dashboard() {
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+
+  useEffect(() => {
+    loadActivities();
+    const interval = setInterval(loadActivities, 60000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadActivities = async () => {
+    setActivityLoading(true);
+    try {
+      const [postsRes, questionsRes, eventsRes] = await Promise.all([
+        supabase
+          .from('info_posts')
+          .select('id, title, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('questions')
+          .select('id, title, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('events')
+          .select('id, title, starts_at')
+          .order('starts_at', { ascending: false })
+          .limit(5),
+      ]);
+
+      const next: ActivityItem[] = [];
+
+      postsRes.data?.forEach((post) =>
+        next.push({
+          id: `post-${post.id}`,
+          type: 'POST',
+          title: post.title,
+          description: 'Neuer Pinnwandeintrag',
+          created_at: post.created_at,
+          url: '/pinnwand',
+        }),
+      );
+
+      questionsRes.data?.forEach((question) =>
+        next.push({
+          id: `question-${question.id}`,
+          type: 'QUESTION',
+          title: question.title,
+          description: 'Neue Frage im Q&A',
+          created_at: question.created_at,
+          url: `/qa?question=${question.id}`,
+        }),
+      );
+
+      eventsRes.data?.forEach((event) =>
+        next.push({
+          id: `event-${event.id}`,
+          type: 'EVENT',
+          title: event.title,
+          description: 'Veranstaltung geplant',
+          created_at: event.starts_at,
+          url: '/events',
+        }),
+      );
+
+      next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setActivities(next.slice(0, 5));
+    } catch (error) {
+      console.error('Error loading activities', error);
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-8">
@@ -113,22 +201,47 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Letzte Aktivitäten</CardTitle>
-            <CardDescription>
-              Was gibt es Neues in der Community?
-            </CardDescription>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Letzte Aktivitäten</CardTitle>
+              <CardDescription>
+                Was gibt es Neues in der Community?
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={loadActivities} disabled={activityLoading}>
+              Aktualisieren
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg">
-              <div className="h-2 w-2 rounded-full bg-primary mt-2" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">Willkommen in der ARI Community App!</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Hier kannst Du Dich mit Kollegen vernetzen, Fragen stellen, Events organisieren und vieles mehr.
-                </p>
+            {activityLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Aktivitäten werden geladen...
               </div>
-            </div>
+            ) : activities.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Keine Aktivitäten gefunden. Schau später noch einmal vorbei.</p>
+            ) : (
+              activities.map((activity) => (
+                <Link
+                  key={activity.id}
+                  to={activity.url}
+                  className="flex items-start gap-4 rounded-lg border p-4 transition hover:bg-muted/60"
+                >
+                  <div className="mt-1">
+                    {activity.type === 'POST' && <Newspaper className="h-5 w-5 text-primary" />}
+                    {activity.type === 'QUESTION' && <MessageSquare className="h-5 w-5 text-primary" />}
+                    {activity.type === 'EVENT' && <Calendar className="h-5 w-5 text-primary" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{activity.title}</p>
+                    <p className="text-sm text-muted-foreground">{activity.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: de })}
+                    </p>
+                  </div>
+                </Link>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

@@ -367,7 +367,7 @@ export default function Rooms() {
               <CardTitle>Räume</CardTitle>
               <CardDescription>Wähle einen Raum aus, um die Belegung zu sehen.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               {roomsLoading ? (
                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -377,53 +377,58 @@ export default function Rooms() {
                 <p className="text-sm text-muted-foreground">Es sind noch keine Räume vorhanden.</p>
               ) : (
                 rooms.map((room) => (
-                  <button
+                  <div
                     key={room.id}
-                    onClick={() => setSelectedRoomId(room.id)}
                     className={cn(
-                      'w-full rounded-xl border p-4 text-left transition hover:border-primary',
-                      selectedRoomId === room.id ? 'border-primary bg-primary/5' : 'border-border',
+                      'rounded-xl border transition',
+                      selectedRoomId === room.id ? 'border-primary bg-primary/5' : 'border-border bg-background',
                     )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="font-semibold flex items-center gap-2">
-                          <DoorClosed className="h-4 w-4 text-primary" />
-                          {room.name}
-                        </p>
-                        {room.location && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {room.location}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRoomId(room.id)}
+                      className="flex w-full flex-col gap-3 p-4 text-left focus-visible:outline-none"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold flex items-center gap-2">
+                            <DoorClosed className="h-4 w-4 text-primary" />
+                            {room.name}
                           </p>
-                        )}
-                        {room.capacity && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {room.capacity} Personen
-                          </p>
-                        )}
+                          {room.location && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {room.location}
+                            </p>
+                          )}
+                          {room.capacity && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {room.capacity} Personen
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={room.is_active ? 'secondary' : 'outline'}>
+                            {room.is_active ? 'Verfügbar' : 'Deaktiviert'}
+                          </Badge>
+                          {isRoomAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openRoomDialog(room);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <Badge variant={room.is_active ? 'secondary' : 'outline'}>
-                          {room.is_active ? 'Verfügbar' : 'Deaktiviert'}
-                        </Badge>
-                        {isRoomAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openRoomDialog(room);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 ))
               )}
             </CardContent>

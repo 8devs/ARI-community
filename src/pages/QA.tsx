@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -81,6 +82,7 @@ export default function QA() {
   const [deletingAnswerId, setDeletingAnswerId] = useState<string | null>(null);
   const { user } = useAuth();
   const { profile } = useCurrentProfile();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     loadQuestions();
@@ -93,6 +95,15 @@ export default function QA() {
       setUserVotes(new Set());
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    const questionParam = searchParams.get('question');
+    if (!questionParam) return;
+    const exists = questions.some((question) => question.id === questionParam);
+    if (exists) {
+      setExpandedQuestionId(questionParam);
+    }
+  }, [searchParams, questions]);
 
   const loadQuestions = async () => {
     try {
@@ -209,7 +220,17 @@ export default function QA() {
   };
 
   const toggleAnswers = (questionId: string) => {
-    setExpandedQuestionId((prev) => (prev === questionId ? null : questionId));
+    setExpandedQuestionId((prev) => {
+      const next = prev === questionId ? null : questionId;
+      const nextParams = new URLSearchParams(searchParams);
+      if (next) {
+        nextParams.set('question', next);
+      } else {
+        nextParams.delete('question');
+      }
+      setSearchParams(nextParams, { replace: true });
+      return next;
+    });
   };
 
   const handleAnswerInputChange = (questionId: string, value: string) => {
@@ -227,6 +248,7 @@ export default function QA() {
       return;
     }
     setAnswerSubmittingId(questionId);
+    const question = questions.find((q) => q.id === questionId);
     const { error } = await supabase.from('answers').insert({
       question_id: questionId,
       body,
@@ -238,6 +260,23 @@ export default function QA() {
     } else {
       toast.success('Antwort veröffentlicht');
       setAnswerInputs((prev) => ({ ...prev, [questionId]: '' }));
+      if (question && question.created_by_id !== user.id) {
+        const notificationBody = `${profile?.name ?? 'Ein Teammitglied'} hat auf Deine Frage "${question.title}" geantwortet.`;
+        const { error: notificationError } = await supabase.rpc('create_notification', {
+          _user_id: question.created_by_id,
+          _title: 'Neue Antwort auf Deine Frage',
+          _body: notificationBody,
+          _type: 'QNA',
+          _url: `/qa?question=${question.id}`,
+        });
+        if (notificationError) {
+          console.error('Error sending Q&A notification', notificationError);
+        }
+      }
+      setExpandedQuestionId(questionId);
+      const params = new URLSearchParams(searchParams);
+      params.set('question', questionId);
+      setSearchParams(params, { replace: true });
       loadQuestions();
     }
     setAnswerSubmittingId(null);

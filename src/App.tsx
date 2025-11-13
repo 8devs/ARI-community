@@ -13,7 +13,6 @@ import Organizations from "./pages/Organizations";
 import Pinnwand from "./pages/Pinnwand";
 import QA from "./pages/QA";
 import LunchRoulette from "./pages/LunchRoulette";
-import AdminLunchRoulette from "./pages/AdminLunchRoulette";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
@@ -123,14 +122,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/admin/lunch-roulette"
-              element={
-                <ProtectedRoute>
-                  <AdminLunchRoulette />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/admin/lunch-roulette" element={<Navigate to="/admin?section=lunch" replace />} />
             <Route
               path="/admin"
               element={
