@@ -4,6 +4,9 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -27,9 +30,17 @@ const Index = () => {
   const [posts, setPosts] = useState<InfoPost[]>([]);
   const [loading, setLoading] = useState(true);
   const PUBLIC_POST_LIMIT = 5;
+  const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
+  const [joinForm, setJoinForm] = useState({
+    name: '',
+    email: '',
+    organization_id: '',
+  });
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     loadPublicPosts();
+    loadOrganizations();
   }, []);
 
   const loadPublicPosts = async () => {
@@ -56,6 +67,46 @@ const Index = () => {
       toast.error('Öffentliche Beiträge konnten nicht geladen werden.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleJoinRequest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!joinForm.name.trim() || !joinForm.email.trim() || !joinForm.organization_id) {
+      toast.error('Bitte fülle alle Felder aus.');
+      return;
+    }
+    setJoining(true);
+    try {
+      const { error } = await supabase.functions.invoke('submit-join-request', {
+        body: {
+          name: joinForm.name.trim(),
+          email: joinForm.email.trim(),
+          organization_id: joinForm.organization_id,
+        },
+      });
+      if (error) throw error;
+      toast.success('Vielen Dank! Wir prüfen Deine Anfrage zeitnah.');
+      setJoinForm({
+        name: '',
+        email: '',
+        organization_id: '',
+      });
+    } catch (error: any) {
+      console.error('Error submitting join request', error);
+      toast.error(error.message ?? 'Anfrage konnte nicht gesendet werden.');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const loadOrganizations = async () => {
+    try {
+      const { data, error } = await supabase.from('organizations').select('id, name').order('name');
+      if (error) throw error;
+      setOrganizations(data || []);
+    } catch (error) {
+      console.error('Error loading organizations', error);
     }
   };
 
@@ -90,6 +141,82 @@ const Index = () => {
             )}
           </div>
         </section>
+
+        {!user && (
+          <section className="grid gap-6 md:grid-cols-2 items-center">
+            <div className="space-y-4">
+              <h2 className="text-3xl font-semibold">Zugang anfragen</h2>
+              <p className="text-muted-foreground">
+                Du möchtest Teil der ARI Community werden? Sende uns eine Beitrittsanfrage und der zuständige
+                Organisations-Admin meldet sich bei Dir.
+              </p>
+              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Nur berufliche E-Mail-Adressen verwenden</li>
+                <li>Die Mitgliedschaft wird manuell bestätigt</li>
+                <li>Du erhältst eine Einladung per E-Mail</li>
+              </ul>
+            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Beitrittsanfrage senden</CardTitle>
+                <CardDescription>Wir benötigen nur ein paar Angaben, um Dich der richtigen Organisation zuzuordnen.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-4" onSubmit={handleJoinRequest}>
+                  <div className="space-y-2">
+                    <Label htmlFor="join-name">Voller Name</Label>
+                    <Input
+                      id="join-name"
+                      value={joinForm.name}
+                      onChange={(e) => setJoinForm((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="Max Mustermann"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="join-email">E-Mail-Adresse</Label>
+                    <Input
+                      id="join-email"
+                      type="email"
+                      value={joinForm.email}
+                      onChange={(e) => setJoinForm((prev) => ({ ...prev, email: e.target.value }))}
+                      placeholder="vorname.nachname@unternehmen.de"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Organisation</Label>
+                    <Select
+                      value={joinForm.organization_id}
+                      onValueChange={(value) => setJoinForm((prev) => ({ ...prev, organization_id: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Organisation auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {organizations.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={joining}>
+                    {joining ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Wird gesendet...
+                      </>
+                    ) : (
+                      'Anfrage abschicken'
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         <section className="space-y-4">
           <div className="flex items-center justify-between">

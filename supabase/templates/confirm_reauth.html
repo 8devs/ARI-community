@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="de" style="margin:0;padding:0;">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Re-Authentifizierung bestätigen</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --primary-start: #ff591a;
+        --primary-end: #ff914d;
+        --surface: #ffffff;
+        --bg: #f6f7fb;
+        --text-strong: #111827;
+        --text: #4b5563;
+        --text-muted: #6b7280;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: var(--text-strong);
+      }
+
+      .wrapper {
+        width: 100%;
+        padding: 32px 12px;
+      }
+
+      .container {
+        max-width: 480px;
+        margin: 0 auto;
+        background-color: var(--surface);
+        border-radius: 18px;
+        border: 1px solid #edf0f7;
+        box-shadow: 0 25px 55px rgba(15, 23, 42, 0.15);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
+        color: #fffdf9;
+        padding: 32px 32px 44px;
+        text-align: center;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .badge {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 1.4px;
+      }
+
+      .content {
+        padding: 32px;
+        line-height: 1.55;
+        font-size: 16px;
+        color: var(--text);
+        text-align: center;
+      }
+
+      .token {
+        display: inline-block;
+        margin: 18px 0 24px;
+        padding: 12px 28px;
+        border-radius: 14px;
+        background: #f3f4f6;
+        font-size: 26px;
+        letter-spacing: 6px;
+        font-weight: 700;
+        color: var(--text-strong);
+        font-family: 'SFMono-Regular', 'Menlo', monospace;
+      }
+
+      .footer {
+        padding: 0 32px 36px;
+        text-align: center;
+        font-size: 13px;
+        color: #94a3b8;
+      }
+
+      @media (max-width: 620px) {
+        .content,
+        .header,
+        .footer {
+          padding-left: 20px;
+          padding-right: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <div class="header">
+          <h1>Code zur Bestätigung</h1>
+          <div class="badge">Re-Authentifizierung</div>
+        </div>
+        <div class="content">
+          <p>Gib den folgenden Code ein, um Deine Anmeldung zu bestätigen:</p>
+          <div class="token">{{ .Token }}</div>
+          <p>Der Code ist nur für kurze Zeit gültig. Halte ihn bereit und schließe den Vorgang innerhalb weniger Minuten ab.</p>
+        </div>
+        <div class="footer">
+          Wenn Du diese Anfrage nicht gestartet hast, kann diese Nachricht ignoriert werden.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

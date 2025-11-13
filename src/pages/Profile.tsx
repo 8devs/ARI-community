@@ -85,7 +85,6 @@ export default function Profile() {
         skills_text: form.skills_text,
         phone: form.phone,
         first_aid_certified: form.first_aid_certified,
-        first_aid_available: false,
         pref_email_notifications: form.pref_email_notifications,
         pref_push_notifications: form.pref_push_notifications,
       })

@@ -361,6 +361,54 @@ export type Database = {
             columns: ["target_organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+          referencedColumns: ["id"]
+        },
+      ]
+    }
+      join_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          organization_id: string | null
+          status: Database["public"]["Enums"]["join_request_status"]
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          organization_id?: string | null
+          status?: Database["public"]["Enums"]["join_request_status"]
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          organization_id?: string | null
+          status?: Database["public"]["Enums"]["join_request_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "join_requests_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "join_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1260,6 +1308,7 @@ export type Database = {
       listing_kind: "OFFER" | "REQUEST" | "LOST_FOUND" | "RIDESHARE"
       match_kind: "LUNCH"
       match_status: "DRAFT" | "OPEN" | "PAIRED" | "CLOSED"
+      join_request_status: "PENDING" | "APPROVED" | "DECLINED"
       notification_type:
         | "INFO"
         | "EVENT"

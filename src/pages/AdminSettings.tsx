@@ -51,6 +51,16 @@ type LunchRound = {
   weekday: number | null;
   participants: { count: number }[];
 };
+type JoinRequest = {
+  id: string;
+  name: string;
+  email: string;
+  organization_id: string | null;
+  status: 'PENDING' | 'APPROVED' | 'DECLINED';
+  created_at: string;
+  approved_at: string | null;
+  organization?: { name: string | null } | null;
+};
 
 const emptyOrgForm = {
   name: '',
@@ -128,6 +138,11 @@ export default function AdminSettings() {
   const [savingWeekday, setSavingWeekday] = useState(false);
   const [creatingRound, setCreatingRound] = useState(false);
   const [pairingRoundId, setPairingRoundId] = useState<string | null>(null);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [joinRequestsLoading, setJoinRequestsLoading] = useState(true);
+  const [requestActionId, setRequestActionId] = useState<string | null>(null);
+  const [requestDeclineId, setRequestDeclineId] = useState<string | null>(null);
+  const adminTabTriggerClass = "justify-start w-full data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
 
   useEffect(() => {
     setActiveSection(initialSection);
@@ -138,6 +153,7 @@ export default function AdminSettings() {
     loadOrganizations();
     loadMembers();
     loadCoffeeProducts();
+    loadJoinRequests();
     if (!isSuperAdmin) {
       setInviteForm((prev) => ({ ...prev, organization_id: currentProfile?.organization_id ?? '' }));
     }
@@ -207,6 +223,99 @@ export default function AdminSettings() {
       setCoffeeError('Getränke konnten nicht geladen werden.');
     } finally {
       setCoffeeLoading(false);
+    }
+  };
+
+  const loadJoinRequests = async () => {
+    if (!canAccessAdmin) return;
+    setJoinRequestsLoading(true);
+    try {
+      let query = supabase
+        .from('join_requests')
+        .select(`
+          *,
+          organization:organizations(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (!isSuperAdmin && currentProfile?.organization_id) {
+        query = query.eq('organization_id', currentProfile.organization_id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setJoinRequests(data || []);
+    } catch (error) {
+      console.error('Error loading join requests', error);
+      toast.error('Beitrittsanfragen konnten nicht geladen werden');
+    } finally {
+      setJoinRequestsLoading(false);
+    }
+  };
+
+  const handleApproveJoinRequest = async (request: JoinRequest) => {
+    if (!request.organization_id) {
+      toast.error('Dieser Anfrage fehlt die Organisation.');
+      return;
+    }
+    setRequestActionId(request.id);
+    try {
+      await sendInvite({
+        name: request.name,
+        email: request.email,
+        organization_id: request.organization_id,
+        role: 'MEMBER',
+      });
+      const { error } = await supabase
+        .from('join_requests')
+        .update({
+          status: 'APPROVED',
+          approved_at: new Date().toISOString(),
+          approved_by: currentProfile?.id ?? null,
+        })
+        .eq('id', request.id);
+      if (error) throw error;
+      toast.success('Einladung gesendet');
+      loadJoinRequests();
+      loadMembers();
+    } catch (error: any) {
+      console.error('Error approving join request', error);
+      toast.error(error.message ?? 'Anfrage konnte nicht bestätigt werden');
+    } finally {
+      setRequestActionId(null);
+    }
+  };
+
+  const handleDeclineJoinRequest = async (request: JoinRequest) => {
+    setRequestDeclineId(request.id);
+    try {
+      const { error } = await supabase
+        .from('join_requests')
+        .update({
+          status: 'DECLINED',
+          approved_at: new Date().toISOString(),
+          approved_by: currentProfile?.id ?? null,
+        })
+        .eq('id', request.id);
+      if (error) throw error;
+      toast.success('Anfrage wurde abgelehnt');
+      loadJoinRequests();
+    } catch (error) {
+      console.error('Error declining join request', error);
+      toast.error('Anfrage konnte nicht abgelehnt werden');
+    } finally {
+      setRequestDeclineId(null);
+    }
+  };
+
+  const getRequestStatusBadge = (status: JoinRequest['status']) => {
+    switch (status) {
+      case 'APPROVED':
+        return <Badge variant="default">Freigegeben</Badge>;
+      case 'DECLINED':
+        return <Badge variant="outline">Abgelehnt</Badge>;
+      default:
+        return <Badge variant="secondary">Ausstehend</Badge>;
     }
   };
 
@@ -493,6 +602,33 @@ export default function AdminSettings() {
     return counts;
   }, [members]);
 
+  const sendInvite = async (payload: {
+    name: string;
+    email: string;
+    organization_id: string;
+    role?: 'MEMBER' | 'ORG_ADMIN';
+    is_news_manager?: boolean;
+    is_event_manager?: boolean;
+  }) => {
+    const redirectTo = `${window.location.origin}/passwort/neu`;
+    const { error } = await supabase.auth.signInWithOtp({
+      email: payload.email.trim(),
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: redirectTo,
+        data: {
+          name: payload.name.trim(),
+          role: payload.role ?? 'MEMBER',
+          organization_id: payload.organization_id,
+          invited_by: currentProfile?.id ?? null,
+          is_news_manager: payload.is_news_manager ?? false,
+          is_event_manager: payload.is_event_manager ?? false,
+        },
+      },
+    });
+    if (error) throw error;
+  };
+
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteForm.name.trim() || !inviteForm.email.trim() || !inviteForm.organization_id) {
@@ -502,23 +638,14 @@ export default function AdminSettings() {
 
     setInviting(true);
     try {
-      const redirectTo = `${window.location.origin}/passwort/neu`;
-      const { error } = await supabase.auth.signInWithOtp({
-        email: inviteForm.email.trim(),
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: redirectTo,
-          data: {
-            name: inviteForm.name.trim(),
-            role: inviteForm.role,
-            organization_id: inviteForm.organization_id,
-            invited_by: currentProfile?.id ?? null,
-            is_news_manager: inviteForm.is_news_manager,
-            is_event_manager: inviteForm.is_event_manager,
-          },
-        },
+      await sendInvite({
+        name: inviteForm.name,
+        email: inviteForm.email,
+        organization_id: inviteForm.organization_id,
+        role: inviteForm.role,
+        is_news_manager: inviteForm.is_news_manager,
+        is_event_manager: inviteForm.is_event_manager,
       });
-      if (error) throw error;
       toast.success('Einladungs-E-Mail wurde verschickt');
       setInviteForm(prev => ({
         ...prev,
@@ -680,7 +807,6 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
       bio: memberForm.bio.trim() || null,
       skills_text: memberForm.skills_text.trim() || null,
       first_aid_certified: memberForm.first_aid_certified,
-      first_aid_available: false,
       })
       .eq('id', memberId);
     if (error) {
@@ -798,28 +924,31 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
         </div>
 
         <Tabs value={activeSection} onValueChange={handleSectionChange}>
-          <div className="flex flex-col gap-6 lg:flex-row">
-            <div className="lg:w-64 shrink-0">
-              <TabsList className="grid grid-cols-2 gap-2 lg:grid-cols-1 lg:flex lg:flex-col lg:gap-2 lg:rounded-2xl lg:border lg:bg-card lg:p-3">
-                <TabsTrigger value="organizations" className="justify-start">
+          <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[260px,1fr]">
+            <div className="lg:sticky lg:top-24">
+              <TabsList className="grid grid-cols-2 gap-2 rounded-2xl border bg-card p-3 lg:grid-cols-1">
+                <TabsTrigger value="organizations" className={adminTabTriggerClass}>
                   Organisationen
                 </TabsTrigger>
-                <TabsTrigger value="people" className="justify-start">
+                <TabsTrigger value="people" className={adminTabTriggerClass}>
                   Mitarbeitende
-              </TabsTrigger>
-              <TabsTrigger value="invites" className="justify-start">
-                Einladungen
-              </TabsTrigger>
-              <TabsTrigger value="coffee" className="justify-start">
-                Getränke
-              </TabsTrigger>
-                <TabsTrigger value="lunch" className="justify-start">
+                </TabsTrigger>
+                <TabsTrigger value="invites" className={adminTabTriggerClass}>
+                  Einladungen
+                </TabsTrigger>
+                <TabsTrigger value="coffee" className={adminTabTriggerClass}>
+                  Getränke
+                </TabsTrigger>
+                <TabsTrigger value="lunch" className={adminTabTriggerClass}>
                   Lunch Roulette
+                </TabsTrigger>
+                <TabsTrigger value="requests" className={adminTabTriggerClass}>
+                  Beitrittsanfragen
                 </TabsTrigger>
               </TabsList>
             </div>
 
-            <div className="flex-1 space-y-6">
+            <div className="space-y-6">
           <TabsContent value="organizations" className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -1377,6 +1506,78 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                             </>
                           )}
                         </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="requests" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Beitrittsanfragen</CardTitle>
+                  <CardDescription>Bestätige Anfragen von Kolleg:innen, die noch keinen Account haben.</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" onClick={loadJoinRequests}>
+                  Neu laden
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {joinRequestsLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Anfragen werden geladen...
+                  </div>
+                ) : joinRequests.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Es liegen aktuell keine Beitrittsanfragen vor.</p>
+                ) : (
+                  joinRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="rounded-xl border p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(request.created_at).toLocaleDateString('de-DE')}
+                        </p>
+                        <p className="text-lg font-semibold">{request.name}</p>
+                        <p className="text-sm text-muted-foreground">{request.email}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Organisation: {request.organization?.name ?? 'Unbekannt'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {request.status === 'PENDING' ? (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveJoinRequest(request)}
+                              disabled={!request.organization_id || requestActionId === request.id}
+                            >
+                              {requestActionId === request.id ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Versendet...
+                                </>
+                              ) : (
+                                'Einladung senden'
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeclineJoinRequest(request)}
+                              disabled={requestDeclineId === request.id}
+                            >
+                              {requestDeclineId === request.id ? 'Wird abgelehnt...' : 'Ablehnen'}
+                            </Button>
+                          </>
+                        ) : (
+                          getRequestStatusBadge(request.status)
+                        )}
                       </div>
                     </div>
                   ))
