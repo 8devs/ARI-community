@@ -116,6 +116,19 @@ export default function Pinnwand() {
     }
   };
 
+  const triggerPostNotifications = async (postId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('notify-info-post', {
+        body: { post_id: postId },
+      });
+      if (error) {
+        console.error('notify-info-post failed', error);
+      }
+    } catch (error) {
+      console.error('notify-info-post unexpected', error);
+    }
+  };
+
   const openCreateDialog = () => {
     setEditingPostId(null);
     setNewPost({
@@ -178,6 +191,7 @@ export default function Pinnwand() {
       }
 
       let error;
+      let insertedPostId: string | null = null;
       if (editingPostId) {
         ({ error } = await supabase
           .from('info_posts')
@@ -191,15 +205,21 @@ export default function Pinnwand() {
           })
           .eq('id', editingPostId));
       } else {
-        ({ error } = await supabase.from('info_posts').insert({
-          title: newPost.title.trim(),
-          content: newPost.content.trim(),
-          audience: newPost.audience,
-          pinned: newPost.pinned,
-          attachment_url: attachmentUrl,
-          target_organization_id: targetOrgId,
-          created_by_id: user.id,
-        }));
+        const { data, error: insertError } = await supabase
+          .from('info_posts')
+          .insert({
+            title: newPost.title.trim(),
+            content: newPost.content.trim(),
+            audience: newPost.audience,
+            pinned: newPost.pinned,
+            attachment_url: attachmentUrl,
+            target_organization_id: targetOrgId,
+            created_by_id: user.id,
+          })
+          .select('id')
+          .single();
+        error = insertError;
+        insertedPostId = data?.id ?? null;
       }
 
       if (error) {
@@ -220,6 +240,9 @@ export default function Pinnwand() {
       setEditingPostId(null);
       setDialogOpen(false);
       loadPosts();
+      if (!editingPostId && insertedPostId) {
+        void triggerPostNotifications(insertedPostId);
+      }
     } catch (error) {
       console.error('Error creating post:', error);
       toast.error('Beitrag konnte nicht gespeichert werden');

@@ -2,6 +2,15 @@
 
 Alle relevanten Änderungen der ARI Community App. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/) und setzt [SemVer](https://semver.org/lang/de/) ein.
 
+## [0.4.0] - 2025-11-13
+### Neu
+- Push- und E-Mail-Benachrichtigungen für neue Pinnwand- und Q&A-Beiträge.
+- Community-Gruppen mit Beitritt, Chat und organisationsübergreifender Nutzung.
+
+### Geändert
+- Pinnwand „Organisationsintern“-Modus strenger umgesetzt, Navigation zeigt direkten Zugang.
+- Q&A-Workflow informiert Admins automatisch über neue Fragen.
+
 ## [0.3.0] - 2025-11-13
 ### Neu
 - Benachrichtigungscenter mit Filter, Historie, "Mehr laden" und Massenlöschung.
@@ -24,4 +33,3 @@ Alle relevanten Änderungen der ARI Community App. Das Format orientiert sich an
 ### Neu
 - Erste produktive Version mit Dashboard, Nachrichten, Kaffee-, Räume- und Lunch-Roulette-Modulen.
 - Supabase Auth, Organisations- & Rollenmanagement sowie Einladungsflow.
-

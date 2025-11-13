@@ -21,6 +21,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Events from "./pages/Events";
 import Messages from "./pages/Messages";
 import Rooms from "./pages/Rooms";
+import Groups from "./pages/Groups";
 import NotificationsCenter from "./pages/NotificationsCenter";
 import Changelog from "./pages/Changelog";
 
@@ -122,6 +123,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Messages />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/gruppen"
+              element={
+                <ProtectedRoute>
+                  <Groups />
                 </ProtectedRoute>
               }
             />

@@ -159,7 +159,7 @@ export default function QA() {
     setDialogOpen(true);
   };
 
-  const openEditDialog = (question: Question) => {
+const openEditDialog = (question: Question) => {
     setEditingQuestionId(question.id);
     setNewQuestion({
       title: question.title,
@@ -167,7 +167,20 @@ export default function QA() {
       tags: question.tags?.join(', ') ?? '',
     });
     setDialogOpen(true);
-  };
+};
+
+const triggerQuestionNotification = async (questionId: string) => {
+  try {
+    const { error } = await supabase.functions.invoke('notify-qna-question', {
+      body: { question_id: questionId },
+    });
+    if (error) {
+      console.error('notify-qna-question failed', error);
+    }
+  } catch (error) {
+    console.error('notify-qna-question unexpected', error);
+  }
+};
 
   const handleSubmitQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,6 +200,7 @@ export default function QA() {
       .filter(Boolean);
 
     let error;
+    let insertedQuestionId: string | null = null;
     if (editingQuestionId) {
       ({ error } = await supabase
         .from('questions')
@@ -197,12 +211,18 @@ export default function QA() {
         })
         .eq('id', editingQuestionId));
     } else {
-      ({ error } = await supabase.from('questions').insert({
-        title: newQuestion.title.trim(),
-        body: newQuestion.body.trim(),
-        tags: tags.length ? tags : null,
-        created_by_id: user.id,
-      }));
+      const { data, error: insertError } = await supabase
+        .from('questions')
+        .insert({
+          title: newQuestion.title.trim(),
+          body: newQuestion.body.trim(),
+          tags: tags.length ? tags : null,
+          created_by_id: user.id,
+        })
+        .select('id')
+        .single();
+      insertedQuestionId = data?.id ?? null;
+      error = insertError;
     }
 
     if (error) {
@@ -214,6 +234,9 @@ export default function QA() {
       setEditingQuestionId(null);
       setDialogOpen(false);
       loadQuestions();
+      if (!editingQuestionId && insertedQuestionId) {
+        void triggerQuestionNotification(insertedQuestionId);
+      }
     }
 
     setCreating(false);

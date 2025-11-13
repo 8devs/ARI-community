@@ -168,6 +168,119 @@ export type Database = {
           },
         ]
       }
+      community_groups: {
+        Row: {
+          created_at: string
+          created_by_id: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+          visibility: Database["public"]["Enums"]["group_visibility"]
+        }
+        Insert: {
+          created_at?: string
+          created_by_id?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["group_visibility"]
+        }
+        Update: {
+          created_at?: string
+          created_by_id?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["group_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_groups_created_by_id_fkey"
+            columns: ["created_by_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          created_at: string
+          group_id: string
+          role: Database["public"]["Enums"]["group_member_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          role?: Database["public"]["Enums"]["group_member_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          role?: Database["public"]["Enums"]["group_member_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "community_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_messages: {
+        Row: {
+          body: string
+          created_at: string
+          group_id: string
+          id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          group_id: string
+          id?: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "community_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_invitations: {
         Row: {
           accepted_at: string | null
@@ -1291,6 +1404,24 @@ export type Database = {
         }
         Returns: boolean
       }
+      list_group_memberships: {
+        Args: { _user_id: string }
+        Returns: {
+          group_id: string
+          role: Database["public"]["Enums"]["group_member_role"]
+        }[]
+      }
+      list_groups_with_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+          description: string | null
+          visibility: Database["public"]["Enums"]["group_visibility"]
+          created_at: string
+          member_count: number
+        }[]
+      }
       get_invitation_details: {
         Args: { _token: string }
         Returns: {
@@ -1318,6 +1449,8 @@ export type Database = {
         | "QNA"
         | "BOOKING"
         | "LUNCH"
+      group_visibility: "PUBLIC" | "PRIVATE"
+      group_member_role: "MEMBER" | "ADMIN"
         | "COFFEE"
         | "POLL"
         | "MESSAGE"

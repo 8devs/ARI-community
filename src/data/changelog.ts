@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: "0.4.0",
+    date: "13.11.2025",
+    highlights: [
+      "Push- & E-Mail-Benachrichtigungen für neue Pinnwand- und Q&A-Einträge",
+      "Community-Gruppen mit Chat, Beitritt und organisationsübergreifenden Unterhaltungen",
+    ],
+    details: [
+      "Pinnwand-Beiträge lassen sich organisationsintern begrenzen, Admins erhalten automatische Alerts",
+      "Neue /gruppen-Seite inkl. Gruppenerstellung, Mitgliedschaften und Nachrichtenverlauf",
+    ],
+  },
+  {
     version: "0.3.0",
     date: "13.11.2025",
     highlights: [

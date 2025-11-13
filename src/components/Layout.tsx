@@ -19,6 +19,7 @@ import {
   Sun,
   DoorClosed,
   Bell,
+  UserPlus,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -62,6 +63,7 @@ export function Layout({ children }: LayoutProps) {
   const [pendingJoinRequests, setPendingJoinRequests] = useState<number>(0);
   const notifications = useNotifications(profile?.id, {
     enablePush: profile?.pref_push_notifications,
+    limit: 20,
   });
 
   const handleSignOut = async () => {
@@ -104,6 +106,7 @@ export function Layout({ children }: LayoutProps) {
         { to: '/events', label: 'Events', icon: CalendarDays },
         { to: '/qa', label: 'Q&A', icon: MessageSquare },
         { to: '/nachrichten', label: 'Nachrichten', icon: MessageCircle },
+        { to: '/gruppen', label: 'Gruppen', icon: UserPlus },
         { to: '/kaffee', label: 'Kaffee', icon: Coffee },
         { to: '/raeume', label: 'Räume', icon: DoorClosed },
         { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
