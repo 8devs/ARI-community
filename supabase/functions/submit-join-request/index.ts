@@ -9,6 +9,12 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const sendEmailNotification = async (to: string[], html: string, subject: string) => {
   if (to.length === 0) {
     return;
@@ -35,15 +41,22 @@ const sendEmailNotification = async (to: string[], html: string, subject: string
 };
 
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
   let body: { name?: string; email?: string; organization_id?: string };
   try {
     body = await req.json();
   } catch (_error) {
-    return new Response(JSON.stringify({ error: "Invalid JSON payload" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const name = body.name?.trim();
@@ -53,6 +66,7 @@ serve(async (req) => {
   if (!name || !email || !organizationId) {
     return new Response(JSON.stringify({ error: "Name, E-Mail und Organisation sind erforderlich." }), {
       status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -60,6 +74,7 @@ serve(async (req) => {
   if (!emailRegex.test(email)) {
     return new Response(JSON.stringify({ error: "Bitte gib eine gültige E-Mail-Adresse an." }), {
       status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -73,6 +88,7 @@ serve(async (req) => {
     if (orgError || !organization) {
       return new Response(JSON.stringify({ error: "Organisation konnte nicht gefunden werden." }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -86,6 +102,7 @@ serve(async (req) => {
       console.error("Failed to save join request", insertError);
       return new Response(JSON.stringify({ error: "Anfrage konnte nicht gespeichert werden." }), {
         status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -134,9 +151,15 @@ serve(async (req) => {
       `Neue Beitrittsanfrage von ${name}`,
     );
 
-    return new Response(JSON.stringify({ success: true }), { status: 200 });
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Unexpected error handling join request", error);
-    return new Response(JSON.stringify({ error: "Unbekannter Fehler bei der Verarbeitung." }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Unbekannter Fehler bei der Verarbeitung." }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

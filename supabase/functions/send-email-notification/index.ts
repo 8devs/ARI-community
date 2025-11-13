@@ -3,6 +3,12 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM_EMAIL = Deno.env.get("NOTIFY_FROM_EMAIL") ?? "notifications@ari-worms.de";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function wrapWithAriTemplate(title: string, innerHtml: string, badge?: string) {
   return `<!DOCTYPE html>
 <html lang="de" style="margin:0;padding:0;">
@@ -116,14 +122,18 @@ function wrapWithAriTemplate(title: string, innerHtml: string, badge?: string) {
 }
 
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
   if (!RESEND_API_KEY) {
     return new Response(
       JSON.stringify({ error: "Missing RESEND_API_KEY environment variable" }),
-      { status: 500 },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
@@ -136,11 +146,17 @@ serve(async (req) => {
   try {
     payload = await req.json();
   } catch (_error) {
-    return new Response(JSON.stringify({ error: "Invalid JSON payload" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   if (!payload.to || !payload.subject || !payload.html) {
-    return new Response(JSON.stringify({ error: "Missing to/subject/html fields" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "Missing to/subject/html fields" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const recipients = Array.isArray(payload.to) ? payload.to : [payload.to];
@@ -165,11 +181,11 @@ serve(async (req) => {
     console.error("Resend error", data);
     return new Response(JSON.stringify({ error: "Failed to send email", details: data }), {
       status: response.status,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   return new Response(JSON.stringify({ success: true, data }), {
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
