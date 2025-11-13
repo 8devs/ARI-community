@@ -32,6 +32,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationsMenu } from '@/components/NotificationsMenu';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LayoutProps {
   children: ReactNode;
@@ -46,6 +47,7 @@ export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const [themeReady, setThemeReady] = useState(false);
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
   const notifications = useNotifications(profile?.id, {
     enablePush: profile?.pref_push_notifications,
   });
@@ -100,11 +102,15 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-8">
               <Link to="/" className="flex items-center gap-3">
-                <img
-                  src="/ari-logo.svg"
-                  alt="ARI Business Campus"
-                  className="h-10 w-auto object-contain"
-                />
+                {brandLogoUrl ? (
+                  <img
+                    src={brandLogoUrl}
+                    alt="ARI Community"
+                    className="h-10 w-auto object-contain"
+                  />
+                ) : (
+                  <span className="text-xl font-semibold tracking-tight">ARI Community</span>
+                )}
               </Link>
 
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -272,3 +278,67 @@ export function Layout({ children }: LayoutProps) {
     </div>
   );
 }
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchBranding = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'app_branding')
+          .maybeSingle();
+        if (error) {
+          if (error.code === '42501') {
+            return;
+          }
+          console.error('Error loading branding', error);
+          return;
+        }
+        if (!ignore) {
+          const value = (data?.value ?? null) as { logo_url?: string | null } | null;
+          setBrandLogoUrl(value?.logo_url ?? null);
+        }
+      } catch (error) {
+        console.error('Unexpected branding error', error);
+      }
+    };
+
+    fetchBranding();
+
+    const handleBrandingUpdate = (event: CustomEvent<{ logoUrl?: string | null }>) => {
+      setBrandLogoUrl(event.detail?.logoUrl ?? null);
+    };
+
+    window.addEventListener('app-branding-updated', handleBrandingUpdate);
+
+    return () => {
+      ignore = true;
+      window.removeEventListener('app-branding-updated', handleBrandingUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const rels = ['icon', 'shortcut icon'];
+    const getMimeType = (url: string) => (url.toLowerCase().includes('.svg') ? 'image/svg+xml' : 'image/png');
+
+    if (brandLogoUrl) {
+      rels.forEach((rel) => {
+        let link = document.querySelector(`link[rel="${rel}"][data-dynamic-favicon="true"]`) as HTMLLinkElement | null;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = rel;
+          link.setAttribute('data-dynamic-favicon', 'true');
+          document.head.appendChild(link);
+        }
+        link.href = brandLogoUrl;
+        link.type = getMimeType(brandLogoUrl);
+      });
+    } else {
+      rels.forEach((rel) => {
+        const link = document.querySelector(`link[rel="${rel}"][data-dynamic-favicon="true"]`);
+        link?.parentNode?.removeChild(link);
+      });
+    }
+  }, [brandLogoUrl]);

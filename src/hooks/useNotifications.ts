@@ -68,10 +68,12 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
       if (Notification.permission !== "granted") return;
       if (document.visibilityState === "visible") return;
 
+      const dynamicIcon =
+        document.querySelector('link[rel="icon"][data-dynamic-favicon="true"]') as HTMLLinkElement | null;
       new Notification(notification.title, {
         body: notification.body,
         tag: notification.id,
-        icon: "/favicon.ico",
+        icon: dynamicIcon?.href ?? undefined,
         data: notification.url,
       });
     },

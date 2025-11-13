@@ -143,6 +143,10 @@ export default function AdminSettings() {
   const [joinRequestsLoading, setJoinRequestsLoading] = useState(true);
   const [requestActionId, setRequestActionId] = useState<string | null>(null);
   const [requestDeclineId, setRequestDeclineId] = useState<string | null>(null);
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState<string | null>(null);
+  const [brandingLoading, setBrandingLoading] = useState(true);
+  const [brandingSaving, setBrandingSaving] = useState(false);
+  const [brandingUploading, setBrandingUploading] = useState(false);
   const adminTabTriggerClass = "justify-start w-full data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
 
   useEffect(() => {
@@ -155,6 +159,7 @@ export default function AdminSettings() {
     loadMembers();
     loadCoffeeProducts();
     loadJoinRequests();
+    loadBrandingSettings();
     if (!isSuperAdmin) {
       setInviteForm((prev) => ({ ...prev, organization_id: currentProfile?.organization_id ?? '' }));
     }
@@ -171,6 +176,87 @@ export default function AdminSettings() {
     loadLunchSettings();
     loadLunchRounds();
   }, [canAccessAdmin]);
+
+  const loadBrandingSettings = async () => {
+    setBrandingLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'app_branding')
+        .maybeSingle();
+
+      if (error) throw error;
+      const value = (data?.value ?? null) as { logo_url?: string | null } | null;
+      setBrandingLogoUrl(value?.logo_url ?? null);
+    } catch (error) {
+      console.error('Error loading branding settings', error);
+      setBrandingLogoUrl(null);
+    } finally {
+      setBrandingLoading(false);
+    }
+  };
+
+  const saveBrandingLogo = async (logoUrl: string | null) => {
+    setBrandingSaving(true);
+    try {
+      const { error } = await supabase.from('settings').upsert({
+        key: 'app_branding',
+        value: { logo_url: logoUrl },
+      });
+      if (error) throw error;
+      setBrandingLogoUrl(logoUrl);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app-branding-updated', { detail: { logoUrl } }));
+      }
+    } finally {
+      setBrandingSaving(false);
+    }
+  };
+
+  const handleBrandLogoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isSuperAdmin) {
+      event.target.value = '';
+      toast.error('Nur Super Admins können das Logo ändern.');
+      return;
+    }
+    if (!event.target.files?.length) return;
+    const file = event.target.files[0];
+    setBrandingUploading(true);
+    try {
+      const filePath = generateRandomPath('branding', file);
+      const { error: uploadError } = await supabase.storage
+        .from('organization-logos')
+        .upload(filePath, file, {
+          upsert: false,
+          cacheControl: '3600',
+        });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('organization-logos').getPublicUrl(filePath);
+      await saveBrandingLogo(data.publicUrl);
+      toast.success('Logo aktualisiert');
+    } catch (error) {
+      console.error('Error uploading branding logo', error);
+      toast.error('Logo konnte nicht gespeichert werden');
+    } finally {
+      setBrandingUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveBrandLogo = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Nur Super Admins können das Logo entfernen.');
+      return;
+    }
+    try {
+      await saveBrandingLogo(null);
+      toast.success('Logo entfernt');
+    } catch (error) {
+      console.error('Error removing branding logo', error);
+      toast.error('Logo konnte nicht entfernt werden');
+    }
+  };
 
   const loadOrganizations = async () => {
     try {
@@ -967,6 +1053,77 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                 </Button>
               )}
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Branding & Logo
+                </CardTitle>
+                <CardDescription>
+                  Hinterlege das zentrale Logo für Navigation, E-Mails und das Favicon.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  {brandingLoading ? (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Logo wird geladen...
+                    </p>
+                  ) : brandingLogoUrl ? (
+                    <img
+                      src={brandingLogoUrl}
+                      alt="App Logo"
+                      className="h-14 w-auto rounded-md border bg-card object-contain p-2"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Aktuell ist kein Logo hinterlegt.</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="app-brand-logo" className="text-sm font-medium">
+                    Logo-Datei (PNG oder SVG)
+                  </Label>
+                  <Input
+                    id="app-brand-logo"
+                    type="file"
+                    accept="image/png,image/svg+xml,image/webp,image/jpeg"
+                    onChange={handleBrandLogoChange}
+                    disabled={!isSuperAdmin || brandingSaving || brandingUploading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Empfehlung: transparente Grafik, mindestens 320&nbsp;px Breite. Wird automatisch im gesamten
+                    System genutzt.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={brandingSaving || brandingUploading}
+                    onClick={loadBrandingSettings}
+                  >
+                    Aktualisieren
+                  </Button>
+                  {brandingLogoUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!isSuperAdmin || brandingSaving}
+                      onClick={handleRemoveBrandLogo}
+                    >
+                      Logo entfernen
+                    </Button>
+                  )}
+                </div>
+                {!isSuperAdmin && (
+                  <p className="text-xs text-muted-foreground">
+                    Nur Super Admins können das globale Branding anpassen.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
