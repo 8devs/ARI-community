@@ -20,7 +20,7 @@ import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { toast } from 'sonner';
 import { addHours, addMonths, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2 } from 'lucide-react';
+import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Room = Tables<'rooms'>;
@@ -73,6 +73,7 @@ export default function Rooms() {
   const [savingRoom, setSavingRoom] = useState(false);
   const [savingBooking, setSavingBooking] = useState(false);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
+  const [roomSearch, setRoomSearch] = useState('');
 
   const isRoomAdmin = Boolean(profile && (profile.role === 'SUPER_ADMIN' || profile.role === 'ORG_ADMIN'));
 
@@ -285,7 +286,7 @@ export default function Rooms() {
       }
       setBookingDialogOpen(false);
       setEditingBooking(null);
-      loadBookings(selectedRoomId, currentMonth);
+      loadBookings(currentMonth);
     } catch (error: any) {
       console.error('Error saving booking', error);
       if (error?.message?.includes('room_booking_no_overlap')) {
@@ -305,7 +306,7 @@ export default function Rooms() {
       const { error } = await supabase.from('room_bookings').delete().eq('id', bookingId);
       if (error) throw error;
       toast.success('Buchung gelöscht');
-      loadBookings(selectedRoomId, currentMonth);
+      loadBookings(currentMonth);
     } catch (error) {
       console.error('Error deleting booking', error);
       toast.error('Buchung konnte nicht gelöscht werden.');
@@ -324,6 +325,36 @@ export default function Rooms() {
     if (!selectedRoomId) return bookings;
     return bookings.filter((booking) => booking.room_id === selectedRoomId);
   }, [bookings, selectedRoomId]);
+
+  const filteredRooms = useMemo(() => {
+    if (!roomSearch.trim()) return rooms;
+    const term = roomSearch.toLowerCase();
+    return rooms.filter((room) =>
+      room.name.toLowerCase().includes(term) ||
+      room.location?.toLowerCase().includes(term) ||
+      room.description?.toLowerCase().includes(term),
+    );
+  }, [rooms, roomSearch]);
+
+  useEffect(() => {
+    if (!filteredRooms.length) {
+      setSelectedRoomId(null);
+      return;
+    }
+    if (!selectedRoomId || !filteredRooms.some((room) => room.id === selectedRoomId)) {
+      setSelectedRoomId(filteredRooms[0].id);
+    }
+  }, [filteredRooms, selectedRoomId]);
+
+  const bookingsByRoomForSelectedDay = useMemo(() => {
+    const map = new Map<string, number>();
+    bookings.forEach((booking) => {
+      if (isSameDay(new Date(booking.start_time), selectedDay)) {
+        map.set(booking.room_id, (map.get(booking.room_id) ?? 0) + 1);
+      }
+    });
+    return map;
+  }, [bookings, selectedDay]);
 
   const bookingsByDay = useMemo(() => {
     const map = new Map<string, Booking[]>();
@@ -394,76 +425,105 @@ export default function Rooms() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Räume</CardTitle>
-              <CardDescription>Wähle einen Raum aus, um die Belegung zu sehen.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {roomsLoading ? (
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Räume werden geladen...
-                </div>
-              ) : rooms.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Es sind noch keine Räume vorhanden.</p>
-              ) : (
-                rooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className={cn(
-                      'rounded-xl border transition',
-                      selectedRoomId === room.id ? 'border-primary bg-primary/5' : 'border-border bg-background',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRoomId(room.id)}
-                      className="flex w-full flex-col gap-3 p-4 text-left focus-visible:outline-none"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold flex items-center gap-2">
-                            <DoorClosed className="h-4 w-4 text-primary" />
-                            {room.name}
-                          </p>
-                          {room.location && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {room.location}
-                            </p>
-                          )}
-                          {room.capacity && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {room.capacity} Personen
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={room.is_active ? 'secondary' : 'outline'}>
-                            {room.is_active ? 'Verfügbar' : 'Deaktiviert'}
-                          </Badge>
-                          {isRoomAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 shrink-0"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openRoomDialog(room);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                ))
+        <div className="grid gap-6 lg:grid-cols-[330px,1fr]">
+          <Card className="h-fit">
+            <CardHeader className="space-y-4">
+              <div>
+                <CardTitle>Räume</CardTitle>
+                <CardDescription>Wähle einen Raum aus, um Belegung und Details zu sehen.</CardDescription>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Räume durchsuchen..."
+                  className="pl-10"
+                  value={roomSearch}
+                  onChange={(event) => setRoomSearch(event.target.value)}
+                />
+              </div>
+              {isRoomAdmin && (
+                <Button size="sm" onClick={() => openRoomDialog()} className="w-full">
+                  <Plus className="mr-2 h-4 w-4" /> Raum anlegen
+                </Button>
               )}
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="max-h-[70vh] pr-2">
+                {roomsLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Räume werden geladen...
+                  </div>
+                ) : filteredRooms.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Keine passenden Räume gefunden.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredRooms.map((room) => {
+                      const bookingCount = bookingsByRoomForSelectedDay.get(room.id) ?? 0;
+                      const isSelected = selectedRoomId === room.id;
+                      return (
+                        <button
+                          key={room.id}
+                          type="button"
+                          onClick={() => setSelectedRoomId(room.id)}
+                          className={cn(
+                            'w-full rounded-2xl border p-4 text-left transition hover:border-primary',
+                            isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background',
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate" title={room.name}>{room.name}</p>
+                              {room.location && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                                  <MapPin className="h-3 w-3" /> {room.location}
+                                </p>
+                              )}
+                            </div>
+                            <Badge variant={room.is_active ? 'secondary' : 'outline'}>
+                              {room.is_active ? 'Verfügbar' : 'Inaktiv'}
+                            </Badge>
+                          </div>
+                          {room.description && (
+                            <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{room.description}</p>
+                          )}
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            {room.capacity && (
+                              <span className="inline-flex items-center gap-1">
+                                <Users className="h-3 w-3" /> bis {room.capacity} Personen
+                              </span>
+                            )}
+                            {room.equipment && (
+                              <span className="truncate" title={room.equipment}>
+                                Ausstattung: {room.equipment}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-3 flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">
+                              {bookingCount > 0
+                                ? `${bookingCount} Buchung${bookingCount > 1 ? 'en' : ''} heute`
+                                : 'Heute frei'}
+                            </span>
+                            {isRoomAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openRoomDialog(room);
+                                }}
+                              >
+                                <Edit className="mr-1 h-3.5 w-3.5" /> Bearbeiten
+                              </Button>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
             </CardContent>
           </Card>
 
