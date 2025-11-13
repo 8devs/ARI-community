@@ -62,7 +62,12 @@ This project is built with:
 
 ## Self-hosted email relay
 
-The Supabase Edge Function `send-email-notification` now expects an HTTP relay at `EMAIL_RELAY_URL` that forwards payloads to your own SMTP server. A minimal relay is provided in `relay/server.ts` and can be started locally with `npm run relay`. Configure it via environment variables before starting:
+The Supabase Edge Function `send-email-notification` now expects an HTTP relay at `EMAIL_RELAY_URL` that forwards payloads to your own SMTP server. Zwei Varianten stehen bereit:
+
+1. **Serverless (Vercel)**: Datei `api/relay.ts` implementiert eine Vercel Function unter `/api/relay`. Hinterlege dort die SMTP-Werte als Environment Variables im Vercel-Projekt.
+2. **Eigenständiger Server**: `relay/server.ts` kann lokal mit `npm run relay` gestartet und beispielsweise hinter einem eigenen Reverse Proxy betrieben werden.
+
+Für beide Varianten werden dieselben Variablen verwendet:
 
 ```
 RELAY_SMTP_HOST=<smtp.example.com>
@@ -75,7 +80,7 @@ RELAY_FROM_FALLBACK=notifications@example.com
 RELAY_PORT=8788             # optional HTTP port
 ```
 
-Expose the `/send` endpoint of this relay (e.g. behind HTTPS) and set the corresponding Supabase secrets:
+Expose die jeweilige `/api/relay`- bzw. `/send`-Route (z. B. hinter HTTPS) und setze anschließend die Supabase-Secrets:
 
 ```
 EMAIL_RELAY_URL=https://your-relay.example.com/send
