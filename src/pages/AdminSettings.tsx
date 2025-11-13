@@ -801,12 +801,13 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
 
         <Tabs value={activeSection} onValueChange={handleSectionChange}>
           <div className="flex flex-col gap-6 lg:flex-row">
-            <TabsList className="grid grid-cols-2 gap-2 lg:flex lg:w-64 lg:flex-col lg:gap-2 lg:rounded-2xl lg:border lg:bg-card lg:p-3">
-              <TabsTrigger value="organizations" className="justify-start">
-                Organisationen
-              </TabsTrigger>
-              <TabsTrigger value="people" className="justify-start">
-                Mitarbeitende
+            <div className="lg:w-64 shrink-0">
+              <TabsList className="grid grid-cols-2 gap-2 lg:grid-cols-1 lg:flex lg:flex-col lg:gap-2 lg:rounded-2xl lg:border lg:bg-card lg:p-3">
+                <TabsTrigger value="organizations" className="justify-start">
+                  Organisationen
+                </TabsTrigger>
+                <TabsTrigger value="people" className="justify-start">
+                  Mitarbeitende
               </TabsTrigger>
               <TabsTrigger value="invites" className="justify-start">
                 Einladungen
@@ -814,10 +815,11 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
               <TabsTrigger value="coffee" className="justify-start">
                 Getränke
               </TabsTrigger>
-              <TabsTrigger value="lunch" className="justify-start">
-                Lunch Roulette
-              </TabsTrigger>
-            </TabsList>
+                <TabsTrigger value="lunch" className="justify-start">
+                  Lunch Roulette
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <div className="flex-1 space-y-6">
           <TabsContent value="organizations" className="space-y-6">
