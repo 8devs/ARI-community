@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const EMAIL_RELAY_URL = Deno.env.get("EMAIL_RELAY_URL");
+const EMAIL_RELAY_TOKEN = Deno.env.get("EMAIL_RELAY_TOKEN");
 const FROM_EMAIL = Deno.env.get("NOTIFY_FROM_EMAIL") ?? "notifications@ari-worms.de";
 
 const corsHeaders = {
@@ -130,9 +130,12 @@ serve(async (req) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  if (!RESEND_API_KEY) {
+  if (!EMAIL_RELAY_URL) {
     return new Response(
-      JSON.stringify({ error: "Missing RESEND_API_KEY environment variable" }),
+      JSON.stringify({
+        error: "Missing EMAIL_RELAY_URL",
+        details: "Edge Function requires EMAIL_RELAY_URL to call your mail relay",
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
@@ -161,31 +164,38 @@ serve(async (req) => {
 
   const recipients = Array.isArray(payload.to) ? payload.to : [payload.to];
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: recipients,
-      subject: payload.subject,
-      html: wrapWithAriTemplate(payload.subject, payload.html, payload.badge),
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error("Resend error", data);
-    return new Response(JSON.stringify({ error: "Failed to send email", details: data }), {
-      status: response.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  try {
+    const response = await fetch(EMAIL_RELAY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(EMAIL_RELAY_TOKEN ? { Authorization: `Bearer ${EMAIL_RELAY_TOKEN}` } : {}),
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: recipients,
+        subject: payload.subject,
+        html: wrapWithAriTemplate(payload.subject, payload.html, payload.badge),
+      }),
     });
+
+    if (!response.ok) {
+      const relayError = await response.text();
+      console.error("Relay responded with error", relayError);
+      return new Response(
+        JSON.stringify({ error: "Relay call failed", details: relayError || response.statusText }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  } catch (error) {
+    console.error("Relay request failed", error);
+    return new Response(
+      JSON.stringify({ error: "Failed to reach email relay", details: String(error) }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 
-  return new Response(JSON.stringify({ success: true, data }), {
+  return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

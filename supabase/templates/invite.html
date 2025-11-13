@@ -1,147 +1,50 @@
 <!DOCTYPE html>
-<html lang="de" style="margin:0;padding:0;">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
     <title>Einladung zur ARI Community</title>
-    <style>
-      :root {
-        color-scheme: light;
-        --primary-start: #ff591a;
-        --primary-end: #ff914d;
-        --surface: #ffffff;
-        --bg: #f6f7fb;
-        --text-strong: #111827;
-        --text: #4b5563;
-        --text-muted: #6b7280;
-      }
-
-      body {
-        margin: 0;
-        padding: 0;
-        background-color: var(--bg);
-        font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        color: var(--text-strong);
-      }
-
-      .wrapper {
-        width: 100%;
-        padding: 32px 12px;
-      }
-
-      .container {
-        max-width: 560px;
-        margin: 0 auto;
-        background-color: var(--surface);
-        border-radius: 18px;
-        overflow: hidden;
-        box-shadow: 0 25px 55px rgba(15, 23, 42, 0.15);
-        border: 1px solid #edf0f7;
-      }
-
-      .header {
-        background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
-        padding: 36px 32px 48px;
-        text-align: center;
-        color: #fffdf9;
-      }
-
-      .header h1 {
-        margin: 0;
-        font-size: 28px;
-        letter-spacing: 0.4px;
-      }
-
-      .badge {
-        display: inline-block;
-        margin-top: 16px;
-        padding: 6px 14px;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 1.4px;
-      }
-
-      .content {
-        padding: 32px;
-        line-height: 1.55;
-        font-size: 16px;
-        color: var(--text);
-      }
-
-      .button {
-        display: inline-block;
-        padding: 14px 28px;
-        background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
-        color: #fff;
-        text-decoration: none;
-        border-radius: 14px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        font-size: 16px;
-        margin: 12px 0 24px;
-      }
-
-      .hint {
-        font-size: 14px;
-        color: var(--text-muted);
-        line-height: 1.6;
-      }
-
-      .hint code {
-        background-color: #f3f4f6;
-        padding: 3px 6px;
-        border-radius: 6px;
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 13px;
-        color: var(--text-strong);
-      }
-
-      .footer {
-        padding: 0 32px 36px;
-        text-align: center;
-        font-size: 13px;
-        color: #94a3b8;
-        line-height: 1.5;
-      }
-
-      @media (max-width: 620px) {
-        .content,
-        .header,
-        .footer {
-          padding-left: 20px;
-          padding-right: 20px;
-        }
-
-        .button {
-          width: 100%;
-          text-align: center;
-        }
-      }
-    </style>
   </head>
-  <body>
-    <div class="wrapper">
-      <div class="container">
-        <div class="header">
-          <h1>Du wurdest eingeladen</h1>
-          <div class="badge">ARI Community</div>
-        </div>
-        <div class="content">
-          <p>Hallo!</p>
-          <p>Du wurdest eingeladen, Teil der ARI Community zu werden. Über den folgenden Link kannst Du Deinen Zugang erstellen und loslegen:</p>
-          <p style="text-align:center">
-            <a class="button" href="{{ .ConfirmationURL }}" target="_blank" rel="noopener">Einladung annehmen</a>
-          </p>
-          <p class="hint">
-            Sollte der Button nicht funktionieren, kopiere diesen Link in Deinen Browser:<br />
-            <code>{{ .ConfirmationURL }}</code>
-          </p>
-        </div>
-        <div class="footer">
-          Diese Einladung wurde über {{ .SiteURL }} versendet. Wenn Du nichts davon weißt, kannst Du diese E-Mail ignorieren.
-        </div>
-      </div>
-    </div>
+  <body style="margin:0;padding:0;background-color:#f6f7fb;font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1f2933;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f7fb;">
+      <tr>
+        <td align="center" style="padding:32px 12px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border-radius:18px;border:1px solid #e6eaf2;border-collapse:separate;box-shadow:0 18px 45px rgba(15,23,42,0.12);overflow:hidden;">
+            <tr>
+              <td align="center" style="background-color:#ff591a;background-image:linear-gradient(120deg,#ff591a,#ff914d);padding:36px 30px 48px;color:#fffdf9;">
+                <p style="margin:0;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;opacity:.9;">Einladung</p>
+                <h1 style="margin:12px 0 0;font-size:28px;line-height:1.3;font-weight:700;">Willkommen bei der ARI Community</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;color:#4b5563;font-size:16px;line-height:1.55;">
+                <p style="margin:0 0 16px;">Hallo!</p>
+                <p style="margin:0 0 18px;">
+                  Jemand aus Deinem Team hat Dich eingeladen, Teil der ARI Community zu werden. Über den folgenden Link kannst Du Deinen Zugang erstellen und sofort loslegen.
+                </p>
+                <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:24px auto;">
+                  <tr>
+                    <td align="center" bgcolor="#ff7033" style="border-radius:14px;background-image:linear-gradient(120deg,#ff591a,#ff914d);">
+                      <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener" style="display:inline-block;padding:14px 32px;font-weight:600;font-size:16px;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
+                        Einladung annehmen
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 6px;font-weight:600;color:#1f2933;">Falls der Button nicht klappt:</p>
+                <p style="margin:0;background-color:#f3f4f6;padding:10px 14px;border-radius:10px;font-family:'SFMono-Regular',Menlo,monospace;font-size:13px;color:#111827;word-break:break-all;">
+                  {{ .ConfirmationURL }}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 34px;text-align:center;font-size:13px;line-height:1.5;color:#94a3b8;">
+                Diese Einladung wurde über {{ .SiteURL }} versendet. Wenn Du nichts davon weißt, kannst Du diese Nachricht ignorieren.
+              </td>
+            </tr>
+          </table>
+          <p style="margin:18px 0 0;font-size:12px;color:#94a3b8;">Gesendet von der ARI Community</p>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>

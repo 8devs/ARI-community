@@ -60,6 +60,35 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Self-hosted email relay
+
+The Supabase Edge Function `send-email-notification` now expects an HTTP relay at `EMAIL_RELAY_URL` that forwards payloads to your own SMTP server. A minimal relay is provided in `relay/server.ts` and can be started locally with `npm run relay`. Configure it via environment variables before starting:
+
+```
+RELAY_SMTP_HOST=<smtp.example.com>
+RELAY_SMTP_PORT=465         # or 587
+RELAY_SMTP_SECURE=true      # false to use STARTTLS
+RELAY_SMTP_USERNAME=<user>
+RELAY_SMTP_PASSWORD=<pass>
+RELAY_AUTH_TOKEN=<shared secret used by Supabase>
+RELAY_FROM_FALLBACK=notifications@example.com
+RELAY_PORT=8788             # optional HTTP port
+```
+
+Expose the `/send` endpoint of this relay (e.g. behind HTTPS) and set the corresponding Supabase secrets:
+
+```
+EMAIL_RELAY_URL=https://your-relay.example.com/send
+EMAIL_RELAY_TOKEN=<same shared secret>
+NOTIFY_FROM_EMAIL=notifications@example.com
+```
+
+After updating the secrets, redeploy the function with
+
+```
+supabase functions deploy send-email-notification --project-ref <project>
+```
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/56d9ef2e-2542-47e2-bd08-0f8ad0483b89) and click on Share -> Publish.
