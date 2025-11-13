@@ -94,6 +94,12 @@ After updating the secrets, redeploy the function with
 supabase functions deploy send-email-notification --project-ref <project>
 ```
 
+## Versioning & Changelog
+
+- Die aktuelle Produktversion wird in `package.json`, `src/version.ts` und im UI angezeigt. Passe `APP_VERSION` und `APP_RELEASE_DATE` für jedes Release an.
+- Ergänze neue Einträge in `src/data/changelog.ts` (und damit automatisch auf `/changelog`). Nutze das gleiche Schema wie für die bestehenden Versionen, um Highlights und Details festzuhalten.
+- Dokumentiere zusätzlich im Repository die Änderungen in `CHANGELOG.md`, damit externe Leser:innen denselben Überblick erhalten.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/56d9ef2e-2542-47e2-bd08-0f8ad0483b89) and click on Share -> Publish.

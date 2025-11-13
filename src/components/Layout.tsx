@@ -37,6 +37,7 @@ import { NotificationsMenu } from '@/components/NotificationsMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import defaultBrandLogo from '@/assets/ari-logo.png';
+import { APP_VERSION } from '@/version';
 
 interface LayoutProps {
   children: ReactNode;
@@ -460,8 +461,14 @@ export function Layout({ children }: LayoutProps) {
             >
               Impressum
             </a>
+            <Link to="/changelog" className="hover:text-primary transition-colors">
+              Changelog
+            </Link>
           </div>
-          <p>Made with ❤️ in Worms by 8devs GmbH</p>
+          <div className="flex flex-col gap-1 text-right md:text-left">
+            <p>Made with ❤️ in Worms by 8devs GmbH</p>
+            <p className="text-xs">Version {APP_VERSION}</p>
+          </div>
         </div>
       </footer>
     </div>

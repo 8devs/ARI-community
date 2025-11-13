@@ -22,6 +22,7 @@ import Events from "./pages/Events";
 import Messages from "./pages/Messages";
 import Rooms from "./pages/Rooms";
 import NotificationsCenter from "./pages/NotificationsCenter";
+import Changelog from "./pages/Changelog";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
             <Routes>
             <Route path="/login" element={<Auth />} />
             <Route path="/" element={<Index />} />
+            <Route path="/changelog" element={<Changelog />} />
             <Route
               path="/app"
               element={
