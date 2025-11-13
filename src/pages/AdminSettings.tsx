@@ -151,7 +151,8 @@ export default function AdminSettings() {
   const [brandingLoading, setBrandingLoading] = useState(true);
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingUploading, setBrandingUploading] = useState(false);
-  const adminTabTriggerClass = "justify-start w-full data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
+  const adminTabTriggerClass =
+    "w-full justify-between text-left text-sm font-medium transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm";
 
   useEffect(() => {
     setActiveSection(initialSection);
@@ -1017,9 +1018,9 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
         </div>
 
         <Tabs value={activeSection} onValueChange={handleSectionChange}>
-          <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[260px,1fr]">
+          <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[280px,minmax(0,1fr)] lg:items-start">
             <div className="lg:sticky lg:top-24">
-              <TabsList className="grid grid-cols-2 gap-2 rounded-2xl border bg-card p-3 lg:grid-cols-1">
+              <TabsList className="!flex w-full flex-wrap gap-2 rounded-2xl border bg-card p-3 text-foreground shadow-sm lg:flex-col lg:gap-1">
                 <TabsTrigger value="organizations" className={adminTabTriggerClass}>
                   Organisationen
                 </TabsTrigger>

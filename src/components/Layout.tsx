@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   Users, 
@@ -33,21 +33,29 @@ import { useTheme } from 'next-themes';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationsMenu } from '@/components/NotificationsMenu';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
+import defaultBrandLogo from '@/assets/ari-logo.png';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
+const BRAND_STORAGE_KEY = 'ari-brand-logo';
+
 export function Layout({ children }: LayoutProps) {
   const { user, signOut } = useAuth();
   const { profile } = useCurrentProfile();
   const navigate = useNavigate();
+  const location = useLocation();
   const isAuthenticated = Boolean(user);
   const canAccessAdmin = profile?.role === 'SUPER_ADMIN' || profile?.role === 'ORG_ADMIN';
   const [mobileOpen, setMobileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const [themeReady, setThemeReady] = useState(false);
-  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return window.sessionStorage.getItem(BRAND_STORAGE_KEY);
+  });
   const [pendingJoinRequests, setPendingJoinRequests] = useState<number>(0);
   const notifications = useNotifications(profile?.id, {
     enablePush: profile?.pref_push_notifications,
@@ -109,6 +117,19 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     setThemeReady(true);
   }, []);
+
+  const cacheBrandLogo = (logoUrl: string | null) => {
+    if (typeof window === 'undefined') return;
+    if (logoUrl) {
+      window.sessionStorage.setItem(BRAND_STORAGE_KEY, logoUrl);
+    } else {
+      window.sessionStorage.removeItem(BRAND_STORAGE_KEY);
+    }
+  };
+
+  useEffect(() => {
+    cacheBrandLogo(brandLogoUrl);
+  }, [brandLogoUrl]);
 
   useEffect(() => {
     let ignore = false;
@@ -235,6 +256,16 @@ export function Layout({ children }: LayoutProps) {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
   };
 
+  const isRouteActive = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/' || location.pathname === '';
+    }
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
+
+  const navButtonClasses = 'transition-colors data-[active=true]:bg-muted data-[active=true]:text-foreground';
+  const displayLogo = brandLogoUrl ?? defaultBrandLogo;
+
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -242,16 +273,13 @@ export function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-8">
-              <Link to="/" className="flex items-center gap-3">
-                {brandLogoUrl ? (
-                  <img
-                    src={brandLogoUrl}
-                    alt="ARI Community"
-                    className="h-10 w-auto object-contain"
-                  />
-                ) : (
-                  <span className="text-xl font-semibold tracking-tight">ARI Community</span>
-                )}
+              <Link to="/" className="flex items-center gap-3" aria-label="Zur Startseite">
+                <img
+                  src={displayLogo}
+                  alt="ARI Community"
+                  className="h-10 w-auto object-contain"
+                  loading="lazy"
+                />
               </Link>
 
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -267,8 +295,9 @@ export function Layout({ children }: LayoutProps) {
                       <Button
                         key={to}
                         variant="ghost"
-                        className="justify-start"
+                        className={cn('justify-start', navButtonClasses)}
                         onClick={() => setMobileOpen(false)}
+                        data-active={isRouteActive(to) ? 'true' : undefined}
                         asChild
                       >
                         <Link to={to}>
@@ -280,8 +309,9 @@ export function Layout({ children }: LayoutProps) {
                     {isAuthenticated && canAccessAdmin && (
                       <Button
                         variant="ghost"
-                        className="justify-start"
+                        className={cn('justify-start', navButtonClasses)}
                         onClick={() => setMobileOpen(false)}
+                        data-active={isRouteActive('/admin') ? 'true' : undefined}
                         asChild
                       >
                         <Link to="/admin">
@@ -317,7 +347,14 @@ export function Layout({ children }: LayoutProps) {
 
               <nav className="hidden md:flex items-center gap-1">
                 {navItems.map(({ to, label, icon: Icon }) => (
-                  <Button key={to} variant="ghost" size="sm" asChild>
+                  <Button
+                    key={to}
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    data-active={isRouteActive(to) ? 'true' : undefined}
+                    className={navButtonClasses}
+                  >
                     <Link to={to}>
                       <Icon className="h-4 w-4 mr-2" />
                       {label}
@@ -325,7 +362,13 @@ export function Layout({ children }: LayoutProps) {
                   </Button>
                 ))}
                 {isAuthenticated && canAccessAdmin && (
-                  <Button variant="ghost" size="sm" asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    data-active={isRouteActive('/admin') ? 'true' : undefined}
+                    className={navButtonClasses}
+                  >
                     <Link to="/admin">
                       <AdminLinkContent />
                     </Link>
