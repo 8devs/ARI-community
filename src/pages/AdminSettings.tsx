@@ -1018,12 +1018,18 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
         </div>
 
         <Tabs value={activeSection} onValueChange={handleSectionChange}>
-          <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[280px,minmax(0,1fr)] lg:items-start">
-            <div className="lg:sticky lg:top-24 lg:self-start w-full">
-              <TabsList className="!flex w-full flex-col gap-2 rounded-2xl border bg-card p-3 text-foreground shadow-sm">
-                <TabsTrigger value="organizations" className={adminTabTriggerClass}>
-                  Organisationen
-                </TabsTrigger>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <div className="lg:sticky lg:top-24 w-full lg:w-72">
+              <Card className="border-border/80 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Verwaltung</CardTitle>
+                  <CardDescription>Bereiche schnell wechseln</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <TabsList className="!flex flex-col gap-1 rounded-none border-t">
+                    <TabsTrigger value="organizations" className={adminTabTriggerClass}>
+                      Organisationen
+                    </TabsTrigger>
                 <TabsTrigger value="people" className={adminTabTriggerClass}>
                   Mitarbeitende
                 </TabsTrigger>
@@ -1044,12 +1050,14 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                         {pendingJoinRequestCount > 99 ? '99+' : pendingJoinRequestCount}
                       </span>
                     )}
-                  </span>
-                </TabsTrigger>
-              </TabsList>
+                      </span>
+                    </TabsTrigger>
+                  </TabsList>
+                </CardContent>
+              </Card>
             </div>
 
-            <div className="space-y-6">
+            <div className="flex-1 space-y-6">
           <TabsContent value="organizations" className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>

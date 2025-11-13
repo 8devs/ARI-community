@@ -257,104 +257,59 @@ export default function Dashboard() {
   };
 
   const quickActions = [
-    {
-      title: 'Pinnwand',
-      description: 'News & Updates',
-      icon: Newspaper,
-      to: '/pinnwand',
-    },
-    {
-      title: 'Events',
-      description: 'Workshops & Treffen',
-      icon: Calendar,
-      to: '/events',
-    },
-    {
-      title: 'Gruppen',
-      description: 'Gemeinsam aktiv werden',
-      icon: UserPlus,
-      to: '/gruppen',
-    },
-    {
-      title: 'Nachrichten',
-      description: 'Direkter Austausch',
-      icon: MessageCircle,
-      to: '/nachrichten',
-    },
-    {
-      title: 'Q&A',
-      description: 'Fragen stellen & helfen',
-      icon: MessageSquare,
-      to: '/qa',
-    },
-    {
-      title: 'Organisation & Personen',
-      description: 'Teams & Ansprechpartner',
-      icon: Building2,
-      to: '/organisationen',
-    },
-    {
-      title: 'Benachrichtigungen',
-      description: 'Center & Historie',
-      icon: Bell,
-      to: '/benachrichtigungen',
-    },
-    {
-      title: 'Lunch Roulette',
-      description: 'Neue Kontakte beim Essen',
-      icon: Utensils,
-      to: '/lunch-roulette',
-    },
+    { title: 'Pinnwand', icon: Newspaper, to: '/pinnwand' },
+    { title: 'Events', icon: Calendar, to: '/events' },
+    { title: 'Gruppen', icon: UserPlus, to: '/gruppen' },
+    { title: 'Nachrichten', icon: MessageCircle, to: '/nachrichten' },
+    { title: 'Q&A', icon: MessageSquare, to: '/qa' },
+    { title: 'Organisationen', icon: Building2, to: '/organisationen' },
+    { title: 'Benachrichtigungen', icon: Bell, to: '/benachrichtigungen' },
+    { title: 'Lunch Roulette', icon: Utensils, to: '/lunch-roulette' },
   ];
 
   return (
     <Layout>
       <div className="space-y-8">
-        <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
-          <Card className="border-primary/20">
+        <div className="grid gap-4 lg:grid-cols-[3fr,1fr]">
+          <Card className="border-primary/30">
             <CardHeader className="space-y-1">
-              <CardTitle className="text-3xl font-bold">
-                {profile?.name ? `Hallo ${profile.name.split(' ')[0]} 👋` : 'Willkommen in der ARI Community 👋'}
+              <CardTitle className="text-2xl font-semibold">
+                {profile?.name ? `Hallo ${profile.name.split(' ')[0]}!` : 'Willkommen in der Community'}
               </CardTitle>
               <CardDescription>
-                {profile?.organization?.name
-                  ? `Deine Organisation: ${profile.organization.name}`
-                  : 'Verbinde Dich mit Teams am Adenauerring'}
+                {profile?.organization?.name ?? 'Noch keiner Organisation zugeordnet'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               {orgLogo && (
-                <div className="flex justify-center">
-                  <img src={orgLogo} alt="Organisationslogo" className="h-12 w-auto object-contain" />
+                <div className="flex justify-start">
+                  <img src={orgLogo} alt="Organisationslogo" className="h-10 w-auto object-contain" />
                 </div>
               )}
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border bg-muted/40 p-3">
-                  <p className="text-xs text-muted-foreground">Rolle</p>
-                  <p className="text-base font-semibold capitalize">{profile?.role?.toLowerCase() ?? 'Mitglied'}</p>
+              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <div className="rounded-full border px-4 py-2 font-semibold uppercase tracking-wide text-foreground">
+                  {profile?.role ?? 'MITGLIED'}
                 </div>
-                <div className="rounded-xl border bg-muted/40 p-3">
-                  <p className="text-xs text-muted-foreground">Organisation</p>
-                  <p className="text-base font-semibold">
-                    {profile?.organization?.name ?? 'Noch nicht zugeordnet'}
-                  </p>
+                <div className="rounded-full border px-4 py-2">
+                  {groupJoined ? 'Mitglied in Gruppen' : 'Noch keiner Gruppe beigetreten'}
                 </div>
-                <div className="rounded-xl border bg-muted/40 p-3">
-                  <p className="text-xs text-muted-foreground">Benachrichtigungen</p>
-                  <p className="text-base font-semibold">
-                    {notificationsReady ? 'Aktiv' : 'Noch offen'}
-                  </p>
+                <div className="rounded-full border px-4 py-2">
+                  {lunchParticipating ? 'Lunch Roulette aktiv' : 'Lunch Roulette offen'}
+                </div>
+                <div className="rounded-full border px-4 py-2">
+                  {notificationsReady ? 'Benachrichtigungen aktiv' : 'Benachrichtigungen konfigurieren'}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button asChild>
-                  <Link to="/profil">Profil bearbeiten</Link>
+                  <Link to="/profil">Profil öffnen</Link>
                 </Button>
-                {!onboardingCompleted && (
-                  <Button variant="outline" onClick={() => setOnboardingDialogOpen(true)}>
-                    Onboarding starten
-                  </Button>
-                )}
+                <Button variant="outline" asChild>
+                  <Link to="/gruppen">Gruppen</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/benachrichtigungen">Benachrichtigungen</Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -447,7 +402,6 @@ export default function Dashboard() {
                     <action.icon className="h-5 w-5 text-primary" />
                     <CardTitle className="text-base">{action.title}</CardTitle>
                   </div>
-                  <CardDescription>{action.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button variant="ghost" size="sm" asChild className="w-full justify-between">

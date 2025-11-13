@@ -115,6 +115,14 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
     };
   }, [profileId, maybeShowNativeNotification, limit]);
 
+  useEffect(() => {
+    if (!profileId) return;
+    const interval = setInterval(() => {
+      void fetchNotifications(false);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [profileId, fetchNotifications]);
+
   const unreadCount = useMemo(
     () => items.filter((notification) => !notification.read_at).length,
     [items],
