@@ -48,6 +48,7 @@ export function Layout({ children }: LayoutProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [themeReady, setThemeReady] = useState(false);
   const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
+  const [pendingJoinRequests, setPendingJoinRequests] = useState<number>(0);
   const notifications = useNotifications(profile?.id, {
     enablePush: profile?.pref_push_notifications,
   });
@@ -61,6 +62,26 @@ export function Layout({ children }: LayoutProps) {
     if (!user?.email) return 'U';
     return user.email.charAt(0).toUpperCase();
   };
+
+  const formatPendingCount = () => {
+    if (pendingJoinRequests > 99) return '99+';
+    if (pendingJoinRequests > 0) return String(pendingJoinRequests);
+    return null;
+  };
+
+  const pendingBadgeValue = formatPendingCount();
+
+  const AdminLinkContent = () => (
+    <>
+      <Shield className="h-4 w-4 mr-2" />
+      Admin
+      {pendingBadgeValue && (
+        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+          {pendingBadgeValue}
+        </span>
+      )}
+    </>
+  );
 
   const navItems = useMemo(() => {
     if (isAuthenticated) {
@@ -88,6 +109,126 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     setThemeReady(true);
   }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchBranding = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'app_branding')
+          .maybeSingle();
+        if (error) {
+          if (error.code === '42501') {
+            return;
+          }
+          console.error('Error loading branding', error);
+          return;
+        }
+        if (!ignore) {
+          const value = (data?.value ?? null) as { logo_url?: string | null } | null;
+          setBrandLogoUrl(value?.logo_url ?? null);
+        }
+      } catch (error) {
+        console.error('Unexpected branding error', error);
+      }
+    };
+
+    fetchBranding();
+
+    const handleBrandingUpdate = (event: CustomEvent<{ logoUrl?: string | null }>) => {
+      setBrandLogoUrl(event.detail?.logoUrl ?? null);
+    };
+
+    window.addEventListener('app-branding-updated', handleBrandingUpdate);
+
+    return () => {
+      ignore = true;
+      window.removeEventListener('app-branding-updated', handleBrandingUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const rels = ['icon', 'shortcut icon'];
+    const getMimeType = (url: string) => (url.toLowerCase().includes('.svg') ? 'image/svg+xml' : 'image/png');
+
+    if (brandLogoUrl) {
+      rels.forEach((rel) => {
+        let link = document.querySelector(`link[rel="${rel}"][data-dynamic-favicon="true"]`) as HTMLLinkElement | null;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = rel;
+          link.setAttribute('data-dynamic-favicon', 'true');
+          document.head.appendChild(link);
+        }
+        link.href = brandLogoUrl;
+        link.type = getMimeType(brandLogoUrl);
+      });
+    } else {
+      rels.forEach((rel) => {
+        const link = document.querySelector(`link[rel="${rel}"][data-dynamic-favicon="true"]`);
+        link?.parentNode?.removeChild(link);
+      });
+    }
+  }, [brandLogoUrl]);
+
+  useEffect(() => {
+    if (!canAccessAdmin) {
+      setPendingJoinRequests(0);
+      return;
+    }
+
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const fetchPending = async () => {
+      let query = supabase
+        .from('join_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+
+      if (profile?.role === 'ORG_ADMIN') {
+        if (!profile.organization_id) {
+          setPendingJoinRequests(0);
+          return;
+        }
+        query = query.eq('organization_id', profile.organization_id);
+      }
+
+      const { count, error } = await query;
+
+      if (error) {
+        console.error('Error loading join requests count', error);
+        return;
+      }
+      if (!cancelled) {
+        setPendingJoinRequests(count ?? 0);
+      }
+    };
+
+    fetchPending();
+
+    channel = supabase
+      .channel('join-requests-watch')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'join_requests' },
+        () => {
+          fetchPending();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [canAccessAdmin, profile?.role, profile?.organization_id]);
 
   const toggleTheme = () => {
     if (!themeReady) return;
@@ -144,8 +285,7 @@ export function Layout({ children }: LayoutProps) {
                         asChild
                       >
                         <Link to="/admin">
-                          <Shield className="h-4 w-4 mr-2" />
-                          Admin
+                          <AdminLinkContent />
                         </Link>
                       </Button>
                     )}
@@ -187,8 +327,7 @@ export function Layout({ children }: LayoutProps) {
                 {isAuthenticated && canAccessAdmin && (
                   <Button variant="ghost" size="sm" asChild>
                     <Link to="/admin">
-                      <Shield className="h-4 w-4 mr-2" />
-                      Admin
+                      <AdminLinkContent />
                     </Link>
                   </Button>
                 )}
@@ -342,3 +481,57 @@ export function Layout({ children }: LayoutProps) {
       });
     }
   }, [brandLogoUrl]);
+  useEffect(() => {
+    if (!canAccessAdmin) {
+      setPendingJoinRequests(0);
+      return;
+    }
+
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const fetchPending = async () => {
+      let query = supabase
+        .from('join_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+
+      if (profile?.role === 'ORG_ADMIN') {
+        if (!profile.organization_id) {
+          setPendingJoinRequests(0);
+          return;
+        }
+        query = query.eq('organization_id', profile.organization_id);
+      }
+
+      const { count, error } = await query;
+
+      if (error) {
+        console.error('Error loading join requests count', error);
+        return;
+      }
+      if (!cancelled) {
+        setPendingJoinRequests(count ?? 0);
+      }
+    };
+
+    fetchPending();
+
+    channel = supabase
+      .channel('join-requests-watch')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'join_requests' },
+        () => {
+          fetchPending();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [canAccessAdmin, profile?.role, profile?.organization_id]);

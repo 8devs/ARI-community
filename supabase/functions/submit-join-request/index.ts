@@ -15,6 +15,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+type AdminProfile = {
+  id: string;
+  email: string | null;
+};
+
+const adminNotificationUrl = SITE_URL ? `${SITE_URL}/admin?section=requests` : null;
+
 const sendEmailNotification = async (to: string[], html: string, subject: string) => {
   if (to.length === 0) {
     return;
@@ -37,6 +44,30 @@ const sendEmailNotification = async (to: string[], html: string, subject: string
   if (!response.ok) {
     const details = await response.text();
     console.error("Failed to send notification email", details);
+  }
+};
+
+const createInAppNotifications = async (
+  recipients: AdminProfile[],
+  requesterName: string,
+  requesterEmail: string,
+  organizationName: string,
+) => {
+  if (recipients.length === 0) {
+    return;
+  }
+
+  const rows = recipients.map((recipient) => ({
+    user_id: recipient.id,
+    title: 'Neue Beitrittsanfrage',
+    body: `${requesterName} (${requesterEmail}) möchte ${organizationName} beitreten.`,
+    url: adminNotificationUrl,
+    type: 'INFO',
+  }));
+
+  const { error } = await supabase.from('notifications').insert(rows);
+  if (error) {
+    console.error('Failed to create notifications for join request', error);
   }
 };
 
@@ -108,12 +139,12 @@ serve(async (req) => {
 
     const superAdminsPromise = supabase
       .from("profiles")
-      .select("email")
+      .select("id, email")
       .eq("role", "SUPER_ADMIN");
 
     const orgAdminsPromise = supabase
       .from("profiles")
-      .select("email")
+      .select("id, email")
       .eq("role", "ORG_ADMIN")
       .eq("organization_id", organization.id);
 
@@ -122,10 +153,14 @@ serve(async (req) => {
       orgAdminsPromise,
     ]);
 
+    const allAdmins = [...superAdmins, ...orgAdmins].filter(
+      (profile): profile is AdminProfile => Boolean(profile?.id),
+    );
+
     const recipients = Array.from(
       new Set(
-        [...superAdmins, ...orgAdmins]
-          .map((profile) => profile?.email)
+        allAdmins
+          .map((profile) => profile.email)
           .filter((emailValue): emailValue is string => Boolean(emailValue)),
       ),
     );
@@ -145,11 +180,10 @@ serve(async (req) => {
       }
     `;
 
-    await sendEmailNotification(
-      recipients,
-      html,
-      `Neue Beitrittsanfrage von ${name}`,
-    );
+    await Promise.all([
+      sendEmailNotification(recipients, html, `Neue Beitrittsanfrage von ${name}`),
+      createInAppNotifications(allAdmins, name, email, organization.name ?? 'deiner Organisation'),
+    ]);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

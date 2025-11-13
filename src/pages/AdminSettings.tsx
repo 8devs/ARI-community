@@ -143,6 +143,10 @@ export default function AdminSettings() {
   const [joinRequestsLoading, setJoinRequestsLoading] = useState(true);
   const [requestActionId, setRequestActionId] = useState<string | null>(null);
   const [requestDeclineId, setRequestDeclineId] = useState<string | null>(null);
+  const pendingJoinRequestCount = useMemo(
+    () => joinRequests.filter((request) => request.status === 'PENDING').length,
+    [joinRequests],
+  );
   const [brandingLogoUrl, setBrandingLogoUrl] = useState<string | null>(null);
   const [brandingLoading, setBrandingLoading] = useState(true);
   const [brandingSaving, setBrandingSaving] = useState(false);
@@ -1032,7 +1036,14 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                   Lunch Roulette
                 </TabsTrigger>
                 <TabsTrigger value="requests" className={adminTabTriggerClass}>
-                  Beitrittsanfragen
+                  <span className="flex w-full items-center justify-between gap-2">
+                    <span>Beitrittsanfragen</span>
+                    {pendingJoinRequestCount > 0 && (
+                      <span className="inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+                        {pendingJoinRequestCount > 99 ? '99+' : pendingJoinRequestCount}
+                      </span>
+                    )}
+                  </span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -1689,6 +1700,15 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
+                {pendingJoinRequestCount > 0 && (
+                  <Alert>
+                    <AlertTitle>Neue Anfragen</AlertTitle>
+                    <AlertDescription>
+                      Es warten {pendingJoinRequestCount} Beitrittsanfrage
+                      {pendingJoinRequestCount === 1 ? '' : 'n'} auf Deine Entscheidung.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 {joinRequestsLoading ? (
                   <div className="flex items-center gap-2 text-muted-foreground text-sm">
                     <Loader2 className="h-4 w-4 animate-spin" />
