@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { toast } from 'sonner';
 import { addHours, addMonths, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, Search } from 'lucide-react';
+import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, Search, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Room = Tables<'rooms'>;
@@ -75,6 +76,7 @@ export default function Rooms() {
   const [savingBooking, setSavingBooking] = useState(false);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [roomSearch, setRoomSearch] = useState('');
+  const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
 
   const isRoomAdmin = Boolean(profile && (profile.role === 'SUPER_ADMIN' || profile.role === 'ORG_ADMIN'));
 
@@ -337,6 +339,14 @@ export default function Rooms() {
     );
   }, [rooms, roomSearch]);
 
+  const { activeRooms, inactiveRooms } = useMemo(() => {
+    const active = rooms.filter((room) => room.is_active).length;
+    return {
+      activeRooms: active,
+      inactiveRooms: Math.max(rooms.length - active, 0),
+    };
+  }, [rooms]);
+
   useEffect(() => {
     if (!filteredRooms.length) {
       setSelectedRoomId(null);
@@ -355,6 +365,16 @@ export default function Rooms() {
       }
     });
     return map;
+  }, [bookings, selectedDay]);
+
+  const totalBookingsForSelectedDay = useMemo(() => {
+    let total = 0;
+    bookings.forEach((booking) => {
+      if (isSameDay(new Date(booking.start_time), selectedDay)) {
+        total += 1;
+      }
+    });
+    return total;
   }, [bookings, selectedDay]);
 
   const bookingsByDay = useMemo(() => {
@@ -398,6 +418,176 @@ export default function Rooms() {
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) || null;
 
+  const handleSelectRoom = (roomId: string, closePanel = false) => {
+    setSelectedRoomId(roomId);
+    if (closePanel) {
+      setRoomsSheetOpen(false);
+    }
+  };
+
+  const RoomSelectionPanel = ({ variant = 'desktop' }: { variant?: 'desktop' | 'mobile' }) => {
+    const closeOnSelect = variant === 'mobile';
+    const statCards = [
+      {
+        label: 'Gesamt',
+        value: rooms.length,
+        helper: 'Räume insgesamt',
+      },
+      {
+        label: 'Aktiv',
+        value: activeRooms,
+        helper: 'Sofort buchbar',
+      },
+      {
+        label: 'Inaktiv',
+        value: inactiveRooms,
+        helper: 'Versteckt',
+      },
+      {
+        label: 'Heute',
+        value: totalBookingsForSelectedDay,
+        helper: format(selectedDay, 'dd.MM.'),
+      },
+    ];
+
+    return (
+      <div className="flex h-full flex-col gap-5">
+        <div className="space-y-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">Räume</p>
+            <h2 className="text-2xl font-bold leading-tight">Wähle den passenden Raum</h2>
+            <p className="text-sm text-muted-foreground">
+              Suche nach Standort oder Ausstattung und prüfe die Auslastung des ausgewählten Tages.
+            </p>
+          </div>
+          <div className="space-y-4 rounded-2xl border border-dashed bg-muted/30 p-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Räume durchsuchen..."
+                className="pl-10"
+                value={roomSearch}
+                onChange={(event) => setRoomSearch(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+              {statCards.map((stat) => (
+                <div key={stat.label} className="rounded-xl border bg-background/80 p-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{stat.label}</p>
+                  <p className="text-2xl font-bold leading-none">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground">{stat.helper}</p>
+                </div>
+              ))}
+            </div>
+            {isRoomAdmin && (
+              <Button size="sm" onClick={() => openRoomDialog()} className="w-full" variant="secondary">
+                <Plus className="mr-2 h-4 w-4" /> Raum anlegen
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden rounded-2xl border bg-card/50 shadow-inner">
+          <ScrollArea className="h-full p-3">
+            {roomsLoading ? (
+              <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Räume werden geladen...
+              </div>
+            ) : filteredRooms.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
+                <p>Keine passenden Räume gefunden.</p>
+                <p className="text-xs">Passe die Suche an oder lege einen neuen Raum an.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredRooms.map((room) => {
+                  const bookingCount = bookingsByRoomForSelectedDay.get(room.id) ?? 0;
+                  const isSelected = selectedRoomId === room.id;
+                  return (
+                    <div
+                      key={room.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelectRoom(room.id, closeOnSelect)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleSelectRoom(room.id, closeOnSelect);
+                        }
+                      }}
+                      className={cn(
+                        'group relative w-full cursor-pointer rounded-2xl border border-border/70 bg-background/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-lg',
+                        isSelected && 'border-primary bg-primary/5 shadow-md',
+                      )}
+                    >
+                      {isRoomAdmin && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openRoomDialog(room);
+                          }}
+                          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted-foreground transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold leading-tight">{room.name}</p>
+                          {room.location && (
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                              <MapPin className="h-3 w-3" />
+                              <span className="truncate">{room.location}</span>
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge variant={room.is_active ? 'secondary' : 'outline'}>
+                            {room.is_active ? 'Aktiv' : 'Inaktiv'}
+                          </Badge>
+                          <span
+                            className={cn(
+                              'text-[11px] font-medium',
+                              bookingCount > 0 ? 'text-primary' : 'text-muted-foreground',
+                            )}
+                          >
+                            {bookingCount > 0 ? `${bookingCount} Buchung${bookingCount > 1 ? 'en' : ''} heute` : 'Heute frei'}
+                          </span>
+                        </div>
+                      </div>
+                      {room.description && (
+                        <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{room.description}</p>
+                      )}
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        {room.capacity && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                            <Users className="h-3 w-3" /> bis {room.capacity} Personen
+                          </span>
+                        )}
+                        {room.equipment && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5" title={room.equipment}>
+                            Ausstattung: {room.equipment}
+                          </span>
+                        )}
+                        {!room.is_active && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-amber-700 dark:bg-amber-500/20 dark:text-amber-50">
+                            <DoorClosed className="h-3 w-3" />
+                            Wartung
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      </div>
+    );
+  };
+
   const canManageBooking = (booking: Booking) => {
     if (!profile) return false;
     if (booking.created_by === profile.id) return true;
@@ -406,127 +596,106 @@ export default function Rooms() {
 
   return (
     <Layout>
+      <Sheet open={roomsSheetOpen} onOpenChange={setRoomsSheetOpen}>
+        <SheetContent side="left" className="flex w-full flex-col overflow-hidden border-r p-0 sm:max-w-md">
+          <div className="border-b px-6 py-4">
+            <SheetHeader className="space-y-1 text-left">
+              <SheetTitle>Räume auswählen</SheetTitle>
+              <SheetDescription>Suche nach frei verfügbaren Räumen oder lege neue Räume an.</SheetDescription>
+            </SheetHeader>
+          </div>
+          <div className="flex-1 overflow-hidden px-6 pb-6 pt-4">
+            <RoomSelectionPanel variant="mobile" />
+          </div>
+        </SheetContent>
+      </Sheet>
       <div className="space-y-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-4xl font-bold">Raumbuchung</h1>
             <p className="text-muted-foreground">Verwalte Meetingräume und buche freie Slots.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto lg:hidden"
+              onClick={() => setRoomsSheetOpen(true)}
+            >
+              <Menu className="mr-2 h-4 w-4" />
+              Räume wählen
+            </Button>
             {isRoomAdmin && (
-              <Button onClick={() => openRoomDialog()}>
+              <Button onClick={() => openRoomDialog()} className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Raum anlegen
               </Button>
             )}
-            <Button variant="secondary" onClick={() => openBookingDialog()} disabled={!selectedRoomId}>
+            <Button
+              variant="secondary"
+              onClick={() => openBookingDialog()}
+              disabled={!selectedRoomId}
+              className="w-full sm:w-auto"
+            >
               <CalendarDays className="mr-2 h-4 w-4" />
               Raum buchen
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[330px,1fr]">
-          <Card className="h-fit">
-            <CardHeader className="space-y-4">
+        {selectedRoom && (
+          <div className="rounded-3xl border bg-card/70 p-4 shadow-sm lg:hidden">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle>Räume</CardTitle>
-                <CardDescription>Wähle einen Raum aus, um Belegung und Details zu sehen.</CardDescription>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Räume durchsuchen..."
-                  className="pl-10"
-                  value={roomSearch}
-                  onChange={(event) => setRoomSearch(event.target.value)}
-                />
-              </div>
-              {isRoomAdmin && (
-                <Button size="sm" onClick={() => openRoomDialog()} className="w-full">
-                  <Plus className="mr-2 h-4 w-4" /> Raum anlegen
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="max-h-[70vh] pr-2">
-                {roomsLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Räume werden geladen...
-                  </div>
-                ) : filteredRooms.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Keine passenden Räume gefunden.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRooms.map((room) => {
-                      const bookingCount = bookingsByRoomForSelectedDay.get(room.id) ?? 0;
-                      const isSelected = selectedRoomId === room.id;
-                      return (
-                        <button
-                          key={room.id}
-                          type="button"
-                          onClick={() => setSelectedRoomId(room.id)}
-                          className={cn(
-                            'w-full rounded-2xl border p-4 text-left transition hover:border-primary',
-                            isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background',
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="font-semibold truncate" title={room.name}>{room.name}</p>
-                              {room.location && (
-                                <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                                  <MapPin className="h-3 w-3" /> {room.location}
-                                </p>
-                              )}
-                            </div>
-                            <Badge variant={room.is_active ? 'secondary' : 'outline'}>
-                              {room.is_active ? 'Verfügbar' : 'Inaktiv'}
-                            </Badge>
-                          </div>
-                          {room.description && (
-                            <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{room.description}</p>
-                          )}
-                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {room.capacity && (
-                              <span className="inline-flex items-center gap-1">
-                                <Users className="h-3 w-3" /> bis {room.capacity} Personen
-                              </span>
-                            )}
-                            {room.equipment && (
-                              <span className="truncate" title={room.equipment}>
-                                Ausstattung: {room.equipment}
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-3 flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              {bookingCount > 0
-                                ? `${bookingCount} Buchung${bookingCount > 1 ? 'en' : ''} heute`
-                                : 'Heute frei'}
-                            </span>
-                            {isRoomAdmin && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openRoomDialog(room);
-                                }}
-                              >
-                                <Edit className="mr-1 h-3.5 w-3.5" /> Bearbeiten
-                              </Button>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aktiver Raum</p>
+                <p className="text-2xl font-semibold leading-tight">{selectedRoom.name}</p>
+                {selectedRoom.location && (
+                  <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                    <MapPin className="h-3 w-3" />
+                    {selectedRoom.location}
+                  </p>
                 )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
+              </div>
+              <Badge variant={selectedRoom.is_active ? 'secondary' : 'outline'}>
+                {selectedRoom.is_active ? 'Verfügbar' : 'Inaktiv'}
+              </Badge>
+            </div>
+            {selectedRoom.description && (
+              <p className="mt-3 text-sm text-muted-foreground">{selectedRoom.description}</p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+              {selectedRoom.capacity && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                  <Users className="h-3 w-3" />
+                  bis {selectedRoom.capacity} Personen
+                </span>
+              )}
+              {selectedRoom.equipment && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                  Ausstattung: {selectedRoom.equipment}
+                </span>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 w-full"
+              onClick={() => setRoomsSheetOpen(true)}
+            >
+              <Menu className="mr-2 h-4 w-4" />
+              Anderen Raum wählen
+            </Button>
+          </div>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-[360px,1fr]">
+          <div className="hidden lg:block">
+            <div className="sticky top-24">
+              <div className="flex h-[calc(100vh-7rem)] flex-col rounded-3xl border bg-card/80 p-6 shadow-lg">
+                <RoomSelectionPanel variant="desktop" />
+              </div>
+            </div>
+          </div>
 
           <div className="space-y-6">
             <Card>
