@@ -1457,7 +1457,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                   </div>
                                   <Switch
                                     checked={member.is_news_manager}
-                                    onCheckedChange={() => toggleManagerFlag(member.id, 'is_news_manager')}
+                                    onCheckedChange={(checked) => handleNewsManagerToggle(member, checked)}
                                     disabled={isUpdating}
                                   />
                                 </div>
@@ -1468,7 +1468,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                   </div>
                                   <Switch
                                     checked={member.is_event_manager}
-                                    onCheckedChange={() => toggleManagerFlag(member.id, 'is_event_manager')}
+                                    onCheckedChange={(checked) => handleEventManagerToggle(member, checked)}
                                     disabled={isUpdating}
                                   />
                                 </div>
@@ -1612,6 +1612,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                       </TableBody>
                     </Table>
                   </div>
+                  </>
                 )}
               </CardContent>
             </Card>
