@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
@@ -156,7 +157,7 @@ export default function AdminSettings() {
   const [brandingUploading, setBrandingUploading] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const adminTabTriggerClass =
-    'w-full justify-between rounded-2xl border border-transparent bg-card/60 px-4 py-3 text-left text-sm font-semibold text-muted-foreground shadow-sm transition hover:border-border/70 hover:bg-card data-[state=active]:border-primary/40 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary/10 data-[state=active]:to-primary/5 data-[state=active]:text-foreground data-[state=active]:shadow-md';
+    'group relative w-full justify-between rounded-2xl border border-border/60 bg-card/80 px-4 py-4 text-left text-sm font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 hover:shadow-md data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:shadow-lg';
   const adminSections = [
     {
       value: 'organizations',
@@ -200,34 +201,36 @@ export default function AdminSettings() {
   const ActiveSectionIcon = activeSectionMeta?.icon;
 
   const renderNavigationList = (onSelect?: () => void) => (
-    <TabsList className="flex w-full flex-col gap-2 rounded-none bg-transparent p-0">
-      {adminSections.map((section) => {
-        const Icon = section.icon;
-        return (
-          <TabsTrigger
-            key={section.value}
-            value={section.value}
-            className={adminTabTriggerClass}
-            onClick={onSelect}
-          >
-            <span className="flex w-full items-start gap-3">
-              <span className="mt-0.5 rounded-xl bg-muted/60 p-2 text-muted-foreground">
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="flex-1">
-                <span className="block font-semibold leading-tight">{section.label}</span>
-                <span className="text-xs text-muted-foreground">{section.description}</span>
-              </span>
-              {section.badge ? (
-                <span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
-                  {section.badge > 99 ? '99+' : section.badge}
+    <ScrollArea className="max-h-[calc(100vh-14rem)] pr-1">
+      <TabsList className="flex w-full flex-col gap-3 rounded-none bg-transparent p-0">
+        {adminSections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <TabsTrigger
+              key={section.value}
+              value={section.value}
+              className={adminTabTriggerClass}
+              onClick={onSelect}
+            >
+              <span className="flex w-full items-start gap-4">
+                <span className="rounded-2xl bg-muted/60 p-2.5 text-muted-foreground">
+                  <Icon className="h-4 w-4" />
                 </span>
-              ) : null}
-            </span>
-          </TabsTrigger>
-        );
-      })}
-    </TabsList>
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold leading-tight">{section.label}</span>
+                  <span className="text-xs text-muted-foreground">{section.description}</span>
+                </span>
+                {section.badge ? (
+                  <span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+                    {section.badge > 99 ? '99+' : section.badge}
+                  </span>
+                ) : null}
+              </span>
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </ScrollArea>
   );
 
   useEffect(() => {
@@ -1085,7 +1088,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col space-y-8">
         <div className="space-y-3 sm:flex sm:flex-col sm:gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1145,33 +1148,21 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
             )}
           </div>
         </div>
-        <div className="relative isolate overflow-hidden rounded-[32px] border border-border/60 bg-background/80 p-3 sm:p-6 shadow-2xl shadow-primary/10 supports-[backdrop-filter]:bg-background/60 supports-[backdrop-filter]:backdrop-blur">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-16 top-10 h-60 w-60 rounded-full bg-primary/20 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-16 right-0 h-72 w-72 rounded-full bg-accent/20 blur-[90px]"
-          />
-          <Tabs
-            value={activeSection}
-            onValueChange={handleSectionChange}
-            className="relative z-10"
-          >
-            <div className="grid gap-6 lg:grid-cols-[320px,1fr] lg:items-start">
-            <div className="hidden lg:block">
-              <div className="sticky top-24">
-                <Card className="border-border/60 bg-card/80 shadow-xl shadow-primary/5 supports-[backdrop-filter]:bg-card/60 supports-[backdrop-filter]:backdrop-blur">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Verwaltung</CardTitle>
-                    <CardDescription>Bereiche schnell wechseln</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-2 pt-0">{renderNavigationList()}</CardContent>
-                </Card>
+        <div className="rounded-[28px] border border-border/70 bg-card/80 p-4 sm:p-6 shadow-xl shadow-primary/5">
+          <Tabs value={activeSection} onValueChange={handleSectionChange} className="space-y-6">
+            <div className="grid gap-8 lg:grid-cols-[300px,1fr] lg:items-start">
+              <div className="hidden lg:block">
+                <div className="sticky top-28">
+                  <Card className="max-h-[calc(100vh-8rem)] overflow-hidden border-border/70 bg-card/95 shadow-lg supports-[backdrop-filter]:backdrop-blur">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-base">Verwaltung</CardTitle>
+                      <CardDescription>Bereiche schnell wechseln</CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-4">{renderNavigationList()}</CardContent>
+                  </Card>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 space-y-6">
+              <div className="flex-1 space-y-8">
           <TabsContent value="organizations" className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
