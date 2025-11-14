@@ -126,7 +126,11 @@ export default function Rooms() {
         .lte('start_time', rangeEnd.toISOString())
         .order('start_time');
       if (error) throw error;
-      setBookings((data as Booking[]) || []);
+      const todayStart = startOfDay(new Date());
+      const filtered = ((data as Booking[]) || []).filter(
+        (booking) => new Date(booking.end_time) >= todayStart,
+      );
+      setBookings(filtered);
     } catch (error: any) {
       console.error('Error loading bookings', error);
       toast.error('Buchungen konnten nicht geladen werden.');
@@ -484,18 +488,6 @@ export default function Rooms() {
                         isSelected && 'border-primary bg-primary/5 shadow-md',
                       )}
                     >
-                      {isRoomAdmin && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openRoomDialog(room);
-                          }}
-                          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-muted-foreground transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      )}
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-base font-semibold leading-tight">{room.name}</p>
@@ -506,15 +498,31 @@ export default function Rooms() {
                             </p>
                           )}
                         </div>
-                        <div className="flex flex-col items-end gap-1 text-right">
-                          <span
-                            className={cn(
-                              'inline-flex items-center rounded-full px-3 py-0.5 text-xs font-semibold',
-                              room.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground',
+                        <div className="flex flex-col items-end gap-2 text-right">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'inline-flex items-center rounded-full px-3 py-0.5 text-xs font-semibold',
+                                room.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground',
+                              )}
+                            >
+                              {room.is_active ? 'Aktiv' : 'Inaktiv'}
+                            </span>
+                            {isRoomAdmin && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openRoomDialog(room);
+                                }}
+                                aria-label={`${room.name} bearbeiten`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
                             )}
-                          >
-                            {room.is_active ? 'Aktiv' : 'Inaktiv'}
-                          </span>
+                          </div>
                           <span className={cn('text-[11px] font-medium', bookingCount > 0 ? 'text-primary' : 'text-muted-foreground')}>
                             {bookingCount > 0 ? `${bookingCount} Buchung${bookingCount > 1 ? 'en' : ''} heute` : 'Heute frei'}
                           </span>

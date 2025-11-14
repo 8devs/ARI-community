@@ -1366,8 +1366,124 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                 {filteredMembers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Keine Mitarbeitenden gefunden.</p>
                 ) : (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
+                  <>
+                    <div className="space-y-4 md:hidden">
+                      {filteredMembers.map((member) => {
+                        const isUpdating = memberUpdates[member.id];
+                        const isSelf = member.id === currentProfile?.id;
+                        return (
+                          <div key={member.id} className="space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <Avatar className="h-10 w-10">
+                                {member.avatar_url ? (
+                                  <AvatarImage src={member.avatar_url} alt={member.name} />
+                                ) : (
+                                  <AvatarFallback>{member.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="flex-1 space-y-1">
+                                <div className="flex flex-col">
+                                  <p className="text-base font-semibold leading-tight">{member.name}</p>
+                                  {member.position && (
+                                    <span className="text-xs text-foreground">{member.position}</span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">{member.email}</p>
+                                {member.phone && (
+                                  <p className="text-xs text-muted-foreground">{member.phone}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              {isSuperAdmin && (
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Organisation</Label>
+                                  <Select
+                                    value={member.organization_id ?? undefined}
+                                    onValueChange={(value) => handleMemberOrgChange(member.id, value)}
+                                    disabled={isUpdating}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Organisation wählen" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {organizations.map((org) => (
+                                        <SelectItem key={org.id} value={org.id}>
+                                          {org.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Rolle</Label>
+                                {isSuperAdmin ? (
+                                  <Select
+                                    value={member.role}
+                                    onValueChange={(value: 'MEMBER' | 'ORG_ADMIN' | 'SUPER_ADMIN') =>
+                                      handleMemberRoleChange(member.id, value)
+                                    }
+                                    disabled={!canEditMember(member) || isUpdating || isSelf}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Rolle wählen" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="MEMBER">Mitarbeiter</SelectItem>
+                                      <SelectItem value="ORG_ADMIN">Organisations-Admin</SelectItem>
+                                      <SelectItem value="SUPER_ADMIN">Superadmin</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Badge
+                                    variant={
+                                      member.role === 'ORG_ADMIN'
+                                        ? 'secondary'
+                                        : member.role === 'SUPER_ADMIN'
+                                        ? 'default'
+                                        : 'outline'
+                                    }
+                                  >
+                                    {member.role}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                  <div>
+                                    <p className="text-sm font-medium leading-tight">Newsmanager</p>
+                                    <p className="text-xs text-muted-foreground">Kann Pinnwandeinträge verwalten</p>
+                                  </div>
+                                  <Switch
+                                    checked={member.is_news_manager}
+                                    onCheckedChange={() => toggleManagerFlag(member.id, 'is_news_manager')}
+                                    disabled={isUpdating}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                  <div>
+                                    <p className="text-sm font-medium leading-tight">Eventmanager</p>
+                                    <p className="text-xs text-muted-foreground">Darf Events veröffentlichen</p>
+                                  </div>
+                                  <Switch
+                                    checked={member.is_event_manager}
+                                    onCheckedChange={() => toggleManagerFlag(member.id, 'is_event_manager')}
+                                    disabled={isUpdating}
+                                  />
+                                </div>
+                              </div>
+                              <Button variant="outline" size="sm" className="w-full" onClick={() => openMemberEditDialog(member)}>
+                                Profil bearbeiten
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="hidden rounded-md border overflow-x-auto md:block">
+                      <Table className="min-w-full">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Person</TableHead>
