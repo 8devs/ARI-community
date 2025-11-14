@@ -565,7 +565,7 @@ export default function Groups() {
             </CardContent>
           </Card>
 
-          <Card className="min-h-[70vh]">
+          <Card className="flex min-h-[70vh] flex-col">
             {activeGroup ? (
               <>
                 <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -616,7 +616,7 @@ export default function Groups() {
                     ) : null}
                   </div>
                 </CardHeader>
-                <CardContent className="flex h-full flex-col gap-4">
+                <CardContent className="flex h-full flex-col gap-4 overflow-hidden">
                   {groupHighlights.length > 0 && (
                     <div className="grid gap-3 sm:grid-cols-3">
                       {groupHighlights.map((highlight) => {

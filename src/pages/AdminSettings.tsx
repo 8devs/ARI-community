@@ -201,7 +201,7 @@ export default function AdminSettings() {
   const ActiveSectionIcon = activeSectionMeta?.icon;
 
   const renderNavigationList = (onSelect?: () => void) => (
-    <ScrollArea className="max-h-[60vh] lg:h-full lg:max-h-none pr-1">
+    <ScrollArea className="h-full pr-1">
       <TabsList className="flex w-full flex-col gap-3 rounded-none bg-transparent p-0">
         {adminSections.map((section) => {
           const Icon = section.icon;
@@ -1158,7 +1158,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                       <CardTitle className="text-base">Verwaltung</CardTitle>
                       <CardDescription>Bereiche schnell wechseln</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex-1 px-3 pb-4">{renderNavigationList()}</CardContent>
+                    <CardContent className="flex-1 overflow-hidden px-3 pb-4">{renderNavigationList()}</CardContent>
                   </Card>
                 </div>
               </div>
