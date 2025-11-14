@@ -156,7 +156,7 @@ export default function AdminSettings() {
   const [brandingUploading, setBrandingUploading] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const adminTabTriggerClass =
-    'w-full justify-between rounded-2xl border border-transparent bg-transparent px-4 py-3 text-left text-sm font-semibold transition hover:border-border data-[state=active]:border-primary/50 data-[state=active]:bg-primary/5 data-[state=active]:text-primary data-[state=active]:shadow-sm';
+    'w-full justify-between rounded-2xl border border-transparent bg-card/60 px-4 py-3 text-left text-sm font-semibold text-muted-foreground shadow-sm transition hover:border-border/70 hover:bg-card data-[state=active]:border-primary/40 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary/10 data-[state=active]:to-primary/5 data-[state=active]:text-foreground data-[state=active]:shadow-md';
   const adminSections = [
     {
       value: 'organizations',
@@ -1108,7 +1108,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
           </div>
           <div className="lg:hidden">
             {activeSectionMeta && (
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card/70 p-4 shadow-sm">
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm supports-[backdrop-filter]:bg-background/60 supports-[backdrop-filter]:backdrop-blur">
                 <div className="rounded-xl bg-muted/60 p-3 text-muted-foreground">
                   {ActiveSectionIcon && <ActiveSectionIcon className="h-5 w-5" />}
                 </div>
@@ -1127,7 +1127,10 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
               </div>
             )}
             {navOpen && (
-              <div id="admin-mobile-menu" className="mt-4 rounded-2xl border bg-card/80 p-4 shadow-lg">
+              <div
+                id="admin-mobile-menu"
+                className="mt-4 rounded-2xl border border-border/60 bg-background/85 p-4 shadow-xl shadow-primary/5 supports-[backdrop-filter]:bg-background/60 supports-[backdrop-filter]:backdrop-blur"
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold">Admin-Menü</p>
@@ -1142,21 +1145,32 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
             )}
           </div>
         </div>
-
-        <Tabs value={activeSection} onValueChange={handleSectionChange}>
-          <div className="grid gap-6 lg:grid-cols-[320px,1fr] lg:items-start">
+        <div className="relative isolate overflow-hidden rounded-[32px] border border-border/60 bg-background/80 p-3 sm:p-6 shadow-2xl shadow-primary/10 supports-[backdrop-filter]:bg-background/60 supports-[backdrop-filter]:backdrop-blur">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-16 top-10 h-60 w-60 rounded-full bg-primary/20 blur-3xl"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-16 right-0 h-72 w-72 rounded-full bg-accent/20 blur-[90px]"
+          />
+          <Tabs
+            value={activeSection}
+            onValueChange={handleSectionChange}
+            className="relative z-10"
+          >
+            <div className="grid gap-6 lg:grid-cols-[320px,1fr] lg:items-start">
             <div className="hidden lg:block">
               <div className="sticky top-24">
-                <Card className="border-border/80 shadow-sm">
+                <Card className="border-border/60 bg-card/80 shadow-xl shadow-primary/5 supports-[backdrop-filter]:bg-card/60 supports-[backdrop-filter]:backdrop-blur">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">Verwaltung</CardTitle>
                     <CardDescription>Bereiche schnell wechseln</CardDescription>
                   </CardHeader>
-                  <CardContent className="p-0">{renderNavigationList()}</CardContent>
+                  <CardContent className="p-2 pt-0">{renderNavigationList()}</CardContent>
                 </Card>
               </div>
             </div>
-
             <div className="flex-1 space-y-6">
           <TabsContent value="organizations" className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1880,6 +1894,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
             </div>
           </div>
         </Tabs>
+        </div>
       </div>
 
       <Dialog open={orgDialogOpen} onOpenChange={setOrgDialogOpen}>
