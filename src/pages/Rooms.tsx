@@ -427,28 +427,6 @@ export default function Rooms() {
 
   const RoomSelectionPanel = ({ variant = 'desktop' }: { variant?: 'desktop' | 'mobile' }) => {
     const closeOnSelect = variant === 'mobile';
-    const statCards = [
-      {
-        label: 'Gesamt',
-        value: rooms.length,
-        helper: 'Räume insgesamt',
-      },
-      {
-        label: 'Aktiv',
-        value: activeRooms,
-        helper: 'Sofort buchbar',
-      },
-      {
-        label: 'Inaktiv',
-        value: inactiveRooms,
-        helper: 'Versteckt',
-      },
-      {
-        label: 'Heute',
-        value: totalBookingsForSelectedDay,
-        helper: format(selectedDay, 'dd.MM.'),
-      },
-    ];
 
     return (
       <div className="flex h-full flex-col gap-5">
@@ -460,7 +438,7 @@ export default function Rooms() {
               Suche nach Standort oder Ausstattung und prüfe die Auslastung des ausgewählten Tages.
             </p>
           </div>
-          <div className="space-y-4 rounded-2xl border border-dashed bg-muted/30 p-4">
+          <div className="rounded-2xl border border-dashed bg-muted/30 p-4">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -470,20 +448,6 @@ export default function Rooms() {
                 onChange={(event) => setRoomSearch(event.target.value)}
               />
             </div>
-            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-              {statCards.map((stat) => (
-                <div key={stat.label} className="rounded-xl border bg-background/80 p-3 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{stat.label}</p>
-                  <p className="text-2xl font-bold leading-none">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.helper}</p>
-                </div>
-              ))}
-            </div>
-            {isRoomAdmin && (
-              <Button size="sm" onClick={() => openRoomDialog()} className="w-full" variant="secondary">
-                <Plus className="mr-2 h-4 w-4" /> Raum anlegen
-              </Button>
-            )}
           </div>
         </div>
         <div className="flex-1 overflow-hidden rounded-2xl border bg-card/50 shadow-inner">
@@ -542,16 +506,16 @@ export default function Rooms() {
                             </p>
                           )}
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <Badge variant={room.is_active ? 'secondary' : 'outline'}>
-                            {room.is_active ? 'Aktiv' : 'Inaktiv'}
-                          </Badge>
+                        <div className="flex flex-col items-end gap-1 text-right">
                           <span
                             className={cn(
-                              'text-[11px] font-medium',
-                              bookingCount > 0 ? 'text-primary' : 'text-muted-foreground',
+                              'inline-flex items-center rounded-full px-3 py-0.5 text-xs font-semibold',
+                              room.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground',
                             )}
                           >
+                            {room.is_active ? 'Aktiv' : 'Inaktiv'}
+                          </span>
+                          <span className={cn('text-[11px] font-medium', bookingCount > 0 ? 'text-primary' : 'text-muted-foreground')}>
                             {bookingCount > 0 ? `${bookingCount} Buchung${bookingCount > 1 ? 'en' : ''} heute` : 'Heute frei'}
                           </span>
                         </div>
