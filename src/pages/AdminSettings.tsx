@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
@@ -201,36 +200,34 @@ export default function AdminSettings() {
   const ActiveSectionIcon = activeSectionMeta?.icon;
 
   const renderNavigationList = (onSelect?: () => void) => (
-    <ScrollArea className="max-h-[calc(100vh-12rem)] pr-2">
-      <TabsList className="flex w-full flex-col gap-3 rounded-none bg-transparent p-0">
-        {adminSections.map((section) => {
-          const Icon = section.icon;
-          return (
-            <TabsTrigger
-              key={section.value}
-              value={section.value}
-              className={adminTabTriggerClass}
-              onClick={onSelect}
-            >
-              <span className="flex w-full items-start gap-4">
-                <span className="rounded-2xl bg-muted/60 p-2.5 text-muted-foreground">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="flex-1">
-                  <span className="block text-sm font-semibold leading-tight">{section.label}</span>
-                  <span className="text-xs text-muted-foreground">{section.description}</span>
-                </span>
-                {section.badge ? (
-                  <span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
-                    {section.badge > 99 ? '99+' : section.badge}
-                  </span>
-                ) : null}
+    <TabsList className="flex w-full flex-col gap-3 rounded-none bg-transparent p-0">
+      {adminSections.map((section) => {
+        const Icon = section.icon;
+        return (
+          <TabsTrigger
+            key={section.value}
+            value={section.value}
+            className={adminTabTriggerClass}
+            onClick={onSelect}
+          >
+            <span className="flex w-full items-start gap-4">
+              <span className="rounded-2xl bg-muted/60 p-2.5 text-muted-foreground">
+                <Icon className="h-4 w-4" />
               </span>
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
-    </ScrollArea>
+              <span className="flex-1">
+                <span className="block text-sm font-semibold leading-tight">{section.label}</span>
+                <span className="text-xs text-muted-foreground">{section.description}</span>
+              </span>
+              {section.badge ? (
+                <span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+                  {section.badge > 99 ? '99+' : section.badge}
+                </span>
+              ) : null}
+            </span>
+          </TabsTrigger>
+        );
+      })}
+    </TabsList>
   );
 
   useEffect(() => {
@@ -1158,7 +1155,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                       <CardTitle className="text-base">Verwaltung</CardTitle>
                       <CardDescription>Bereiche schnell wechseln</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex-1 overflow-hidden px-3 pb-4">{renderNavigationList()}</CardContent>
+                    <CardContent className="flex-1 px-3 pb-4">{renderNavigationList()}</CardContent>
                   </Card>
                 </div>
               </div>
