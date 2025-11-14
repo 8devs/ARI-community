@@ -201,7 +201,7 @@ export default function AdminSettings() {
   const ActiveSectionIcon = activeSectionMeta?.icon;
 
   const renderNavigationList = (onSelect?: () => void) => (
-    <ScrollArea className="h-[360px] lg:h-[calc(100vh-18rem)] pr-2">
+    <ScrollArea className="max-h-[calc(100vh-12rem)] pr-2">
       <TabsList className="flex w-full flex-col gap-3 rounded-none bg-transparent p-0">
         {adminSections.map((section) => {
           const Icon = section.icon;
