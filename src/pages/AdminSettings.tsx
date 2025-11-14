@@ -201,7 +201,7 @@ export default function AdminSettings() {
   const ActiveSectionIcon = activeSectionMeta?.icon;
 
   const renderNavigationList = (onSelect?: () => void) => (
-    <ScrollArea className="max-h-[calc(100vh-14rem)] pr-1">
+    <ScrollArea className="max-h-[60vh] lg:h-full lg:max-h-none pr-1">
       <TabsList className="flex w-full flex-col gap-3 rounded-none bg-transparent p-0">
         {adminSections.map((section) => {
           const Icon = section.icon;
@@ -1152,13 +1152,13 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
           <Tabs value={activeSection} onValueChange={handleSectionChange} className="space-y-6">
             <div className="grid gap-8 lg:grid-cols-[300px,1fr] lg:items-start">
               <div className="hidden lg:block">
-                <div className="sticky top-28">
-                  <Card className="max-h-[calc(100vh-8rem)] overflow-hidden border-border/70 bg-card/95 shadow-lg supports-[backdrop-filter]:backdrop-blur">
+                <div className="sticky top-24">
+                  <Card className="flex h-full flex-col border-border/70 bg-card/95 shadow-lg supports-[backdrop-filter]:backdrop-blur lg:h-[calc(100vh-6rem)]">
                     <CardHeader className="pb-4">
                       <CardTitle className="text-base">Verwaltung</CardTitle>
                       <CardDescription>Bereiche schnell wechseln</CardDescription>
                     </CardHeader>
-                    <CardContent className="px-3 pb-4">{renderNavigationList()}</CardContent>
+                    <CardContent className="flex-1 px-3 pb-4">{renderNavigationList()}</CardContent>
                   </Card>
                 </div>
               </div>

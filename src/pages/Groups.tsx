@@ -658,7 +658,7 @@ export default function Groups() {
                     </TabsList>
                     <TabsContent value="chat" className="flex-1">
                       <div className="flex h-full flex-col">
-                        <div className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4">
+                        <div className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4 pb-12">
                           {messagesQuery.isLoading ? (
                             <div className="flex items-center gap-2 text-muted-foreground text-sm">
                               <Loader2 className="h-4 w-4 animate-spin" /> Unterhaltung lädt...
@@ -700,12 +700,13 @@ export default function Groups() {
                           )}
                         </div>
                         {isMember(activeGroup.id) ? (
-                          <div className="mt-4 space-y-2">
+                          <div className="mt-4 space-y-3 rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm supports-[backdrop-filter]:backdrop-blur">
                             <Textarea
                               placeholder="Nachricht schreiben..."
                               value={messageInput}
                               onChange={(event) => setMessageInput(event.target.value)}
                               rows={3}
+                              className="resize-none"
                             />
                             <div className="flex justify-end">
                               <Button onClick={handleSendMessage} disabled={!messageInput.trim() || sendingMessage}>
@@ -714,7 +715,7 @@ export default function Groups() {
                             </div>
                           </div>
                         ) : (
-                          <p className="mt-4 text-sm text-muted-foreground">
+                          <p className="mt-4 rounded-2xl border border-dashed bg-card/40 p-4 text-sm text-muted-foreground">
                             Tritt der Gruppe bei, um Nachrichten auszutauschen.
                           </p>
                         )}

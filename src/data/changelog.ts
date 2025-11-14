@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: "0.4.1",
+    date: "14.11.2025",
+    highlights: [
+      "Überarbeitetes Admin-Dashboard mit größerer Navigation und besserer Responsivität",
+      "Gruppenansicht mit stabilen Chats und Mitglieder-Tab ohne überlagerte Eingabefelder",
+    ],
+    details: [
+      "Admin-Menü erhält scrollbare Sidebar, großzügige Abstände und optimierte Darstellung auf schmalen Screens",
+      "Chat-Eingabebereich der Gruppen bleibt sichtbar, zusätzliche Puffer verhindern Überlappungen",
+      "Versionierung & Changelog aktualisiert, damit die sichtbare App-Version mit dem Release übereinstimmt",
+    ],
+  },
+  {
     version: "0.4.0",
     date: "13.11.2025",
     highlights: [
