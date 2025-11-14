@@ -9,12 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   Building2,
   MapPin,
@@ -155,8 +156,8 @@ export default function AdminSettings() {
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingUploading, setBrandingUploading] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
-  const adminTabTriggerClass =
-    'group relative w-full justify-between rounded-2xl border border-border/60 bg-card/80 px-4 py-4 text-left text-sm font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 hover:shadow-md data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:shadow-lg';
+  const adminNavButtonClass =
+    'w-full rounded-2xl border border-border/60 bg-card/80 px-4 py-4 text-left text-sm font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 hover:shadow-md';
   const adminSections = [
     {
       value: 'organizations',
@@ -200,15 +201,24 @@ export default function AdminSettings() {
   const ActiveSectionIcon = activeSectionMeta?.icon;
 
   const renderNavigationList = (onSelect?: () => void) => (
-    <TabsList className="flex w-full flex-col gap-3 rounded-none bg-transparent p-0">
+    <div role="tablist" className="flex w-full flex-col gap-3">
       {adminSections.map((section) => {
         const Icon = section.icon;
+        const isActive = activeSection === section.value;
         return (
-          <TabsTrigger
+          <button
             key={section.value}
-            value={section.value}
-            className={adminTabTriggerClass}
-            onClick={onSelect}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            className={cn(
+              adminNavButtonClass,
+              isActive && 'border-primary bg-primary/10 shadow-lg',
+            )}
+            onClick={() => {
+              handleSectionChange(section.value);
+              onSelect?.();
+            }}
           >
             <span className="flex w-full items-start gap-4">
               <span className="rounded-2xl bg-muted/60 p-2.5 text-muted-foreground">
@@ -224,10 +234,10 @@ export default function AdminSettings() {
                 </span>
               ) : null}
             </span>
-          </TabsTrigger>
+          </button>
         );
       })}
-    </TabsList>
+    </div>
   );
 
   useEffect(() => {
