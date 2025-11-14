@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -34,6 +33,7 @@ import {
   Settings,
   Menu,
   Coffee,
+  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -199,12 +199,17 @@ export default function AdminSettings() {
   const activeSectionMeta = adminSections.find((section) => section.value === activeSection);
   const ActiveSectionIcon = activeSectionMeta?.icon;
 
-  const renderNavigationList = () => (
+  const renderNavigationList = (onSelect?: () => void) => (
     <TabsList className="flex w-full flex-col gap-2 rounded-none bg-transparent p-0">
       {adminSections.map((section) => {
         const Icon = section.icon;
         return (
-          <TabsTrigger key={section.value} value={section.value} className={adminTabTriggerClass}>
+          <TabsTrigger
+            key={section.value}
+            value={section.value}
+            className={adminTabTriggerClass}
+            onClick={onSelect}
+          >
             <span className="flex w-full items-start gap-3">
               <span className="mt-0.5 rounded-xl bg-muted/60 p-2 text-muted-foreground">
                 <Icon className="h-4 w-4" />
@@ -1093,43 +1098,52 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
               variant="outline"
               size="sm"
               className="w-full sm:w-auto lg:hidden"
-              onClick={() => setNavOpen(true)}
+              onClick={() => setNavOpen((prev) => !prev)}
+              aria-expanded={navOpen}
+              aria-controls="admin-mobile-menu"
             >
               <Menu className="mr-2 h-4 w-4" />
-              Admin-Menü
+              {navOpen ? 'Menü schließen' : 'Admin-Menü'}
             </Button>
           </div>
-          {activeSectionMeta && (
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card/70 p-4 shadow-sm lg:hidden">
-              <div className="rounded-xl bg-muted/60 p-3 text-muted-foreground">
-                {ActiveSectionIcon && <ActiveSectionIcon className="h-5 w-5" />}
+          <div className="lg:hidden">
+            {activeSectionMeta && (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card/70 p-4 shadow-sm">
+                <div className="rounded-xl bg-muted/60 p-3 text-muted-foreground">
+                  {ActiveSectionIcon && <ActiveSectionIcon className="h-5 w-5" />}
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Aktiver Bereich
+                  </p>
+                  <p className="text-lg font-semibold leading-tight">{activeSectionMeta.label}</p>
+                  <p className="text-sm text-muted-foreground">{activeSectionMeta.description}</p>
+                </div>
+                {activeSectionMeta.badge ? (
+                  <span className="inline-flex items-center rounded-full bg-destructive px-3 py-1 text-xs font-semibold text-white">
+                    {activeSectionMeta.badge > 99 ? '99+' : activeSectionMeta.badge} offen
+                  </span>
+                ) : null}
               </div>
-              <div className="flex-1 min-w-[200px]">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Aktiver Bereich
-                </p>
-                <p className="text-lg font-semibold leading-tight">{activeSectionMeta.label}</p>
-                <p className="text-sm text-muted-foreground">{activeSectionMeta.description}</p>
+            )}
+            {navOpen && (
+              <div id="admin-mobile-menu" className="mt-4 rounded-2xl border bg-card/80 p-4 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Admin-Menü</p>
+                    <p className="text-xs text-muted-foreground">Bereiche auswählen, ohne zu scrollen.</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setNavOpen(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="mt-4 space-y-4">{renderNavigationList(() => setNavOpen(false))}</div>
               </div>
-              {activeSectionMeta.badge ? (
-                <span className="inline-flex items-center rounded-full bg-destructive px-3 py-1 text-xs font-semibold text-white">
-                  {activeSectionMeta.badge > 99 ? '99+' : activeSectionMeta.badge} offen
-                </span>
-              ) : null}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <Tabs value={activeSection} onValueChange={handleSectionChange}>
-          <Sheet open={navOpen} onOpenChange={setNavOpen}>
-            <SheetContent side="left" className="w-full max-w-md border-r p-0">
-              <SheetHeader className="border-b px-6 py-4 text-left">
-                <SheetTitle>Admin-Menü</SheetTitle>
-                <SheetDescription>Wechsle schnell zwischen den Bereichen.</SheetDescription>
-              </SheetHeader>
-              <div className="px-6 pb-6 pt-4">{renderNavigationList()}</div>
-            </SheetContent>
-          </Sheet>
           <div className="grid gap-6 lg:grid-cols-[320px,1fr] lg:items-start">
             <div className="hidden lg:block">
               <div className="sticky top-24">
