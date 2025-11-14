@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -31,6 +32,8 @@ import {
   Shuffle,
   CheckCircle2,
   Settings,
+  Menu,
+  Coffee,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -151,8 +154,76 @@ export default function AdminSettings() {
   const [brandingLoading, setBrandingLoading] = useState(true);
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingUploading, setBrandingUploading] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const adminTabTriggerClass =
-    "w-full justify-between text-left text-sm font-medium transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm";
+    'w-full justify-between rounded-2xl border border-transparent bg-transparent px-4 py-3 text-left text-sm font-semibold transition hover:border-border data-[state=active]:border-primary/50 data-[state=active]:bg-primary/5 data-[state=active]:text-primary data-[state=active]:shadow-sm';
+  const adminSections = [
+    {
+      value: 'organizations',
+      label: 'Organisationen',
+      description: 'Strukturen & Branding verwalten',
+      icon: Building2,
+    },
+    {
+      value: 'people',
+      label: 'Mitarbeitende',
+      description: 'Profile & Rollen pflegen',
+      icon: Users,
+    },
+    {
+      value: 'invites',
+      label: 'Einladungen',
+      description: 'Neue Kolleg:innen einladen',
+      icon: Mail,
+    },
+    {
+      value: 'coffee',
+      label: 'Getränke',
+      description: 'Preise & Produkte',
+      icon: Coffee,
+    },
+    {
+      value: 'lunch',
+      label: 'Lunch Roulette',
+      description: 'Automatische Paarungen',
+      icon: Shuffle,
+    },
+    {
+      value: 'requests',
+      label: 'Beitrittsanfragen',
+      description: 'Freigaben & Historie',
+      icon: Mail,
+      badge: pendingJoinRequestCount,
+    },
+  ];
+  const activeSectionMeta = adminSections.find((section) => section.value === activeSection);
+  const ActiveSectionIcon = activeSectionMeta?.icon;
+
+  const renderNavigationList = () => (
+    <TabsList className="flex w-full flex-col gap-2 rounded-none bg-transparent p-0">
+      {adminSections.map((section) => {
+        const Icon = section.icon;
+        return (
+          <TabsTrigger key={section.value} value={section.value} className={adminTabTriggerClass}>
+            <span className="flex w-full items-start gap-3">
+              <span className="mt-0.5 rounded-xl bg-muted/60 p-2 text-muted-foreground">
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="flex-1">
+                <span className="block font-semibold leading-tight">{section.label}</span>
+                <span className="text-xs text-muted-foreground">{section.description}</span>
+              </span>
+              {section.badge ? (
+                <span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+                  {section.badge > 99 ? '99+' : section.badge}
+                </span>
+              ) : null}
+            </span>
+          </TabsTrigger>
+        );
+      })}
+    </TabsList>
+  );
 
   useEffect(() => {
     setActiveSection(initialSection);
@@ -1010,51 +1081,66 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-bold">Administration</h1>
-          <p className="text-muted-foreground">
-            Verwalte Organisationen, Einladungen und Getränke zentral.
-          </p>
+        <div className="space-y-3 sm:flex sm:flex-col sm:gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-4xl font-bold">Administration</h1>
+              <p className="text-muted-foreground">
+                Verwalte Organisationen, Einladungen und Getränke zentral.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto lg:hidden"
+              onClick={() => setNavOpen(true)}
+            >
+              <Menu className="mr-2 h-4 w-4" />
+              Admin-Menü
+            </Button>
+          </div>
+          {activeSectionMeta && (
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card/70 p-4 shadow-sm lg:hidden">
+              <div className="rounded-xl bg-muted/60 p-3 text-muted-foreground">
+                {ActiveSectionIcon && <ActiveSectionIcon className="h-5 w-5" />}
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Aktiver Bereich
+                </p>
+                <p className="text-lg font-semibold leading-tight">{activeSectionMeta.label}</p>
+                <p className="text-sm text-muted-foreground">{activeSectionMeta.description}</p>
+              </div>
+              {activeSectionMeta.badge ? (
+                <span className="inline-flex items-center rounded-full bg-destructive px-3 py-1 text-xs font-semibold text-white">
+                  {activeSectionMeta.badge > 99 ? '99+' : activeSectionMeta.badge} offen
+                </span>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <Tabs value={activeSection} onValueChange={handleSectionChange}>
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-            <div className="lg:sticky lg:top-24 w-full lg:w-72">
-              <Card className="border-border/80 shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Verwaltung</CardTitle>
-                  <CardDescription>Bereiche schnell wechseln</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <TabsList className="!flex flex-col gap-1 rounded-none border-t">
-                    <TabsTrigger value="organizations" className={adminTabTriggerClass}>
-                      Organisationen
-                    </TabsTrigger>
-                <TabsTrigger value="people" className={adminTabTriggerClass}>
-                  Mitarbeitende
-                </TabsTrigger>
-                <TabsTrigger value="invites" className={adminTabTriggerClass}>
-                  Einladungen
-                </TabsTrigger>
-                <TabsTrigger value="coffee" className={adminTabTriggerClass}>
-                  Getränke
-                </TabsTrigger>
-                <TabsTrigger value="lunch" className={adminTabTriggerClass}>
-                  Lunch Roulette
-                </TabsTrigger>
-                <TabsTrigger value="requests" className={adminTabTriggerClass}>
-                  <span className="flex w-full items-center justify-between gap-2">
-                    <span>Beitrittsanfragen</span>
-                    {pendingJoinRequestCount > 0 && (
-                      <span className="inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
-                        {pendingJoinRequestCount > 99 ? '99+' : pendingJoinRequestCount}
-                      </span>
-                    )}
-                      </span>
-                    </TabsTrigger>
-                  </TabsList>
-                </CardContent>
-              </Card>
+          <Sheet open={navOpen} onOpenChange={setNavOpen}>
+            <SheetContent side="left" className="w-full max-w-md border-r p-0">
+              <SheetHeader className="border-b px-6 py-4 text-left">
+                <SheetTitle>Admin-Menü</SheetTitle>
+                <SheetDescription>Wechsle schnell zwischen den Bereichen.</SheetDescription>
+              </SheetHeader>
+              <div className="px-6 pb-6 pt-4">{renderNavigationList()}</div>
+            </SheetContent>
+          </Sheet>
+          <div className="grid gap-6 lg:grid-cols-[320px,1fr] lg:items-start">
+            <div className="hidden lg:block">
+              <div className="sticky top-24">
+                <Card className="border-border/80 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Verwaltung</CardTitle>
+                    <CardDescription>Bereiche schnell wechseln</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">{renderNavigationList()}</CardContent>
+                </Card>
+              </div>
             </div>
 
             <div className="flex-1 space-y-6">
