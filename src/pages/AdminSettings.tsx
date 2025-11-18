@@ -34,6 +34,7 @@ import {
   Settings,
   Menu,
   Coffee,
+  Copy,
   X,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -105,6 +106,7 @@ export default function AdminSettings() {
   const [savingOrg, setSavingOrg] = useState(false);
   const [memberUpdates, setMemberUpdates] = useState<Record<string, boolean>>({});
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [resetLinkMemberId, setResetLinkMemberId] = useState<string | null>(null);
 
   const [inviteForm, setInviteForm] = useState({
     name: '',
@@ -952,6 +954,59 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
   setMemberUpdates((prev) => ({ ...prev, [member.id]: false }));
 };
 
+  const handleGeneratePasswordLink = async (member: ProfileRow) => {
+    if (!canEditMember(member)) {
+      toast.error('Keine Berechtigung für diesen Nutzer');
+      return;
+    }
+    if (!member.email) {
+      toast.error('Für dieses Profil ist keine E-Mail-Adresse hinterlegt.');
+      return;
+    }
+
+    setResetLinkMemberId(member.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-password-link', {
+        body: { user_id: member.id },
+      });
+
+      if (error) {
+        throw new Error(error.message ?? 'Link konnte nicht generiert werden.');
+      }
+
+      const link = (data as { link?: string } | null)?.link;
+      if (!link) {
+        throw new Error('Die Funktion hat keinen Link geliefert.');
+      }
+
+      let copied = false;
+      if (typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(link);
+          copied = true;
+        } catch (clipboardError) {
+          console.error('Clipboard copy failed', clipboardError);
+        }
+      }
+
+      if (copied) {
+        toast.success('Passwort-Link kopiert. Du kannst ihn jetzt weitergeben.');
+      } else {
+        if (typeof window !== 'undefined') {
+          window.prompt('Link zum Passwort-Reset (manuell kopieren):', link);
+        }
+        toast.info('Link erstellt. Bitte manuell kopieren.');
+      }
+    } catch (error) {
+      console.error('Error generating password link', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Passwort-Link konnte nicht erstellt werden.',
+      );
+    } finally {
+      setResetLinkMemberId(null);
+    }
+  };
+
   const openMemberEditDialog = (member: ProfileRow) => {
     setEditingMember(member);
     setMemberForm({
@@ -1587,7 +1642,25 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                   disabled={!canEditMember(member) || isUpdating}
                                 />
                               </TableCell>
-                              <TableCell className="flex items-center justify-end gap-2">
+                              <TableCell className="flex flex-wrap items-center justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleGeneratePasswordLink(member)}
+                                  disabled={!canEditMember(member) || resetLinkMemberId === member.id}
+                                >
+                                  {resetLinkMemberId === member.id ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Wird erstellt...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="mr-2 h-4 w-4" />
+                                      Passwort-Link
+                                    </>
+                                  )}
+                                </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
