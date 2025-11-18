@@ -34,6 +34,7 @@ import {
   Settings,
   Menu,
   Coffee,
+  RotateCcw,
   Copy,
   X,
 } from 'lucide-react';
@@ -107,6 +108,7 @@ export default function AdminSettings() {
   const [memberUpdates, setMemberUpdates] = useState<Record<string, boolean>>({});
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [resetLinkMemberId, setResetLinkMemberId] = useState<string | null>(null);
+  const [resettingPasswordId, setResettingPasswordId] = useState<string | null>(null);
 
   const [inviteForm, setInviteForm] = useState({
     name: '',
@@ -158,6 +160,7 @@ export default function AdminSettings() {
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingUploading, setBrandingUploading] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const DEFAULT_PASSWORD = 'Adenauerring1';
   const adminNavButtonClass =
     'w-full rounded-2xl border border-border/60 bg-card/80 px-4 py-4 text-left text-sm font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 hover:shadow-md';
   const adminSections = [
@@ -809,6 +812,18 @@ export default function AdminSettings() {
     if (error) throw error;
   };
 
+  const setDefaultPasswordForUser = async (body: { user_id?: string; email?: string }) => {
+    const { error } = await supabase.functions.invoke('admin-set-password', {
+      body: {
+        ...body,
+        password: DEFAULT_PASSWORD,
+      },
+    });
+    if (error) {
+      throw new Error(error.message ?? 'Passwort konnte nicht gesetzt werden.');
+    }
+  };
+
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteForm.name.trim() || !inviteForm.email.trim() || !inviteForm.organization_id) {
@@ -826,7 +841,14 @@ export default function AdminSettings() {
         is_news_manager: inviteForm.is_news_manager,
         is_event_manager: inviteForm.is_event_manager,
       });
+      try {
+        await setDefaultPasswordForUser({ email: inviteForm.email });
+      } catch (passwordError) {
+        console.error('Failed to enforce default password', passwordError);
+        toast.error('Einladung verschickt, Passwort konnte aber nicht gesetzt werden.');
+      }
       toast.success('Einladungs-E-Mail wurde verschickt');
+      toast.info(`Standardpasswort: ${DEFAULT_PASSWORD}`);
       setInviteForm(prev => ({
         ...prev,
         name: '',
@@ -1004,6 +1026,25 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
       );
     } finally {
       setResetLinkMemberId(null);
+    }
+  };
+
+  const handleResetPasswordToDefault = async (member: ProfileRow) => {
+    if (!canEditMember(member)) {
+      toast.error('Keine Berechtigung für diesen Nutzer');
+      return;
+    }
+    setResettingPasswordId(member.id);
+    try {
+      await setDefaultPasswordForUser({ user_id: member.id });
+      toast.success(`Passwort zurückgesetzt. Neues Standardpasswort: ${DEFAULT_PASSWORD}`);
+    } catch (error) {
+      console.error('Error resetting password', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Passwort konnte nicht zurückgesetzt werden.',
+      );
+    } finally {
+      setResettingPasswordId(null);
     }
   };
 
@@ -1528,9 +1569,47 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                   />
                                 </div>
                               </div>
-                              <Button variant="outline" size="sm" className="w-full" onClick={() => openMemberEditDialog(member)}>
-                                Profil bearbeiten
-                              </Button>
+                              <div className="grid gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleResetPasswordToDefault(member)}
+                                  disabled={!canEditMember(member) || resettingPasswordId === member.id}
+                                >
+                                  {resettingPasswordId === member.id ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Wird gesetzt...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RotateCcw className="mr-2 h-4 w-4" />
+                                      Standardpasswort
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleGeneratePasswordLink(member)}
+                                  disabled={!canEditMember(member) || resetLinkMemberId === member.id}
+                                >
+                                  {resetLinkMemberId === member.id ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Wird erstellt...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="mr-2 h-4 w-4" />
+                                      Passwort-Link
+                                    </>
+                                  )}
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => openMemberEditDialog(member)}>
+                                  Profil bearbeiten
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -1643,6 +1722,24 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                 />
                               </TableCell>
                               <TableCell className="flex flex-wrap items-center justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleResetPasswordToDefault(member)}
+                                  disabled={!canEditMember(member) || resettingPasswordId === member.id}
+                                >
+                                  {resettingPasswordId === member.id ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Wird gesetzt...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RotateCcw className="mr-2 h-4 w-4" />
+                                      Standardpasswort
+                                    </>
+                                  )}
+                                </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"

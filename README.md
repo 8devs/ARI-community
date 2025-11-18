@@ -111,3 +111,17 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Supabase Auth Redirects & Custom Domain
+
+- Die App verwendet einen HashRouter, daher müssen Supabase-Weiterleitungen mit `/#/…` beginnen (z. B. `https://deine-domain.de/#/passwort/neu`), damit der Host immer `index.html` liefert und React die Route rendert.
+- Setze in Supabase → Authentication → URL configuration die `Site URL` auf Deine Domain und ergänze unter „Redirect URLs“ mindestens `https://deine-domain.de/#/login` sowie `https://deine-domain.de/#/passwort/neu`.
+- Beim `signUp`, `signInWithOtp` und `resetPasswordForEmail` werden diese Hash-URLs automatisch verwendet, deshalb greifen die obigen Werte sofort.
+- Falls Mail-Links nicht mehr auf `*.supabase.co` zeigen sollen, richte dort zusätzlich eine Custom Domain (z. B. `auth.deine-domain.de`) ein und folge den DNS-Schritten; Supabase kümmert sich um das Zertifikat.
+
+## Standardpasswort für neue Nutzer:innen
+
+- Die Edge Function `admin-set-password` setzt das Passwort per Service Role auf den Standardwert `Adenauerring1`. Das Admin-Menü bietet dafür einen Button („Standardpasswort“), genau wie eine Aktion zum Generieren eines Recovery-Links.
+- Nach dem Versand einer Einladung ruft das Frontend automatisch dieselbe Funktion auf, sodass neue Accounts sofort dieses Passwort besitzen. Admins können den Wert direkt kommunizieren oder anschließend über den Reset-Link eine Änderung auslösen.
+- Passe den Wert bei Bedarf per Function-Environment `DEFAULT_USER_PASSWORD` an.
+- Nach Änderungen an den Funktionen unbedingt deployen: `supabase functions deploy admin-set-password generate-password-link --project-ref <project>`.
