@@ -63,6 +63,29 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
     [profileId],
   );
 
+  const markAllAsRead = useCallback(async () => {
+    if (!profileId) return;
+    const unreadCount = items.filter((item) => !item.read_at).length;
+    if (unreadCount === 0) return;
+
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: now })
+      .eq("user_id", profileId)
+      .is("read_at", null);
+
+    if (error) {
+      console.error("Error marking notifications as read", error);
+      toast.error("Benachrichtigungen konnten nicht aktualisiert werden");
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((notification) => (notification.read_at ? notification : { ...notification, read_at: now })),
+    );
+  }, [profileId, items]);
+
   const maybeShowNativeNotification = useCallback(
     (notification: NotificationRow) => {
       if (!options?.enablePush) return;
@@ -133,6 +156,7 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
     loading,
     unreadCount,
     markAsRead,
+    markAllAsRead,
     refresh: fetchNotifications,
   };
 }

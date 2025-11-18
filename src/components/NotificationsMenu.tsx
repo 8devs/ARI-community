@@ -21,6 +21,7 @@ interface NotificationsMenuProps {
   onMarkAsRead: (id: string) => void | Promise<void>;
   onOpenNotifications?: () => void;
   onNavigate?: (url: string | null) => void;
+  onMarkAllAsRead?: () => void | Promise<void>;
 }
 
 export function NotificationsMenu({
@@ -30,6 +31,7 @@ export function NotificationsMenu({
   onMarkAsRead,
   onOpenNotifications,
   onNavigate,
+  onMarkAllAsRead,
 }: NotificationsMenuProps) {
   const handleNavigate = (notification: Tables<"notifications">) => {
     if (!notification.read_at) {
@@ -41,9 +43,16 @@ export function NotificationsMenu({
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) {
+          onOpenNotifications?.();
+          void onMarkAllAsRead?.();
+        }
+      }}
+    >
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" onClick={onOpenNotifications}>
+        <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unread > 0 && (
             <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-medium px-1.5 py-0.5 rounded-full">

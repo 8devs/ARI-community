@@ -406,6 +406,7 @@ export function Layout({ children }: LayoutProps) {
                     onMarkAsRead={notifications.markAsRead}
                     loading={notifications.loading}
                     onOpenNotifications={notifications.refresh}
+                    onMarkAllAsRead={notifications.markAllAsRead}
                     onNavigate={(url) => {
                       if (url) {
                         navigate(url);

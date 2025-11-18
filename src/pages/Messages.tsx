@@ -6,16 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Search, Send } from "lucide-react";
+import { Loader2, Search, Send, Smile } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { sendEmailNotification } from "@/lib/notifications";
+import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 
 type MessageRow = Tables<"employee_messages">;
 type Coworker = Pick<
@@ -217,6 +219,10 @@ export default function Messages() {
     setSending(false);
   };
 
+  const handleEmojiSelect = (emojiData: EmojiClickData) => {
+    setMessageText((prev) => `${prev}${emojiData.emoji}`);
+  };
+
   return (
     <Layout>
       <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
@@ -287,7 +293,7 @@ export default function Messages() {
               {selectedPartner ? `Chat mit ${selectedPartner.name}` : "Bitte Kolleg:in auswählen"}
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex h-full flex-col gap-4">
+          <CardContent className="flex h-full flex-col gap-4 pb-24">
             <div className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4">
               {!selectedPartner && (
                 <p className="text-muted-foreground text-sm">
@@ -328,22 +334,47 @@ export default function Messages() {
               </div>
             </div>
 
-            <form onSubmit={handleSendMessage} className="space-y-3">
-              <Textarea
-                placeholder={selectedPartner ? "Nachricht eingeben..." : "Bitte zuerst eine Person auswählen."}
-                value={messageText}
-                disabled={!selectedPartner || sending}
-                onChange={(event) => setMessageText(event.target.value)}
-                rows={3}
-              />
-              <div className="flex justify-end">
-                <Button type="submit" disabled={!selectedPartner || sending || !messageText.trim()}>
-                  {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Send className="mr-2 h-4 w-4" />
-                  Nachricht senden
-                </Button>
-              </div>
-            </form>
+            <div className="rounded-2xl border bg-card/80 p-3 shadow-sm supports-[backdrop-filter]:backdrop-blur">
+              <form onSubmit={handleSendMessage} className="space-y-3">
+                <Textarea
+                  placeholder={selectedPartner ? "Nachricht eingeben..." : "Bitte zuerst eine Person auswählen."}
+                  value={messageText}
+                  disabled={!selectedPartner || sending}
+                  onChange={(event) => setMessageText(event.target.value)}
+                  rows={3}
+                  className="min-h-[120px] resize-none"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={!selectedPartner || sending}
+                        aria-label="Emoji auswählen"
+                      >
+                        <Smile className="h-5 w-5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full max-w-[320px] border-0 p-0 shadow-lg" align="start">
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiSelect}
+                        theme={Theme.AUTO}
+                        width="100%"
+                        lazyLoadEmojis
+                        previewConfig={{ showPreview: false }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Button type="submit" disabled={!selectedPartner || sending || !messageText.trim()} className="ml-auto">
+                    {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Send className="mr-2 h-4 w-4" />
+                    Nachricht senden
+                  </Button>
+                </div>
+              </form>
+            </div>
           </CardContent>
         </Card>
       </div>

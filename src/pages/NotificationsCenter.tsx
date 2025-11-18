@@ -169,6 +169,28 @@ export default function NotificationsCenter() {
 
   const unreadCount = useMemo(() => notifications.filter((notification) => !notification.read_at).length, [notifications]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+    const unreadIds = notifications.filter((notification) => !notification.read_at).map((notification) => notification.id);
+    if (unreadIds.length === 0) return;
+    const now = new Date().toISOString();
+    supabase
+      .from("notifications")
+      .update({ read_at: now })
+      .in("id", unreadIds)
+      .then(({ error }) => {
+        if (error) {
+          console.error("Error marking notifications as viewed", error);
+          return;
+        }
+        setNotifications((prev) =>
+          prev.map((notification) =>
+            unreadIds.includes(notification.id) ? { ...notification, read_at: now } : notification,
+          ),
+        );
+      });
+  }, [notifications, profile?.id]);
+
   return (
     <Layout>
       <PullToRefresh

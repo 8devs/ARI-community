@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Dialog,
@@ -77,6 +78,7 @@ export default function Rooms() {
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [roomSearch, setRoomSearch] = useState('');
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
 
   const isRoomAdmin = Boolean(profile && (profile.role === 'SUPER_ADMIN' || profile.role === 'ORG_ADMIN'));
 
@@ -670,6 +672,19 @@ export default function Rooms() {
           </div>
 
           <div className="space-y-6">
+            <Tabs
+              value={viewMode}
+              onValueChange={(value) => setViewMode(value as 'calendar' | 'timeline')}
+              className="space-y-4"
+            >
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <p className="text-sm font-medium text-muted-foreground">Ansicht wählen</p>
+                <TabsList className="grid w-full grid-cols-2 md:w-auto">
+                  <TabsTrigger value="calendar">Kalender</TabsTrigger>
+                  <TabsTrigger value="timeline">Zeitstrahl</TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="calendar" className="mt-0">
             <Card>
               <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -743,7 +758,9 @@ export default function Rooms() {
                 )}
               </CardContent>
             </Card>
+              </TabsContent>
 
+              <TabsContent value="timeline" className="mt-0">
             <Card>
               <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -898,6 +915,8 @@ export default function Rooms() {
                 )}
               </CardContent>
             </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>

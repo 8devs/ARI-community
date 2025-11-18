@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Newspaper,
   MessageSquare,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -33,6 +35,12 @@ type ActivityItem = {
   description: string;
   created_at: string;
   url: string;
+};
+
+type FeaturedPerson = Pick<Tables<'profiles'>, 'id' | 'name' | 'position' | 'avatar_url'> & {
+  organization?: {
+    name: string | null;
+  } | null;
 };
 
 export default function Dashboard() {
@@ -56,12 +64,43 @@ export default function Dashboard() {
     if (typeof window === 'undefined') return true;
     return localStorage.getItem('ari-version-card-dismissed') !== 'true';
   });
+  const [featuredPeople, setFeaturedPeople] = useState<FeaturedPerson[]>([]);
+  const [whoLoading, setWhoLoading] = useState(true);
 
   useEffect(() => {
     loadActivities();
     const interval = setInterval(loadActivities, 60000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    const loadWhoIsWho = async () => {
+      setWhoLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name, position, avatar_url, organization:organizations(name)')
+          .order('updated_at', { ascending: false })
+          .limit(6);
+        if (error) throw error;
+        if (!ignore) {
+          setFeaturedPeople(data ?? []);
+        }
+      } catch (error) {
+        console.error('Error loading Who-is-Who', error);
+      } finally {
+        if (!ignore) {
+          setWhoLoading(false);
+        }
+      }
+    };
+
+    loadWhoIsWho();
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -415,6 +454,51 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
+
+        <Card className="border-primary/40 bg-gradient-to-br from-primary/5 to-background/70">
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Who-is-Who</CardTitle>
+              <CardDescription>Lerne Kolleg:innen und Ansprechpersonen kennen.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/personen">Alle anzeigen</Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {whoLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Profile werden geladen...
+              </div>
+            ) : featuredPeople.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Noch keine Profile vorhanden. Schau später noch einmal vorbei.
+              </p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {featuredPeople.map((person) => (
+                  <div key={person.id} className="flex items-center gap-3 rounded-2xl border bg-card/70 p-3">
+                    <Avatar className="h-12 w-12">
+                      {person.avatar_url ? (
+                        <AvatarImage src={person.avatar_url} alt={person.name} />
+                      ) : (
+                        <AvatarFallback>{person.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold leading-tight">{person.name}</p>
+                      {person.position && <p className="text-sm text-muted-foreground">{person.position}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        {person.organization?.name ?? 'Organisation unbekannt'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
