@@ -139,7 +139,7 @@ export default function Auth() {
     }
 
     setResetLoading(true);
-    const redirectURL = `${window.location.origin}/passwort/neu`;
+    const redirectURL = `${window.location.origin}/#/passwort/neu`;
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
       redirectTo: redirectURL,
     });

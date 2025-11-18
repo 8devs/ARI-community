@@ -788,7 +788,7 @@ export default function AdminSettings() {
     is_news_manager?: boolean;
     is_event_manager?: boolean;
   }) => {
-    const redirectTo = `${window.location.origin}/passwort/neu`;
+    const redirectTo = `${window.location.origin}/#/passwort/neu`;
     const { error } = await supabase.auth.signInWithOtp({
       email: payload.email.trim(),
       options: {
