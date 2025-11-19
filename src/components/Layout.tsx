@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTheme } from 'next-themes';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationsMenu } from '@/components/NotificationsMenu';
@@ -97,26 +98,32 @@ export function Layout({ children }: LayoutProps) {
     </>
   );
 
-  const navItems = useMemo(() => {
-    if (isAuthenticated) {
+  const primaryNav = useMemo(() => {
+    if (!isAuthenticated) {
       return [
-        { to: '/app', label: 'Übersicht', icon: LayoutDashboard },
+        { to: '/', label: 'Start', icon: LayoutDashboard },
         { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
         { to: '/events', label: 'Events', icon: CalendarDays },
-        { to: '/gruppen', label: 'Gruppen', icon: UserPlus },
-        { to: '/qa', label: 'Q&A', icon: MessageSquare },
-        { to: '/nachrichten', label: 'Nachrichten', icon: MessageCircle },
-        { to: '/raeume', label: 'Räume', icon: DoorClosed },
-        { to: '/kaffee', label: 'Kaffee', icon: Coffee },
-        { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
         { to: '/organisationen', label: 'Organisationen', icon: Building2 },
       ];
     }
     return [
-      { to: '/', label: 'Start', icon: LayoutDashboard },
+      { to: '/app', label: 'Übersicht', icon: LayoutDashboard },
+      { to: '/gruppen', label: 'Gruppen', icon: UserPlus },
+      { to: '/nachrichten', label: 'Nachrichten', icon: MessageCircle },
+      { to: '/raeume', label: 'Räume', icon: DoorClosed },
+      { to: '/qa', label: 'Q&A', icon: MessageSquare },
+    ];
+  }, [isAuthenticated]);
+
+  const secondaryNav = useMemo(() => {
+    if (!isAuthenticated) return [];
+    return [
       { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
       { to: '/events', label: 'Events', icon: CalendarDays },
       { to: '/organisationen', label: 'Organisationen', icon: Building2 },
+      { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
+      { to: '/kaffee', label: 'Kaffee', icon: Coffee },
     ];
   }, [isAuthenticated]);
 
@@ -295,22 +302,45 @@ export function Layout({ children }: LayoutProps) {
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-72 sm:w-80">
-                  <div className="flex flex-col gap-4 mt-6">
-                    {navItems.map(({ to, label, icon: Icon }) => (
-                      <Button
-                        key={to}
-                        variant="ghost"
-                        className={cn('justify-start', navButtonClasses)}
-                        onClick={() => setMobileOpen(false)}
-                        data-active={isRouteActive(to) ? 'true' : undefined}
-                        asChild
-                      >
-                        <Link to={to}>
-                          <Icon className="h-4 w-4 mr-2" />
-                          {label}
-                        </Link>
-                      </Button>
-                    ))}
+                  <div className="flex flex-col gap-6 mt-6">
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Navigation</p>
+                      {primaryNav.map(({ to, label, icon: Icon }) => (
+                        <Button
+                          key={to}
+                          variant="ghost"
+                          className={cn('justify-start', navButtonClasses)}
+                          onClick={() => setMobileOpen(false)}
+                          data-active={isRouteActive(to) ? 'true' : undefined}
+                          asChild
+                        >
+                          <Link to={to}>
+                            <Icon className="h-4 w-4 mr-2" />
+                            {label}
+                          </Link>
+                        </Button>
+                      ))}
+                    </div>
+                    {secondaryNav.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schnellzugriffe</p>
+                        {secondaryNav.map(({ to, label, icon: Icon }) => (
+                          <Button
+                            key={to}
+                            variant="ghost"
+                            className={cn('justify-start', navButtonClasses)}
+                            onClick={() => setMobileOpen(false)}
+                            data-active={isRouteActive(to) ? 'true' : undefined}
+                            asChild
+                          >
+                            <Link to={to}>
+                              <Icon className="h-4 w-4 mr-2" />
+                              {label}
+                            </Link>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                     {isAuthenticated && canAccessAdmin && (
                       <Button
                         variant="ghost"
@@ -350,22 +380,46 @@ export function Layout({ children }: LayoutProps) {
                 </SheetContent>
               </Sheet>
 
-              <nav className="hidden md:flex items-center gap-1 ml-auto flex-wrap justify-end">
-                {navItems.map(({ to, label, icon: Icon }) => (
-                  <Button
-                    key={to}
-                    variant="ghost"
-                    size="sm"
-                    asChild
-                    data-active={isRouteActive(to) ? 'true' : undefined}
-                    className={navButtonClasses}
-                  >
-                    <Link to={to}>
-                      <Icon className="h-4 w-4 mr-2" />
-                      {label}
-                    </Link>
-                  </Button>
-                ))}
+              <div className="hidden md:flex flex-1 items-center justify-end gap-4">
+                <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap rounded-full border border-border/60 bg-card/70 px-3 py-1 shadow-inner">
+                  {primaryNav.map(({ to, label, icon: Icon }) => (
+                    <Button
+                      key={to}
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      data-active={isRouteActive(to) ? 'true' : undefined}
+                      className={cn('flex-shrink-0 rounded-full px-3 py-1 text-sm font-medium', navButtonClasses)}
+                    >
+                      <Link to={to} className="flex items-center gap-2">
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </Link>
+                    </Button>
+                  ))}
+                </div>
+                {secondaryNav.length > 0 && (
+                  <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap">
+                    {secondaryNav.map(({ to, label, icon: Icon }) => (
+                      <Tooltip key={to} delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn('flex-shrink-0 rounded-full', navButtonClasses)}
+                            data-active={isRouteActive(to) ? 'true' : undefined}
+                            asChild
+                          >
+                            <Link to={to}>
+                              <Icon className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{label}</TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                )}
                 {isAuthenticated && canAccessAdmin && (
                   <Button
                     variant="ghost"
@@ -379,7 +433,7 @@ export function Layout({ children }: LayoutProps) {
                     </Link>
                   </Button>
                 )}
-              </nav>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
