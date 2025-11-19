@@ -2,6 +2,21 @@
 
 Alle relevanten Änderungen der ARI Community App. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/) und setzt [SemVer](https://semver.org/lang/de/) ein.
 
+## [0.5.0] - 2025-11-19
+### Neu
+- Dashboard: Kompakte Profilkarte mit Statuschips sowie direkt verlinkte Who-is-Who-Kacheln.
+- Räume: Neue Schnellbuchung im Zeitstrahl, Dropdown-Raumauswahl im Kalender und modernisierte Detailkarte inklusive Bearbeiten-Abkürzung.
+
+### Geändert
+- Navigationslogo bleibt während Routenwechseln sichtbar.
+- Buttons für „Raum buchen“ und „Raum anlegen“ wurden neu priorisiert; mobile Raumwahl bietet nun eine klare Trennung zwischen Schnell- und Erweiterter Suche.
+
+## [0.4.1] - 2025-11-13
+### Geändert
+- Dashboard-Kachel für den eigenen Account wurde verkleinert und das Who-is-Who verlinkt jetzt direkt auf die entsprechenden Profile.
+- Das Navigationslogo bleibt während Tabwechseln sichtbar.
+- Die Räume-Ansicht erhielt ein Dropdown zur Raumwahl im Kalender, eine Schnellbuchung im Zeitstrahl, neue Aktionsschwerpunkte und eine modernisierte Detailkarte inklusive Bearbeiten-Shortcut.
+
 ## [0.4.0] - 2025-11-13
 ### Neu
 - Push- und E-Mail-Benachrichtigungen für neue Pinnwand- und Q&A-Beiträge.

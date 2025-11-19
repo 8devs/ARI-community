@@ -65,6 +65,7 @@ export function Layout({ children }: LayoutProps) {
     enablePush: profile?.pref_push_notifications,
     limit: 20,
   });
+  const displayLogo = brandLogoUrl ?? defaultBrandLogo;
 
   const handleSignOut = async () => {
     await signOut();
@@ -269,7 +270,6 @@ export function Layout({ children }: LayoutProps) {
   };
 
   const navButtonClasses = 'transition-colors data-[active=true]:bg-muted data-[active=true]:text-foreground';
-  const displayLogo = defaultBrandLogo;
 
 
   return (

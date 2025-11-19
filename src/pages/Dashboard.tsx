@@ -309,44 +309,54 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="space-y-8">
-        <div className="grid gap-4 lg:grid-cols-[3fr,1fr]">
-          <Card className="border-primary/30">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl font-semibold">
-                {profile?.name ? `Hallo ${profile.name.split(' ')[0]}!` : 'Willkommen in der Community'}
-              </CardTitle>
-              <CardDescription>
-                {profile?.organization?.name ?? 'Noch keiner Organisation zugeordnet'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {orgLogo && (
-                <div className="flex justify-start">
-                  <img src={orgLogo} alt="Organisationslogo" className="h-10 w-auto object-contain" />
+        <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+          <Card className="border border-border/60 shadow-sm">
+            <CardContent className="flex flex-col gap-4 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Hallo{profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}</p>
+                  <CardTitle className="text-xl font-semibold leading-tight">
+                    {profile?.organization?.name ?? 'Noch keiner Organisation zugeordnet'}
+                  </CardTitle>
                 </div>
-              )}
-              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <div className="rounded-full border px-4 py-2 font-semibold uppercase tracking-wide text-foreground">
-                  {profile?.role ?? 'MITGLIED'}
+                {orgLogo && (
+                  <div className="rounded-full border bg-muted/40 p-2">
+                    <img src={orgLogo} alt="Organisationslogo" className="h-10 w-10 object-contain" />
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
+                  <p className="text-xs uppercase tracking-wide">Rolle</p>
+                  <p className="font-semibold text-foreground">{profile?.role ?? 'MITGLIED'}</p>
                 </div>
-                <div className="rounded-full border px-4 py-2">
-                  {groupJoined ? 'Mitglied in Gruppen' : 'Noch keiner Gruppe beigetreten'}
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
+                  <p className="text-xs uppercase tracking-wide">Gruppen</p>
+                  <p className="font-semibold text-foreground">
+                    {groupJoined ? 'Aktive Mitgliedschaft' : 'Noch nicht beigetreten'}
+                  </p>
                 </div>
-                <div className="rounded-full border px-4 py-2">
-                  {lunchParticipating ? 'Lunch Roulette aktiv' : 'Lunch Roulette offen'}
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
+                  <p className="text-xs uppercase tracking-wide">Lunch Roulette</p>
+                  <p className="font-semibold text-foreground">
+                    {lunchParticipating ? 'Teilnahme bestätigt' : 'Anmeldung offen'}
+                  </p>
                 </div>
-                <div className="rounded-full border px-4 py-2">
-                  {notificationsReady ? 'Benachrichtigungen aktiv' : 'Benachrichtigungen konfigurieren'}
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
+                  <p className="text-xs uppercase tracking-wide">Benachrichtigungen</p>
+                  <p className="font-semibold text-foreground">
+                    {notificationsReady ? 'Aktiviert' : 'Bitte konfigurieren'}
+                  </p>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild>
-                  <Link to="/profil">Profil öffnen</Link>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <Button size="sm" asChild>
+                  <Link to="/profil">Profil ansehen</Link>
                 </Button>
-                <Button variant="outline" asChild>
-                  <Link to="/gruppen">Gruppen</Link>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/gruppen">Gruppen entdecken</Link>
                 </Button>
-                <Button variant="outline" asChild>
+                <Button size="sm" variant="outline" asChild>
                   <Link to="/benachrichtigungen">Benachrichtigungen</Link>
                 </Button>
               </div>
@@ -478,22 +488,26 @@ export default function Dashboard() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {featuredPeople.map((person) => (
-                  <div key={person.id} className="flex items-center gap-3 rounded-2xl border bg-card/70 p-3">
-                    <Avatar className="h-12 w-12">
+                  <Link
+                    key={person.id}
+                    to={`/personen/${person.id}`}
+                    className="group flex items-center gap-3 rounded-2xl border bg-card/70 p-3 transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-lg"
+                  >
+                    <Avatar className="h-12 w-12 border border-border/60">
                       {person.avatar_url ? (
                         <AvatarImage src={person.avatar_url} alt={person.name} />
                       ) : (
                         <AvatarFallback>{person.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                       )}
                     </Avatar>
-                    <div>
-                      <p className="font-semibold leading-tight">{person.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold leading-tight text-foreground group-hover:text-primary">{person.name}</p>
                       {person.position && <p className="text-sm text-muted-foreground">{person.position}</p>}
                       <p className="text-xs text-muted-foreground">
                         {person.organization?.name ?? 'Organisation unbekannt'}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

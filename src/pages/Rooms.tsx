@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -164,8 +165,9 @@ export default function Rooms() {
   };
 
   const openBookingDialog = (booking?: Booking) => {
-    if (!selectedRoomId) {
-      toast.error('Bitte zuerst einen Raum auswählen.');
+    const activeRoomId = resolveActiveRoomId();
+    if (!activeRoomId) {
+      toast.error('Es stehen aktuell keine Räume zur Verfügung.');
       return;
     }
     if (booking) {
@@ -431,6 +433,19 @@ export default function Rooms() {
     }
   };
 
+  const resolveActiveRoomId = () => {
+    if (selectedRoomId) return selectedRoomId;
+    const fallback = rooms.find((room) => room.is_active)?.id ?? rooms[0]?.id ?? null;
+    if (fallback) {
+      setSelectedRoomId(fallback);
+    }
+    return fallback;
+  };
+
+  const handleTimelineQuickBooking = () => {
+    openBookingDialog();
+  };
+
   const RoomSelectionPanel = ({ variant = 'desktop' }: { variant?: 'desktop' | 'mobile' }) => {
     const closeOnSelect = variant === 'mobile';
 
@@ -600,16 +615,16 @@ export default function Rooms() {
               Räume wählen
             </Button>
             {isRoomAdmin && (
-              <Button onClick={() => openRoomDialog()} className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" onClick={() => openRoomDialog()} className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Raum anlegen
               </Button>
             )}
             <Button
-              variant="secondary"
+              variant="default"
               onClick={() => openBookingDialog()}
               disabled={!selectedRoomId}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto font-semibold"
             >
               <CalendarDays className="mr-2 h-4 w-4" />
               Raum buchen
@@ -618,88 +633,102 @@ export default function Rooms() {
         </div>
 
         {selectedRoom && (
-          <div className="rounded-3xl border bg-card/70 p-4 shadow-sm lg:hidden">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aktiver Raum</p>
-                <p className="text-2xl font-semibold leading-tight">{selectedRoom.name}</p>
-                {selectedRoom.location && (
-                  <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
-                    {selectedRoom.location}
-                  </p>
+          <Card className="rounded-3xl border border-border/60 bg-gradient-to-br from-card to-muted/40 shadow-sm">
+            <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Aktiver Raum</p>
+                <CardTitle className="text-2xl font-semibold leading-tight">{selectedRoom.name}</CardTitle>
+                {selectedRoom.description && (
+                  <p className="text-sm text-muted-foreground max-w-2xl">{selectedRoom.description}</p>
+                )}
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {selectedRoom.location && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                      <MapPin className="h-3 w-3" />
+                      {selectedRoom.location}
+                    </span>
+                  )}
+                  {selectedRoom.capacity && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                      <Users className="h-3 w-3" />
+                      bis {selectedRoom.capacity} Personen
+                    </span>
+                  )}
+                  {selectedRoom.equipment && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                      Ausstattung: {selectedRoom.equipment}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Badge variant={selectedRoom.is_active ? 'secondary' : 'outline'} className="w-full justify-center sm:w-auto">
+                  {selectedRoom.is_active ? 'Verfügbar' : 'Inaktiv'}
+                </Badge>
+                <Button size="sm" onClick={() => openBookingDialog()}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Sofort buchen
+                </Button>
+                {isRoomAdmin && (
+                  <Button size="sm" variant="outline" onClick={() => openRoomDialog(selectedRoom)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Bearbeiten
+                  </Button>
                 )}
               </div>
-              <Badge variant={selectedRoom.is_active ? 'secondary' : 'outline'}>
-                {selectedRoom.is_active ? 'Verfügbar' : 'Inaktiv'}
-              </Badge>
-            </div>
-            {selectedRoom.description && (
-              <p className="mt-3 text-sm text-muted-foreground">{selectedRoom.description}</p>
-            )}
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-              {selectedRoom.capacity && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-                  <Users className="h-3 w-3" />
-                  bis {selectedRoom.capacity} Personen
-                </span>
-              )}
-              {selectedRoom.equipment && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-                  Ausstattung: {selectedRoom.equipment}
-                </span>
-              )}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4 w-full"
-              onClick={() => setRoomsSheetOpen(true)}
-            >
-              <Menu className="mr-2 h-4 w-4" />
-              Anderen Raum wählen
-            </Button>
-          </div>
+            </CardContent>
+          </Card>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[360px,1fr]">
-          <div className="hidden lg:block">
-            <div className="sticky top-24">
-              <div className="flex h-[calc(100vh-7rem)] flex-col rounded-3xl border bg-card/80 p-6 shadow-lg">
-                <RoomSelectionPanel variant="desktop" />
-              </div>
+        <div className="space-y-6">
+          <Tabs
+            value={viewMode}
+            onValueChange={(value) => setViewMode(value as 'calendar' | 'timeline')}
+            className="space-y-4"
+          >
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <p className="text-sm font-medium text-muted-foreground">Ansicht wählen</p>
+              <TabsList className="grid w-full grid-cols-2 md:w-auto">
+                <TabsTrigger value="calendar">Kalender</TabsTrigger>
+                <TabsTrigger value="timeline">Zeitstrahl</TabsTrigger>
+              </TabsList>
             </div>
-          </div>
-
-          <div className="space-y-6">
-            <Tabs
-              value={viewMode}
-              onValueChange={(value) => setViewMode(value as 'calendar' | 'timeline')}
-              className="space-y-4"
-            >
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <p className="text-sm font-medium text-muted-foreground">Ansicht wählen</p>
-                <TabsList className="grid w-full grid-cols-2 md:w-auto">
-                  <TabsTrigger value="calendar">Kalender</TabsTrigger>
-                  <TabsTrigger value="timeline">Zeitstrahl</TabsTrigger>
-                </TabsList>
-              </div>
-              <TabsContent value="calendar" className="mt-0">
+            <TabsContent value="calendar" className="mt-0">
             <Card>
-              <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
+              <CardHeader className="space-y-4">
+                <div className="space-y-1">
                   <CardTitle>Kalenderübersicht</CardTitle>
                   <CardDescription>
                     {selectedRoom ? `${selectedRoom.name} · ${format(currentMonth, 'MMMM yyyy', { locale: de })}` : 'Bitte Raum auswählen'}
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" onClick={() => setCurrentMonth((prev) => subMonths(prev, 1))}>
-                    &larr;
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={() => setCurrentMonth((prev) => addMonths(prev, 1))}>
-                    &rarr;
-                  </Button>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={() => setCurrentMonth((prev) => subMonths(prev, 1))}>
+                      &larr;
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => setCurrentMonth((prev) => addMonths(prev, 1))}>
+                      &rarr;
+                    </Button>
+                  </div>
+                  <div className="flex w-full flex-col gap-2 lg:w-72">
+                    <Select value={selectedRoomId ?? undefined} onValueChange={(value) => handleSelectRoom(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Raum auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rooms.map((room) => (
+                          <SelectItem key={room.id} value={room.id}>
+                            {room.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setRoomsSheetOpen(true)}>
+                      <Search className="mr-2 h-4 w-4" />
+                      Erweiterte Suche
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -762,20 +791,26 @@ export default function Rooms() {
 
               <TabsContent value="timeline" className="mt-0">
             <Card>
-              <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <CardTitle>Zeitstrahl</CardTitle>
                   <CardDescription>Buchungen am {format(selectedDay, 'dd.MM.yyyy', { locale: de })} auf einen Blick.</CardDescription>
                 </div>
-                <Input
-                  type="date"
-                  className="w-full md:w-auto"
-                  value={format(selectedDay, 'yyyy-MM-dd')}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    setSelectedDay(startOfDay(new Date(e.target.value)));
-                  }}
-                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Input
+                    type="date"
+                    className="w-full sm:w-auto"
+                    value={format(selectedDay, 'yyyy-MM-dd')}
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      setSelectedDay(startOfDay(new Date(e.target.value)));
+                    }}
+                  />
+                  <Button variant="outline" size="sm" onClick={handleTimelineQuickBooking}>
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Neue Buchung
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {bookingsLoading ? (
@@ -919,7 +954,6 @@ export default function Rooms() {
             </Tabs>
           </div>
         </div>
-      </div>
 
       <Dialog open={roomDialogOpen} onOpenChange={setRoomDialogOpen}>
         <DialogContent>
