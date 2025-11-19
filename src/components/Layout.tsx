@@ -30,7 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -446,6 +446,9 @@ export function Layout({ children }: LayoutProps) {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                         <Avatar className="h-10 w-10">
+                          {profile?.avatar_url && (
+                            <AvatarImage src={profile.avatar_url} alt={profile.name ?? 'Profilbild'} />
+                          )}
                           <AvatarFallback className="bg-primary text-primary-foreground">
                             {getInitials()}
                           </AvatarFallback>

@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import defaultBrandLogo from '@/assets/ari-logo.png';
+
+const BRAND_STORAGE_KEY = 'ari-brand-logo';
 
 const loginSchema = z.object({
   email: z.string().email('Bitte gib eine gültige E-Mail-Adresse ein'),
@@ -44,6 +46,10 @@ export default function Auth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
+  const [brandLogo, setBrandLogo] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return window.sessionStorage.getItem(BRAND_STORAGE_KEY);
+  });
 
   useEffect(() => {
     if (user) {
@@ -182,7 +188,54 @@ export default function Auth() {
     }
   };
 
+  useEffect(() => {
+    const cacheBrandLogo = (logoUrl: string | null) => {
+      if (typeof window === 'undefined') return;
+      if (logoUrl) {
+        window.sessionStorage.setItem(BRAND_STORAGE_KEY, logoUrl);
+      } else {
+        window.sessionStorage.removeItem(BRAND_STORAGE_KEY);
+      }
+    };
+
+    const fetchBranding = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'app_branding')
+          .maybeSingle();
+        if (error) {
+          if (error.code !== '42501') {
+            console.error('Error loading branding', error);
+          }
+          return;
+        }
+        const value = (data?.value ?? null) as { logo_url?: string | null } | null;
+        setBrandLogo(value?.logo_url ?? null);
+      } catch (error) {
+        console.error('Unexpected branding error', error);
+      }
+    };
+
+    if (!brandLogo) {
+      void fetchBranding();
+    }
+    cacheBrandLogo(brandLogo);
+
+    const handleBrandingUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<{ logoUrl?: string | null }>).detail;
+      setBrandLogo(detail?.logoUrl ?? null);
+    };
+
+    window.addEventListener('app-branding-updated', handleBrandingUpdate as EventListener);
+    return () => {
+      window.removeEventListener('app-branding-updated', handleBrandingUpdate as EventListener);
+    };
+  }, [brandLogo]);
+
   const hasInvite = Boolean(inviteToken);
+  const displayLogo = brandLogo ?? defaultBrandLogo;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4">
@@ -195,9 +248,12 @@ export default function Auth() {
         <Card>
           <CardHeader className="space-y-4 text-center">
             <div className="flex justify-center">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Building2 className="h-8 w-8 text-primary" />
-              </div>
+              <img
+                src={displayLogo}
+                alt="ARI Community"
+                className="h-14 w-auto object-contain"
+                loading="lazy"
+              />
             </div>
             <div>
               <CardTitle className="text-2xl font-bold">ARI Community</CardTitle>
