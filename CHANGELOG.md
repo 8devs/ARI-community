@@ -2,6 +2,16 @@
 
 Alle relevanten Änderungen der ARI Community App. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/) und setzt [SemVer](https://semver.org/lang/de/) ein.
 
+## [0.5.2] - 2025-11-19
+### Neu
+- Räume: Verwaltbare Stuhl-/Tischkontingente inklusive PDF-Infodokument, Getränke-Catering-Hinweis und optionaler Buchungs-Benachrichtigung mit automatischer E-Mail.
+- Buchungsdialog fragt erwartete Teilnehmende sowie benötigte Stühle/Tische ab, prüft die verfügbaren Kontingente und bietet direkten Zugriff auf das Raum-PDF.
+- Öffentliche Raumansicht unter `/raeume/public/:token` zeigt aktuelle Belegung, Ansprechpartner sowie verbleibende Stühle/Tische.
+
+### Geändert
+- Footer bleibt nun überall am unteren Bildschirmrand, die Versionsnummer wird ausschließlich links geführt und das Branding benennt konsequent „ARI Community“.
+- Raumdetailkarten zeigen Copy-/Öffnen-Buttons für den öffentlichen Link sowie Badges zu Stuhl- und Tischverfügbarkeiten.
+
 ## [0.5.1] - 2025-11-19
 ### Neu
 - Dashboard-Hero fasst die neuesten Pinnwand-Beiträge zusammen und zeigt sie dauerhaft oben auf der Übersichtsseite.

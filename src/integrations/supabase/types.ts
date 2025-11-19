@@ -1134,38 +1134,47 @@ export type Database = {
       }
       room_bookings: {
         Row: {
+          chairs_needed: number | null
           created_at: string
           created_by: string
           description: string | null
           end_time: string
+          expected_attendees: number | null
           id: string
           organization_id: string | null
           room_id: string
           start_time: string
+          tables_needed: number | null
           title: string
           updated_at: string
         }
         Insert: {
+          chairs_needed?: number | null
           created_at?: string
           created_by: string
           description?: string | null
           end_time: string
+          expected_attendees?: number | null
           id?: string
           organization_id?: string | null
           room_id: string
           start_time: string
+          tables_needed?: number | null
           title: string
           updated_at?: string
         }
         Update: {
+          chairs_needed?: number | null
           created_at?: string
           created_by?: string
           description?: string | null
           end_time?: string
+          expected_attendees?: number | null
           id?: string
           organization_id?: string | null
           room_id?: string
           start_time?: string
+          tables_needed?: number | null
           title?: string
           updated_at?: string
         }
@@ -1195,42 +1204,69 @@ export type Database = {
       }
       rooms: {
         Row: {
+          booking_notify_email: string | null
           capacity: number | null
+          chairs_capacity: number | null
+          chairs_default: number | null
           created_at: string
           created_by: string | null
           description: string | null
           equipment: string | null
+          info_document_url: string | null
           id: string
           is_active: boolean
           location: string | null
           name: string
+          notify_on_booking: boolean
           organization_id: string | null
+          public_share_token: string
+          requires_beverage_catering: boolean
+          tables_capacity: number | null
+          tables_default: number | null
           updated_at: string
         }
         Insert: {
+          booking_notify_email?: string | null
           capacity?: number | null
+          chairs_capacity?: number | null
+          chairs_default?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           equipment?: string | null
+          info_document_url?: string | null
           id?: string
           is_active?: boolean
           location?: string | null
           name: string
+          notify_on_booking?: boolean
           organization_id?: string | null
+          public_share_token?: string
+          requires_beverage_catering?: boolean
+          tables_capacity?: number | null
+          tables_default?: number | null
           updated_at?: string
         }
         Update: {
+          booking_notify_email?: string | null
           capacity?: number | null
+          chairs_capacity?: number | null
+          chairs_default?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           equipment?: string | null
+          info_document_url?: string | null
           id?: string
           is_active?: boolean
           location?: string | null
           name?: string
+          notify_on_booking?: boolean
           organization_id?: string | null
+          public_share_token?: string
+          requires_beverage_catering?: boolean
+          tables_capacity?: number | null
+          tables_default?: number | null
           updated_at?: string
         }
         Relationships: [

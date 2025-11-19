@@ -24,8 +24,9 @@ import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { toast } from 'sonner';
 import { addHours, addMinutes, addMonths, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, Search, Menu } from 'lucide-react';
+import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, Search, Menu, Share2, Copy, FileText, Droplet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sendEmailNotification } from '@/lib/notifications';
 
 type Room = Tables<'rooms'>;
 type Booking = Tables<'room_bookings'> & {
@@ -44,6 +45,14 @@ const emptyRoomForm = {
   capacity: '',
   equipment: '',
   is_active: true,
+  chairs_capacity: '',
+  chairs_default: '',
+  tables_capacity: '',
+  tables_default: '',
+  requires_beverage_catering: false,
+  notify_on_booking: false,
+  booking_notify_email: '',
+  info_document_url: '',
 };
 
 const emptyBookingForm = {
@@ -51,6 +60,9 @@ const emptyBookingForm = {
   description: '',
   start: '',
   end: '',
+  expected_attendees: '',
+  chairs_needed: '',
+  tables_needed: '',
 };
 
 const TIMELINE_START_HOUR = 6;
@@ -80,8 +92,98 @@ export default function Rooms() {
   const [roomSearch, setRoomSearch] = useState('');
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
+  const [roomDocumentFile, setRoomDocumentFile] = useState<File | null>(null);
+  const [removeRoomDocument, setRemoveRoomDocument] = useState(false);
 
   const isRoomAdmin = Boolean(profile && (profile.role === 'SUPER_ADMIN' || profile.role === 'ORG_ADMIN'));
+  const selectedRoom = useMemo(() => rooms.find((room) => room.id === selectedRoomId) || null, [rooms, selectedRoomId]);
+  const publicRoomLink = useMemo(
+    () => (selectedRoom?.public_share_token ? getPublicRoomUrl(selectedRoom.public_share_token) : null),
+    [selectedRoom?.public_share_token],
+  );
+
+  const numberOrNull = (value: string) => (value ? Number(value) : null);
+
+  const getPublicRoomUrl = (token: string) => {
+    const suffix = `#/raeume/public/${token}`;
+    if (typeof window === 'undefined') return suffix;
+    return `${window.location.origin}${window.location.pathname}${suffix}`;
+  };
+
+  const copyPublicLink = async () => {
+    if (!selectedRoom?.public_share_token) return;
+    const url = getPublicRoomUrl(selectedRoom.public_share_token);
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+      toast.error('Zwischenablage ist nicht verfügbar.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Öffentlicher Link kopiert');
+    } catch (error) {
+      console.error('copy link failed', error);
+      toast.error('Konnte Link nicht kopieren. Bitte manuell kopieren.');
+    }
+  };
+
+  const generateDocumentPath = (file: File) => {
+    const ext = file.name.split('.').pop();
+    const randomId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    return `room-documents/${randomId}.${ext}`;
+  };
+
+  const uploadRoomDocument = async (file: File) => {
+    const filePath = generateDocumentPath(file);
+    const { error } = await supabase.storage.from('room-documents').upload(filePath, file, {
+      upsert: true,
+    });
+    if (error) throw error;
+    const { data } = supabase.storage.from('room-documents').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
+  const notifyRoomBookingContact = async (
+    room: Room,
+    details: {
+      title: string;
+      start: Date;
+      end: Date;
+      description?: string | null;
+      expectedAttendees?: number | null;
+      chairsNeeded?: number | null;
+      tablesNeeded?: number | null;
+      organizer?: string | null;
+      organization?: string | null;
+    },
+  ) => {
+    if (!room.notify_on_booking || !room.booking_notify_email) return;
+    const startLabel = format(details.start, "dd.MM.yyyy 'um' HH:mm", { locale: de });
+    const endLabel = format(details.end, "dd.MM.yyyy 'um' HH:mm", { locale: de });
+    const subject = `Neue Buchung für ${room.name}`;
+    const html = `
+      <h2 style="font-family:Arial,sans-serif;">${room.name}</h2>
+      <p><strong>Zeitraum:</strong> ${startLabel} – ${endLabel}</p>
+      <p><strong>Organisator:</strong> ${details.organizer ?? 'Unbekannt'}${details.organization ? ` (${details.organization})` : ''}</p>
+      <p><strong>Erwartete Personen:</strong> ${details.expectedAttendees ?? 'Nicht angegeben'}</p>
+      <p><strong>Stühle benötigt:</strong> ${details.chairsNeeded ?? 'Nicht angegeben'}${room.chairs_capacity ? ` / ${room.chairs_capacity} verfügbar` : ''}</p>
+      <p><strong>Tische benötigt:</strong> ${details.tablesNeeded ?? 'Nicht angegeben'}${room.tables_capacity ? ` / ${room.tables_capacity} verfügbar` : ''}</p>
+      <p><strong>Getränke-Catering nötig:</strong> ${room.requires_beverage_catering ? 'Ja' : 'Nein'}</p>
+      ${
+        details.description
+          ? `<p><strong>Beschreibung:</strong><br />${details.description.replace(/\n/g, '<br />')}</p>`
+          : ''
+      }
+      ${
+        room.info_document_url
+          ? `<p><a href="${room.info_document_url}" target="_blank" rel="noreferrer">Infodokument öffnen</a></p>`
+          : ''
+      }
+    `;
+    await sendEmailNotification(room.booking_notify_email, subject, html);
+  };
 
   useEffect(() => {
     loadRooms();
@@ -153,6 +255,14 @@ export default function Rooms() {
         capacity: room.capacity?.toString() ?? '',
         equipment: room.equipment ?? '',
         is_active: Boolean(room.is_active),
+        chairs_capacity: room.chairs_capacity?.toString() ?? '',
+        chairs_default: room.chairs_default?.toString() ?? '',
+        tables_capacity: room.tables_capacity?.toString() ?? '',
+        tables_default: room.tables_default?.toString() ?? '',
+        requires_beverage_catering: room.requires_beverage_catering ?? false,
+        notify_on_booking: room.notify_on_booking ?? false,
+        booking_notify_email: room.booking_notify_email ?? '',
+        info_document_url: room.info_document_url ?? '',
       });
     } else {
       setEditingRoom(null);
@@ -161,6 +271,8 @@ export default function Rooms() {
         is_active: true,
       });
     }
+    setRoomDocumentFile(null);
+    setRemoveRoomDocument(false);
     setRoomDialogOpen(true);
   };
 
@@ -178,6 +290,9 @@ export default function Rooms() {
         description: booking.description ?? '',
         start: booking.start_time.slice(0, 16),
         end: booking.end_time.slice(0, 16),
+        expected_attendees: booking.expected_attendees?.toString() ?? '',
+        chairs_needed: booking.chairs_needed?.toString() ?? '',
+        tables_needed: booking.tables_needed?.toString() ?? '',
       });
     } else {
       setEditingBooking(null);
@@ -188,6 +303,9 @@ export default function Rooms() {
         description: '',
         start: format(startDate, "yyyy-MM-dd'T'HH:mm"),
         end: format(endDate, "yyyy-MM-dd'T'HH:mm"),
+        expected_attendees: '',
+        chairs_needed: '',
+        tables_needed: '',
       });
     }
     setBookingDialogOpen(true);
@@ -211,8 +329,30 @@ export default function Rooms() {
       toast.error('Bitte einen Raumnamen angeben.');
       return;
     }
+    if (roomForm.notify_on_booking) {
+      const email = roomForm.booking_notify_email.trim();
+      if (!email || !email.includes('@')) {
+        toast.error('Bitte eine gültige Benachrichtigungsadresse hinterlegen.');
+        return;
+      }
+    }
 
     setSavingRoom(true);
+    let infoDocumentUrl = roomForm.info_document_url || null;
+    try {
+      if (removeRoomDocument) {
+        infoDocumentUrl = null;
+      }
+      if (roomDocumentFile) {
+        infoDocumentUrl = await uploadRoomDocument(roomDocumentFile);
+      }
+    } catch (error) {
+      console.error('Error uploading document', error);
+      toast.error('Infodokument konnte nicht hochgeladen werden.');
+      setSavingRoom(false);
+      return;
+    }
+
     const commonPayload = {
       name: roomForm.name.trim(),
       location: roomForm.location.trim() || null,
@@ -220,6 +360,14 @@ export default function Rooms() {
       capacity: roomForm.capacity ? Number(roomForm.capacity) : null,
       equipment: roomForm.equipment.trim() || null,
       is_active: roomForm.is_active,
+      chairs_capacity: numberOrNull(roomForm.chairs_capacity),
+      chairs_default: numberOrNull(roomForm.chairs_default),
+      tables_capacity: numberOrNull(roomForm.tables_capacity),
+      tables_default: numberOrNull(roomForm.tables_default),
+      requires_beverage_catering: roomForm.requires_beverage_catering,
+      notify_on_booking: roomForm.notify_on_booking,
+      booking_notify_email: roomForm.notify_on_booking ? roomForm.booking_notify_email.trim() || null : null,
+      info_document_url: infoDocumentUrl,
     };
 
     try {
@@ -241,6 +389,9 @@ export default function Rooms() {
       }
       setRoomDialogOpen(false);
       setEditingRoom(null);
+      setRoomDocumentFile(null);
+      setRemoveRoomDocument(false);
+      setRoomForm(emptyRoomForm);
       loadRooms();
     } catch (error) {
       console.error('Error saving room', error);
@@ -256,6 +407,10 @@ export default function Rooms() {
       toast.error('Bitte melde Dich an und wähle einen Raum aus.');
       return;
     }
+    if (!selectedRoom) {
+      toast.error('Der ausgewählte Raum ist nicht mehr verfügbar.');
+      return;
+    }
     if (!bookingForm.title.trim()) {
       toast.error('Bitte einen Titel angeben.');
       return;
@@ -268,14 +423,36 @@ export default function Rooms() {
       toast.error('Die Endzeit muss nach der Startzeit liegen.');
       return;
     }
+    const expectedAttendees = numberOrNull(bookingForm.expected_attendees);
+    const chairsNeeded = numberOrNull(bookingForm.chairs_needed);
+    const tablesNeeded = numberOrNull(bookingForm.tables_needed);
+
+    if (selectedRoom.capacity && expectedAttendees && expectedAttendees > selectedRoom.capacity) {
+      toast.error(`Es sind maximal ${selectedRoom.capacity} Personen zugelassen.`);
+      return;
+    }
+    if (selectedRoom.chairs_capacity && chairsNeeded && chairsNeeded > selectedRoom.chairs_capacity) {
+      toast.error(`Es sind nur ${selectedRoom.chairs_capacity} Stühle verfügbar.`);
+      return;
+    }
+    if (selectedRoom.tables_capacity && tablesNeeded && tablesNeeded > selectedRoom.tables_capacity) {
+      toast.error(`Es sind nur ${selectedRoom.tables_capacity} Tische verfügbar.`);
+      return;
+    }
+
+    const startDate = new Date(bookingForm.start);
+    const endDate = new Date(bookingForm.end);
 
     const payload = {
       room_id: selectedRoomId,
       title: bookingForm.title.trim(),
       description: bookingForm.description.trim() || null,
-      start_time: new Date(bookingForm.start).toISOString(),
-      end_time: new Date(bookingForm.end).toISOString(),
+      start_time: startDate.toISOString(),
+      end_time: endDate.toISOString(),
       organization_id: profile.organization_id,
+      expected_attendees: expectedAttendees,
+      chairs_needed: chairsNeeded,
+      tables_needed: tablesNeeded,
     };
 
     setSavingBooking(true);
@@ -294,6 +471,19 @@ export default function Rooms() {
         });
         if (error) throw error;
         toast.success('Raum gebucht');
+      }
+      if (selectedRoom.notify_on_booking && selectedRoom.booking_notify_email) {
+        void notifyRoomBookingContact(selectedRoom, {
+          title: payload.title,
+          start: startDate,
+          end: endDate,
+          description: payload.description,
+          expectedAttendees,
+          chairsNeeded,
+          tablesNeeded,
+          organizer: profile.name ?? null,
+          organization: profile.organization?.name ?? null,
+        });
       }
       setBookingDialogOpen(false);
       setEditingBooking(null);
@@ -424,7 +614,6 @@ export default function Rooms() {
     [],
   );
 
-  const selectedRoom = rooms.find((room) => room.id === selectedRoomId) || null;
 
   const handleSelectRoom = (roomId: string, closePanel = false) => {
     setSelectedRoomId(roomId);
@@ -669,9 +858,25 @@ export default function Rooms() {
                       Ausstattung: {selectedRoom.equipment}
                     </span>
                   )}
+                  {(selectedRoom.chairs_default ?? selectedRoom.chairs_capacity) !== null && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                      Stühle: {selectedRoom.chairs_default ?? '–'} / {selectedRoom.chairs_capacity ?? '–'}
+                    </span>
+                  )}
+                  {(selectedRoom.tables_default ?? selectedRoom.tables_capacity) !== null && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                      Tische: {selectedRoom.tables_default ?? '–'} / {selectedRoom.tables_capacity ?? '–'}
+                    </span>
+                  )}
+                  {selectedRoom.requires_beverage_catering && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                      <Droplet className="h-3 w-3" />
+                      Getränke-Catering
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Badge variant={selectedRoom.is_active ? 'secondary' : 'outline'} className="w-full justify-center sm:w-auto">
                   {selectedRoom.is_active ? 'Verfügbar' : 'Inaktiv'}
                 </Badge>
@@ -679,6 +884,30 @@ export default function Rooms() {
                   <CalendarDays className="mr-2 h-4 w-4" />
                   Sofort buchen
                 </Button>
+                {selectedRoom.info_document_url && (
+                  <Button size="sm" variant="ghost" asChild>
+                    <a href={selectedRoom.info_document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Infodokument
+                    </a>
+                  </Button>
+                )}
+                {selectedRoom.public_share_token && (
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button size="sm" variant="outline" onClick={copyPublicLink}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Link kopieren
+                    </Button>
+                    {publicRoomLink && (
+                      <Button size="sm" variant="ghost" asChild>
+                        <a href={publicRoomLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2">
+                          <Share2 className="h-4 w-4" />
+                          Öffnen
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {isRoomAdmin && (
                   <Button size="sm" variant="outline" onClick={() => openRoomDialog(selectedRoom)}>
                     <Edit className="mr-2 h-4 w-4" />
@@ -937,6 +1166,23 @@ export default function Rooms() {
                           {format(new Date(booking.start_time), 'dd.MM.yyyy HH:mm')} – {format(new Date(booking.end_time), 'HH:mm')} Uhr
                         </p>
                         {booking.description && <p className="text-sm mt-1">{booking.description}</p>}
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {typeof booking.expected_attendees === 'number' && (
+                            <span className="rounded-full bg-muted px-2 py-1">
+                              {booking.expected_attendees} Personen
+                            </span>
+                          )}
+                          {typeof booking.chairs_needed === 'number' && (
+                            <span className="rounded-full bg-muted px-2 py-1">
+                              {booking.chairs_needed} Stühle
+                            </span>
+                          )}
+                          {typeof booking.tables_needed === 'number' && (
+                            <span className="rounded-full bg-muted px-2 py-1">
+                              {booking.tables_needed} Tische
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {booking.creator?.name ?? 'Unbekannt'}
                           {booking.organization?.name ? ` · ${booking.organization.name}` : ''}
@@ -972,7 +1218,18 @@ export default function Rooms() {
           </div>
         </div>
 
-      <Dialog open={roomDialogOpen} onOpenChange={setRoomDialogOpen}>
+      <Dialog
+        open={roomDialogOpen}
+        onOpenChange={(open) => {
+          setRoomDialogOpen(open);
+          if (!open) {
+            setEditingRoom(null);
+            setRoomForm(emptyRoomForm);
+            setRoomDocumentFile(null);
+            setRemoveRoomDocument(false);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingRoom ? 'Raum bearbeiten' : 'Neuen Raum anlegen'}</DialogTitle>
@@ -1007,6 +1264,48 @@ export default function Rooms() {
                 />
               </div>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="room-chairs-default">Stühle (Standardaufbau)</Label>
+                <Input
+                  id="room-chairs-default"
+                  type="number"
+                  min="0"
+                  value={roomForm.chairs_default}
+                  onChange={(e) => handleRoomFormChange('chairs_default', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="room-chairs-capacity">Stühle (maximal)</Label>
+                <Input
+                  id="room-chairs-capacity"
+                  type="number"
+                  min="0"
+                  value={roomForm.chairs_capacity}
+                  onChange={(e) => handleRoomFormChange('chairs_capacity', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="room-tables-default">Tische (Standardaufbau)</Label>
+                <Input
+                  id="room-tables-default"
+                  type="number"
+                  min="0"
+                  value={roomForm.tables_default}
+                  onChange={(e) => handleRoomFormChange('tables_default', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="room-tables-capacity">Tische (maximal)</Label>
+                <Input
+                  id="room-tables-capacity"
+                  type="number"
+                  min="0"
+                  value={roomForm.tables_capacity}
+                  onChange={(e) => handleRoomFormChange('tables_capacity', e.target.value)}
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="room-equipment">Ausstattung</Label>
               <Textarea
@@ -1026,6 +1325,46 @@ export default function Rooms() {
                 onChange={(e) => handleRoomFormChange('description', e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="room-document">Infodokument (PDF)</Label>
+              <Input
+                id="room-document"
+                type="file"
+                accept="application/pdf"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setRoomDocumentFile(file);
+                  setRemoveRoomDocument(false);
+                }}
+              />
+              {roomDocumentFile && <p className="text-xs text-muted-foreground">Ausgewählt: {roomDocumentFile.name}</p>}
+              {roomForm.info_document_url && !removeRoomDocument && (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <a
+                    href={roomForm.info_document_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Aktuelles Dokument öffnen
+                  </a>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setRemoveRoomDocument(true);
+                      handleRoomFormChange('info_document_url', '');
+                    }}
+                  >
+                    Entfernen
+                  </Button>
+                </div>
+              )}
+              {removeRoomDocument && (
+                <p className="text-xs text-destructive">Das bestehende Dokument wird entfernt.</p>
+              )}
+            </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
                 <p className="font-medium">Aktiv</p>
@@ -1036,6 +1375,41 @@ export default function Rooms() {
                 onCheckedChange={(checked) => handleRoomFormChange('is_active', checked)}
               />
             </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium">Getränke-Catering benötigt</p>
+                  <p className="text-sm text-muted-foreground">Hinweis für das Facility-Team.</p>
+                </div>
+                <Switch
+                  checked={roomForm.requires_beverage_catering}
+                  onCheckedChange={(checked) => handleRoomFormChange('requires_beverage_catering', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium">E-Mail bei Buchungen senden</p>
+                  <p className="text-sm text-muted-foreground">Informiert automatisch eine Kontaktadresse.</p>
+                </div>
+                <Switch
+                  checked={roomForm.notify_on_booking}
+                  onCheckedChange={(checked) => handleRoomFormChange('notify_on_booking', checked)}
+                />
+              </div>
+            </div>
+            {roomForm.notify_on_booking && (
+              <div className="space-y-2">
+                <Label htmlFor="room-notify-email">Empfängeradresse</Label>
+                <Input
+                  id="room-notify-email"
+                  type="email"
+                  placeholder="office@example.com"
+                  value={roomForm.booking_notify_email}
+                  onChange={(e) => handleRoomFormChange('booking_notify_email', e.target.value)}
+                  required
+                />
+              </div>
+            )}
             <DialogFooter>
               <Button type="submit" disabled={savingRoom}>
                 {savingRoom ? 'Speichert...' : editingRoom ? 'Aktualisieren' : 'Anlegen'}
@@ -1045,11 +1419,31 @@ export default function Rooms() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
+      <Dialog
+        open={bookingDialogOpen}
+        onOpenChange={(open) => {
+          setBookingDialogOpen(open);
+          if (!open) {
+            setEditingBooking(null);
+            setBookingForm(emptyBookingForm);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingBooking ? 'Buchung bearbeiten' : 'Neue Buchung erstellen'}</DialogTitle>
           </DialogHeader>
+          {selectedRoom?.info_document_url && (
+            <div className="mb-2 flex flex-col gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-sm">
+              <p>Infodokument für {selectedRoom.name}</p>
+              <Button size="sm" variant="outline" asChild className="w-full sm:w-auto">
+                <a href={selectedRoom.info_document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  PDF öffnen
+                </a>
+              </Button>
+            </div>
+          )}
           <form className="space-y-4" onSubmit={handleSaveBooking}>
             <div className="space-y-2">
               <Label htmlFor="booking-title">Titel</Label>
@@ -1088,6 +1482,38 @@ export default function Rooms() {
                   value={bookingForm.end}
                   onChange={(e) => handleBookingFormChange('end', e.target.value)}
                   required
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="booking-expected">Erwartete Personen</Label>
+                <Input
+                  id="booking-expected"
+                  type="number"
+                  min="0"
+                  value={bookingForm.expected_attendees}
+                  onChange={(e) => handleBookingFormChange('expected_attendees', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="booking-chairs">Stühle benötigt</Label>
+                <Input
+                  id="booking-chairs"
+                  type="number"
+                  min="0"
+                  value={bookingForm.chairs_needed}
+                  onChange={(e) => handleBookingFormChange('chairs_needed', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="booking-tables">Tische benötigt</Label>
+                <Input
+                  id="booking-tables"
+                  type="number"
+                  min="0"
+                  value={bookingForm.tables_needed}
+                  onChange={(e) => handleBookingFormChange('tables_needed', e.target.value)}
                 />
               </div>
             </div>

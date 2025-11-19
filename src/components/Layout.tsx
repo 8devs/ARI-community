@@ -330,10 +330,10 @@ export function Layout({ children }: LayoutProps) {
         <Link to="/" className="flex items-center gap-3 border-b border-border/60 px-6 py-5" aria-label="Zur Startseite">
           <img src={displayLogo} alt="ARI Community" className="h-10 w-auto object-contain" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">
-              {profile?.organization?.name ?? 'ARI Community'}
+            <p className="truncate text-sm font-semibold">ARI Community</p>
+            <p className="text-xs text-muted-foreground">
+              {profile?.organization?.name ?? 'Gemeinsam vernetzt'}
             </p>
-            <p className="text-xs text-muted-foreground">Alles auf einen Blick</p>
           </div>
         </Link>
         <div className="flex-1 overflow-y-auto px-4 py-6">{renderNav()}</div>
@@ -372,8 +372,10 @@ export function Layout({ children }: LayoutProps) {
                   <div className="mt-4 flex items-center gap-3 border-b border-border/60 pb-4">
                     <img src={displayLogo} alt="ARI Community" className="h-10 w-auto object-contain" />
                     <div>
-                      <p className="text-sm font-semibold">{profile?.organization?.name ?? 'ARI Community'}</p>
-                      <p className="text-xs text-muted-foreground">Alles auf einen Blick</p>
+                      <p className="text-sm font-semibold">ARI Community</p>
+                      <p className="text-xs text-muted-foreground">
+                        {profile?.organization?.name ?? 'Gemeinsam vernetzt'}
+                      </p>
                     </div>
                   </div>
                   <div className="py-6">{renderNav(() => setSidebarOpen(false))}</div>
@@ -480,9 +482,9 @@ export function Layout({ children }: LayoutProps) {
           <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10">{children}</div>
         </main>
 
-        <footer className="border-t border-border bg-card/60">
+        <footer className="mt-auto border-t border-border bg-card/60">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-muted-foreground sm:px-6 lg:px-10 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <a
                 href="https://aiddevs.com/impressum/"
                 target="_blank"
@@ -494,10 +496,10 @@ export function Layout({ children }: LayoutProps) {
               <Link to="/changelog" className="transition-colors hover:text-primary">
                 Changelog
               </Link>
+              <span className="text-xs">Version {APP_VERSION}</span>
             </div>
             <div className="flex flex-col gap-1 text-right md:text-left">
               <p>Made with ❤️ in Worms by 8devs GmbH</p>
-              <p className="text-xs">Version {APP_VERSION}</p>
             </div>
           </div>
         </footer>

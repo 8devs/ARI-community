@@ -25,6 +25,7 @@ import Rooms from "./pages/Rooms";
 import Groups from "./pages/Groups";
 import NotificationsCenter from "./pages/NotificationsCenter";
 import Changelog from "./pages/Changelog";
+import RoomPublicView from "./pages/RoomPublicView";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,7 @@ const App = () => (
             <Route path="/organisation" element={<Organizations />} />
             <Route path="/events" element={<Events />} />
             <Route path="/passwort/neu" element={<ResetPassword />} />
+            <Route path="/raeume/public/:token" element={<RoomPublicView />} />
             <Route
               path="/qa"
               element={
