@@ -227,6 +227,11 @@ export default function Groups() {
     if (!items.length) return null;
     return items[items.length - 1];
   }, [messagesQuery.data]);
+
+  useEffect(() => {
+    if (!groupChatRef.current) return;
+    groupChatRef.current.scrollTo({ top: groupChatRef.current.scrollHeight, behavior: "smooth" });
+  }, [messagesQuery.data]);
   const groupHighlights = useMemo(() => {
     if (!activeGroup) return [];
     const createdDate = format(new Date(activeGroup.created_at), "dd.MM.yyyy", { locale: de });
@@ -851,7 +856,3 @@ export default function Groups() {
     </Layout>
   );
 }
-  useEffect(() => {
-    if (!groupChatRef.current) return;
-    groupChatRef.current.scrollTo({ top: groupChatRef.current.scrollHeight, behavior: "smooth" });
-  }, [messagesQuery.data]);
