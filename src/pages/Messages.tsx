@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ export default function Messages() {
   const [searchTerm, setSearchTerm] = useState("");
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
+
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const coworkersQuery = useQuery({
     queryKey: ["coworkers", profile?.id],
@@ -181,6 +183,11 @@ export default function Messages() {
     };
   }, [profile?.id, queryClient, selectedPartnerId]);
 
+  useEffect(() => {
+    if (!chatScrollRef.current) return;
+    chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messagesQuery.data]);
+
   const handleSendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!profile?.id || !selectedPartnerId) {
@@ -294,7 +301,10 @@ export default function Messages() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex h-full flex-col gap-4 pb-24">
-            <div className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4">
+            <div
+              ref={chatScrollRef}
+              className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4 min-h-[360px] max-h-[65vh]"
+            >
               {!selectedPartner && (
                 <p className="text-muted-foreground text-sm">
                   Wähle auf der linken Seite eine Person aus, um Nachrichten auszutauschen.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
@@ -85,6 +85,8 @@ export default function Groups() {
   const [memberSearch, setMemberSearch] = useState("");
   const [activeDetailTab, setActiveDetailTab] = useState<"chat" | "members">("chat");
   const [memberActionId, setMemberActionId] = useState<string | null>(null);
+
+  const groupChatRef = useRef<HTMLDivElement | null>(null);
 
   const groupsQuery = useQuery({
     queryKey: ["community-groups"],
@@ -658,7 +660,10 @@ export default function Groups() {
                     </TabsList>
                     <TabsContent value="chat" className="flex-1">
                       <div className="flex h-full flex-col">
-                        <div className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4 pb-12">
+                        <div
+                          ref={groupChatRef}
+                          className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4 pb-12 min-h-[320px] max-h-[65vh]"
+                        >
                           {messagesQuery.isLoading ? (
                             <div className="flex items-center gap-2 text-muted-foreground text-sm">
                               <Loader2 className="h-4 w-4 animate-spin" /> Unterhaltung lädt...
@@ -846,3 +851,7 @@ export default function Groups() {
     </Layout>
   );
 }
+  useEffect(() => {
+    if (!groupChatRef.current) return;
+    groupChatRef.current.scrollTo({ top: groupChatRef.current.scrollHeight, behavior: "smooth" });
+  }, [messagesQuery.data]);
