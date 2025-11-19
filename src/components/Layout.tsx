@@ -277,8 +277,8 @@ export function Layout({ children }: LayoutProps) {
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-8">
-              <Link to="/" className="flex items-center gap-3" aria-label="Zur Startseite">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Zur Startseite">
                 <img
                   src={displayLogo}
                   alt="ARI Community"
@@ -350,7 +350,7 @@ export function Layout({ children }: LayoutProps) {
                 </SheetContent>
               </Sheet>
 
-              <nav className="hidden md:flex items-center gap-1">
+              <nav className="hidden md:flex items-center gap-1 ml-auto flex-wrap justify-end">
                 {navItems.map(({ to, label, icon: Icon }) => (
                   <Button
                     key={to}

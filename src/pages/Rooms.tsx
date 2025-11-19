@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { toast } from 'sonner';
-import { addHours, addMonths, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns';
+import { addHours, addMinutes, addMonths, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, Search, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -164,12 +164,13 @@ export default function Rooms() {
     setRoomDialogOpen(true);
   };
 
-  const openBookingDialog = (booking?: Booking) => {
-    const activeRoomId = resolveActiveRoomId();
-    if (!activeRoomId) {
+  const openBookingDialog = (booking?: Booking, options?: { roomId?: string; start?: Date; end?: Date }) => {
+    const targetRoomId = options?.roomId ?? resolveActiveRoomId();
+    if (!targetRoomId) {
       toast.error('Es stehen aktuell keine Räume zur Verfügung.');
       return;
     }
+    setSelectedRoomId(targetRoomId);
     if (booking) {
       setEditingBooking(booking);
       setBookingForm({
@@ -180,14 +181,13 @@ export default function Rooms() {
       });
     } else {
       setEditingBooking(null);
-      const now = new Date();
-      const start = format(now, "yyyy-MM-dd'T'HH:00");
-      const end = format(addHours(new Date(start), 1), "yyyy-MM-dd'T'HH:00");
+      const startDate = options?.start ?? new Date();
+      const endDate = options?.end ?? addHours(startDate, 1);
       setBookingForm({
         title: '',
         description: '',
-        start,
-        end,
+        start: format(startDate, "yyyy-MM-dd'T'HH:mm"),
+        end: format(endDate, "yyyy-MM-dd'T'HH:mm"),
       });
     }
     setBookingDialogOpen(true);
@@ -444,6 +444,16 @@ export default function Rooms() {
 
   const handleTimelineQuickBooking = () => {
     openBookingDialog();
+  };
+
+  const handleTimelineSlotSelect = (roomId: string, event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const totalMinutes = (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * 60;
+    const offsetMinutes = Math.round((ratio * totalMinutes) / 15) * 15;
+    const start = addMinutes(startOfDay(selectedDay), TIMELINE_START_HOUR * 60 + offsetMinutes);
+    const end = addMinutes(start, 60);
+    openBookingDialog(undefined, { roomId, start, end });
   };
 
   const RoomSelectionPanel = ({ variant = 'desktop' }: { variant?: 'desktop' | 'mobile' }) => {
@@ -836,7 +846,10 @@ export default function Rooms() {
                               <DoorClosed className="h-4 w-4 text-primary" />
                               {room.name}
                             </div>
-                            <div className="relative h-24 rounded-xl border bg-muted/30 px-3 py-2">
+                            <div
+                              className="relative h-24 rounded-xl border bg-muted/30 px-3 py-2 cursor-pointer"
+                              onClick={(event) => handleTimelineSlotSelect(room.id, event)}
+                            >
                               {timelineHours.map((hour) => {
                                 const position =
                                   ((hour - TIMELINE_START_HOUR) /
@@ -876,6 +889,10 @@ export default function Rooms() {
                                       key={booking.id}
                                       className="absolute top-5 rounded-lg bg-primary/80 px-3 py-2 text-xs text-primary-foreground shadow-md"
                                       style={{ left: `${left}%`, width: `${Math.max(width, 6)}%` }}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        openBookingDialog(booking);
+                                      }}
                                     >
                                       <p className="font-semibold truncate">{booking.title}</p>
                                       <p>
