@@ -1204,6 +1204,7 @@ export type Database = {
       }
       rooms: {
         Row: {
+          resource_group_id: string | null
           booking_notify_email: string | null
           capacity: number | null
           chairs_capacity: number | null
@@ -1226,6 +1227,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          resource_group_id?: string | null
           booking_notify_email?: string | null
           capacity?: number | null
           chairs_capacity?: number | null
@@ -1248,6 +1250,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          resource_group_id?: string | null
           booking_notify_email?: string | null
           capacity?: number | null
           chairs_capacity?: number | null
@@ -1279,6 +1282,48 @@ export type Database = {
           },
           {
             foreignKeyName: "rooms_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rooms_resource_group_id_fkey"
+            columns: ["resource_group_id"]
+            isOneToOne: false
+            referencedRelation: "room_resource_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_resource_groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string | null
+          tables_total: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization_id?: string | null
+          tables_total?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string | null
+          tables_total?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_resource_groups_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

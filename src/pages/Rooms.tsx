@@ -24,7 +24,7 @@ import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { toast } from 'sonner';
 import { addHours, addMinutes, addMonths, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, Search, Menu, Share2, Copy, FileText, Droplet } from 'lucide-react';
+import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, Search, Menu, Share2, Copy, FileText, Droplet, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sendEmailNotification } from '@/lib/notifications';
 
@@ -37,6 +37,7 @@ type Booking = Tables<'room_bookings'> & {
     name: string | null;
   } | null;
 };
+type RoomResourceGroup = Tables<'room_resource_groups'>;
 
 const emptyRoomForm = {
   name: '',
@@ -53,6 +54,7 @@ const emptyRoomForm = {
   notify_on_booking: false,
   booking_notify_email: '',
   info_document_url: '',
+  resource_group_id: null as string | null,
 };
 
 const emptyBookingForm = {
@@ -63,6 +65,11 @@ const emptyBookingForm = {
   expected_attendees: '',
   chairs_needed: '',
   tables_needed: '',
+};
+
+const emptyGroupForm = {
+  name: '',
+  tables_total: '',
 };
 
 const TIMELINE_START_HOUR = 6;
@@ -94,12 +101,21 @@ export default function Rooms() {
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [roomDocumentFile, setRoomDocumentFile] = useState<File | null>(null);
   const [removeRoomDocument, setRemoveRoomDocument] = useState(false);
+  const [resourceGroups, setResourceGroups] = useState<RoomResourceGroup[]>([]);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<RoomResourceGroup | null>(null);
+  const [groupForm, setGroupForm] = useState(emptyGroupForm);
+  const [savingGroup, setSavingGroup] = useState(false);
 
   const isRoomAdmin = Boolean(profile && (profile.role === 'SUPER_ADMIN' || profile.role === 'ORG_ADMIN'));
   const selectedRoom = useMemo(() => rooms.find((room) => room.id === selectedRoomId) || null, [rooms, selectedRoomId]);
   const publicRoomLink = useMemo(
     () => (selectedRoom?.public_share_token ? getPublicRoomUrl(selectedRoom.public_share_token) : null),
     [selectedRoom?.public_share_token],
+  );
+  const selectedGroup = useMemo(
+    () => resourceGroups.find((group) => group.id === selectedRoom?.resource_group_id) ?? null,
+    [resourceGroups, selectedRoom?.resource_group_id],
   );
 
   const numberOrNull = (value: string) => (value ? Number(value) : null);
@@ -193,6 +209,10 @@ export default function Rooms() {
     loadBookings(currentMonth);
   }, [currentMonth]);
 
+  useEffect(() => {
+    loadResourceGroups();
+  }, [profile?.role, profile?.organization_id]);
+
   const loadRooms = async () => {
     setRoomsLoading(true);
     try {
@@ -211,6 +231,20 @@ export default function Rooms() {
       toast.error('Räume konnten nicht geladen werden.');
     } finally {
       setRoomsLoading(false);
+    }
+  };
+
+  const loadResourceGroups = async () => {
+    try {
+      let query = supabase.from('room_resource_groups').select('*').order('name');
+      if (profile?.role !== 'SUPER_ADMIN' && profile?.organization_id) {
+        query = query.eq('organization_id', profile.organization_id);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      setResourceGroups((data as RoomResourceGroup[]) ?? []);
+    } catch (error) {
+      console.error('Error loading resource groups', error);
     }
   };
 
@@ -263,17 +297,34 @@ export default function Rooms() {
         notify_on_booking: room.notify_on_booking ?? false,
         booking_notify_email: room.booking_notify_email ?? '',
         info_document_url: room.info_document_url ?? '',
+        resource_group_id: room.resource_group_id ?? null,
       });
     } else {
       setEditingRoom(null);
       setRoomForm({
         ...emptyRoomForm,
         is_active: true,
+        resource_group_id: null,
       });
     }
     setRoomDocumentFile(null);
     setRemoveRoomDocument(false);
     setRoomDialogOpen(true);
+  };
+
+  const openGroupDialog = (group?: RoomResourceGroup) => {
+    if (!isRoomAdmin) return;
+    if (group) {
+      setEditingGroup(group);
+      setGroupForm({
+        name: group.name,
+        tables_total: group.tables_total?.toString() ?? '',
+      });
+    } else {
+      setEditingGroup(null);
+      setGroupForm(emptyGroupForm);
+    }
+    setGroupDialogOpen(true);
   };
 
   const openBookingDialog = (booking?: Booking, options?: { roomId?: string; start?: Date; end?: Date }) => {
@@ -311,12 +362,50 @@ export default function Rooms() {
     setBookingDialogOpen(true);
   };
 
-  const handleRoomFormChange = (field: keyof typeof roomForm, value: string | boolean) => {
+  const handleRoomFormChange = (field: keyof typeof roomForm, value: string | boolean | null) => {
     setRoomForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleBookingFormChange = (field: keyof typeof bookingForm, value: string) => {
     setBookingForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleGroupFormChange = (field: keyof typeof groupForm, value: string) => {
+    setGroupForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const ensureGroupTablesAvailable = async (
+    group: RoomResourceGroup,
+    requestedTables: number | null,
+    startIso: string,
+    endIso: string,
+  ) => {
+    if (!group.tables_total || !requestedTables || requestedTables <= 0) {
+      return true;
+    }
+    const groupRoomIds = rooms.filter((room) => room.resource_group_id === group.id).map((room) => room.id);
+    if (groupRoomIds.length === 0) {
+      return true;
+    }
+    const { data, error } = await supabase
+      .from('room_bookings')
+      .select('id, tables_needed, start_time, end_time')
+      .in('room_id', groupRoomIds)
+      .lt('start_time', endIso)
+      .gt('end_time', startIso);
+    if (error) {
+      console.error('Error validating shared tables', error);
+      toast.error('Die gemeinsamen Tische konnten nicht geprüft werden.');
+      return false;
+    }
+    const overlapping = (data ?? []).filter((row) => !editingBooking || row.id !== editingBooking.id);
+    const usedTables = overlapping.reduce((sum, row) => sum + (row.tables_needed ?? 0), 0);
+    const available = group.tables_total - usedTables;
+    if (requestedTables > available) {
+      toast.error(`Im Pool "${group.name}" sind nur noch ${Math.max(available, 0)} Tische verfügbar.`);
+      return false;
+    }
+    return true;
   };
 
   const handleSaveRoom = async (e: React.FormEvent) => {
@@ -368,6 +457,7 @@ export default function Rooms() {
       notify_on_booking: roomForm.notify_on_booking,
       booking_notify_email: roomForm.notify_on_booking ? roomForm.booking_notify_email.trim() || null : null,
       info_document_url: infoDocumentUrl,
+      resource_group_id: roomForm.resource_group_id,
     };
 
     try {
@@ -398,6 +488,42 @@ export default function Rooms() {
       toast.error('Raum konnte nicht gespeichert werden.');
     } finally {
       setSavingRoom(false);
+    }
+  };
+
+  const handleSaveGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isRoomAdmin) return;
+    if (!groupForm.name.trim()) {
+      toast.error('Bitte einen Namen für den Pool angeben.');
+      return;
+    }
+    const tablesTotal = groupForm.tables_total ? Number(groupForm.tables_total) : null;
+    setSavingGroup(true);
+    try {
+      const payload = {
+        name: groupForm.name.trim(),
+        tables_total: tablesTotal,
+        organization_id: profile?.organization_id ?? null,
+      };
+      if (editingGroup) {
+        const { error } = await supabase.from('room_resource_groups').update(payload).eq('id', editingGroup.id);
+        if (error) throw error;
+        toast.success('Pool aktualisiert');
+      } else {
+        const { error } = await supabase.from('room_resource_groups').insert(payload);
+        if (error) throw error;
+        toast.success('Pool angelegt');
+      }
+      setGroupDialogOpen(false);
+      setEditingGroup(null);
+      setGroupForm(emptyGroupForm);
+      loadResourceGroups();
+    } catch (error) {
+      console.error('Error saving resource group', error);
+      toast.error('Pool konnte nicht gespeichert werden.');
+    } finally {
+      setSavingGroup(false);
     }
   };
 
@@ -442,6 +568,12 @@ export default function Rooms() {
 
     const startDate = new Date(bookingForm.start);
     const endDate = new Date(bookingForm.end);
+    if (selectedGroup) {
+      const groupOk = await ensureGroupTablesAvailable(selectedGroup, tablesNeeded, startDate.toISOString(), endDate.toISOString());
+      if (!groupOk) {
+        return;
+      }
+    }
 
     const payload = {
       room_id: selectedRoomId,
@@ -536,6 +668,18 @@ export default function Rooms() {
       room.description?.toLowerCase().includes(term),
     );
   }, [rooms, roomSearch]);
+
+  const roomsByGroup = useMemo(() => {
+    const map = new Map<string, Room[]>();
+    rooms.forEach((room) => {
+      if (!room.resource_group_id) return;
+      if (!map.has(room.resource_group_id)) {
+        map.set(room.resource_group_id, []);
+      }
+      map.get(room.resource_group_id)?.push(room);
+    });
+    return map;
+  }, [rooms]);
 
   const { activeRooms, inactiveRooms } = useMemo(() => {
     const active = rooms.filter((room) => room.is_active).length;
@@ -819,6 +963,12 @@ export default function Rooms() {
                 Raum anlegen
               </Button>
             )}
+            {isRoomAdmin && (
+              <Button variant="outline" size="sm" onClick={() => openGroupDialog()} className="w-full sm:w-auto">
+                <Layers className="mr-2 h-4 w-4" />
+                Pool anlegen
+              </Button>
+            )}
             <Button
               variant="default"
               onClick={() => openBookingDialog()}
@@ -874,6 +1024,12 @@ export default function Rooms() {
                       Getränke-Catering
                     </span>
                   )}
+                  {selectedGroup && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                      Pool: {selectedGroup.name}
+                      {typeof selectedGroup.tables_total === 'number' ? ` (${selectedGroup.tables_total} Tische)` : ''}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -915,6 +1071,56 @@ export default function Rooms() {
                   </Button>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {isRoomAdmin && (
+          <Card className="border border-dashed border-border/70 bg-card/60">
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Ressourcenpools</CardTitle>
+                <CardDescription>Verwalte die gemeinsame Tischanzahl Deiner Besprechungsräume.</CardDescription>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => openGroupDialog()}>
+                <Layers className="mr-2 h-4 w-4" />
+                Pool hinzufügen
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {resourceGroups.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Noch keine Pools vorhanden. Lege einen Pool an und ordne Räume im Dialog zu.
+                </p>
+              ) : (
+                resourceGroups.map((group) => {
+                  const assignedRooms = roomsByGroup.get(group.id) ?? [];
+                  return (
+                    <div
+                      key={group.id}
+                      className="flex flex-col gap-2 rounded-xl border border-border/70 bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <p className="font-semibold">{group.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {typeof group.tables_total === 'number'
+                            ? `${group.tables_total} Tische im Pool`
+                            : 'Keine Begrenzung angegeben'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Zugewiesene Räume: {assignedRooms.length > 0 ? assignedRooms.map((room) => room.name).join(', ') : 'keine'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{assignedRooms.length} Räume</Badge>
+                        <Button size="sm" variant="outline" onClick={() => openGroupDialog(group)}>
+                          Bearbeiten
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
         )}
@@ -1230,7 +1436,7 @@ export default function Rooms() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingRoom ? 'Raum bearbeiten' : 'Neuen Raum anlegen'}</DialogTitle>
           </DialogHeader>
@@ -1324,6 +1530,36 @@ export default function Rooms() {
                 value={roomForm.description}
                 onChange={(e) => handleRoomFormChange('description', e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Ressourcenpool</Label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Select
+                  value={roomForm.resource_group_id ?? 'none'}
+                  onValueChange={(value) => handleRoomFormChange('resource_group_id', value === 'none' ? null : value)}
+                >
+                  <SelectTrigger className="sm:w-64">
+                    <SelectValue placeholder="Pool auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Kein Pool</SelectItem>
+                    {resourceGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name} {typeof group.tables_total === 'number' ? `(${group.tables_total} Tische)` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isRoomAdmin && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => openGroupDialog()}>
+                    <Layers className="mr-2 h-4 w-4" />
+                    Pool anlegen
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Pools definieren die gemeinsame Tischanzahl mehrerer Räume.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="room-document">Infodokument (PDF)</Label>
@@ -1429,7 +1665,7 @@ export default function Rooms() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingBooking ? 'Buchung bearbeiten' : 'Neue Buchung erstellen'}</DialogTitle>
           </DialogHeader>
@@ -1520,6 +1756,52 @@ export default function Rooms() {
             <DialogFooter>
               <Button type="submit" disabled={savingBooking}>
                 {savingBooking ? 'Speichert...' : editingBooking ? 'Aktualisieren' : 'Buchen'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={groupDialogOpen}
+        onOpenChange={(open) => {
+          setGroupDialogOpen(open);
+          if (!open) {
+            setEditingGroup(null);
+            setGroupForm(emptyGroupForm);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[75vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingGroup ? 'Pool bearbeiten' : 'Neuen Pool anlegen'}</DialogTitle>
+            <DialogDescription>Lege die Gesamtzahl beweglicher Tische fest.</DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleSaveGroup}>
+            <div className="space-y-2">
+              <Label htmlFor="group-name">Name</Label>
+              <Input
+                id="group-name"
+                value={groupForm.name}
+                onChange={(e) => handleGroupFormChange('name', e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="group-tables">Gesamtanzahl Tische</Label>
+              <Input
+                id="group-tables"
+                type="number"
+                min="0"
+                placeholder="z. B. 20"
+                value={groupForm.tables_total}
+                onChange={(e) => handleGroupFormChange('tables_total', e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Lass das Feld frei, wenn Du keine Grenze setzen möchtest.</p>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={savingGroup}>
+                {savingGroup ? 'Speichert...' : editingGroup ? 'Aktualisieren' : 'Anlegen'}
               </Button>
             </DialogFooter>
           </form>

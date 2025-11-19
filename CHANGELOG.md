@@ -2,6 +2,14 @@
 
 Alle relevanten Änderungen der ARI Community App. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/) und setzt [SemVer](https://semver.org/lang/de/) ein.
 
+## [0.5.3] - 2025-11-19
+### Neu
+- Räume: Ressourcenpools bündeln nun die Gesamtanzahl beweglicher Tische über mehrere Räume hinweg; Buchungen prüfen automatisch, ob der Pool noch Kapazität hat.
+- Admins verwalten Pools in einem eigenen Bereich und können Räume per Dialog zuweisen; Raumdialog enthält die Pool-Auswahl.
+
+### Geändert
+- Raum- und Buchungsdialoge sind scrollbar, damit alle Felder auf kleineren Bildschirmen erreichbar bleiben.
+
 ## [0.5.2] - 2025-11-19
 ### Neu
 - Räume: Verwaltbare Stuhl-/Tischkontingente inklusive PDF-Infodokument, Getränke-Catering-Hinweis und optionaler Buchungs-Benachrichtigung mit automatischer E-Mail.
