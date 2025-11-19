@@ -27,6 +27,7 @@ import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 type ActivityItem = {
   id: string;
@@ -39,6 +40,15 @@ type ActivityItem = {
 
 type FeaturedPerson = Pick<Tables<'profiles'>, 'id' | 'name' | 'position' | 'avatar_url'> & {
   organization?: {
+    name: string | null;
+  } | null;
+};
+
+type NewsItem = Pick<
+  Tables<'info_posts'>,
+  'id' | 'title' | 'content' | 'created_at' | 'pinned' | 'audience' | 'target_organization_id'
+> & {
+  created_by: {
     name: string | null;
   } | null;
 };
@@ -66,6 +76,8 @@ export default function Dashboard() {
   });
   const [featuredPeople, setFeaturedPeople] = useState<FeaturedPerson[]>([]);
   const [whoLoading, setWhoLoading] = useState(true);
+  const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
 
   useEffect(() => {
     loadActivities();
@@ -124,6 +136,75 @@ export default function Dashboard() {
   useEffect(() => {
     setOrgLogo(profile?.organization?.logo_url ?? brandLogo ?? null);
   }, [profile?.organization?.logo_url, brandLogo]);
+
+  const canSeeNews = (post: NewsItem) => {
+    if (post.audience === 'PUBLIC') return true;
+    if (!profile?.id) return false;
+    if (post.audience === 'INTERNAL') return true;
+    if (post.audience === 'ORG_ONLY') {
+      if (!profile.organization_id) return false;
+      return post.target_organization_id === profile.organization_id;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadLatestNews = async () => {
+      setNewsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('info_posts')
+          .select(
+            `
+            id,
+            title,
+            content,
+            created_at,
+            pinned,
+            audience,
+            target_organization_id,
+            created_by:profiles!info_posts_created_by_id_fkey(name)
+          `,
+          )
+          .order('pinned', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(8);
+        if (error) throw error;
+        if (!ignore) {
+          const filtered = (data ?? []).filter(canSeeNews);
+          setLatestNews(filtered.slice(0, 4));
+        }
+      } catch (error) {
+        console.error('Error loading dashboard news', error);
+        if (!ignore) {
+          setLatestNews([]);
+        }
+      } finally {
+        if (!ignore) {
+          setNewsLoading(false);
+        }
+      }
+    };
+
+    void loadLatestNews();
+    const channel = supabase
+      .channel('dashboard-news-feed')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'info_posts' },
+        () => {
+          void loadLatestNews();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      ignore = true;
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, profile?.organization_id]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -392,6 +473,61 @@ export default function Dashboard() {
             </Card>
           )}
         </div>
+
+        <Card className="border border-primary/40 bg-card/80 shadow-sm">
+          <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-2xl">News & Pinnwand</CardTitle>
+              <CardDescription>Die wichtigsten Meldungen stehen direkt griffbereit.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/pinnwand">Zur Pinnwand</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {newsLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                News werden geladen...
+              </div>
+            ) : latestNews.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Noch keine Beiträge sichtbar. Schau später vorbei oder erstelle einen neuen Eintrag auf der Pinnwand.
+              </p>
+            ) : (
+              latestNews.map((post) => {
+                const preview = post.content.length > 220 ? `${post.content.slice(0, 220)}…` : post.content;
+                const url = `/pinnwand?highlight=${post.id}`;
+                return (
+                  <div
+                    key={post.id}
+                    className="group rounded-xl border border-border/60 bg-background/80 p-4 transition hover:border-primary/40 hover:bg-card"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <Link to={url} className="flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-foreground group-hover:text-primary">{post.title}</p>
+                          {post.pinned && <Badge>Gepinnt</Badge>}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{preview}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {post.created_by?.name ?? 'Unbekannt'} •{' '}
+                          {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: de })}
+                        </p>
+                      </Link>
+                      <Button variant="ghost" size="sm" className="justify-between sm:w-auto" asChild>
+                        <Link to={url} className="inline-flex items-center gap-2">
+                          Lesen
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
 
         {!hasSeenOnboarding && !onboardingCompleted && (
           <Card className="border-primary/40 bg-primary/5">

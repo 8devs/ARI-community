@@ -59,6 +59,7 @@ export default function Pinnwand() {
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [removeAttachment, setRemoveAttachment] = useState(false);
   const [availableOrgs, setAvailableOrgs] = useState<{ id: string; name: string }[]>([]);
+  const [sendEmployeeNotification, setSendEmployeeNotification] = useState(true);
 
   useEffect(() => {
     loadPosts();
@@ -141,6 +142,7 @@ export default function Pinnwand() {
     });
     setAttachmentFile(null);
     setRemoveAttachment(false);
+    setSendEmployeeNotification(true);
     setDialogOpen(true);
   };
 
@@ -156,6 +158,7 @@ export default function Pinnwand() {
     });
     setAttachmentFile(null);
     setRemoveAttachment(false);
+    setSendEmployeeNotification(false);
     setDialogOpen(true);
   };
 
@@ -240,7 +243,7 @@ export default function Pinnwand() {
       setEditingPostId(null);
       setDialogOpen(false);
       loadPosts();
-      if (!editingPostId && insertedPostId) {
+      if (!editingPostId && insertedPostId && sendEmployeeNotification) {
         void triggerPostNotifications(insertedPostId);
       }
     } catch (error) {
@@ -309,6 +312,7 @@ export default function Pinnwand() {
                 if (!open) {
                   setAttachmentFile(null);
                   setRemoveAttachment(false);
+                  setSendEmployeeNotification(true);
                 }
               }}
             >
@@ -443,6 +447,15 @@ export default function Pinnwand() {
                         checked={newPost.pinned}
                         onCheckedChange={(checked) => setNewPost(prev => ({ ...prev, pinned: checked }))}
                       />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-4 md:col-span-2">
+                      <div>
+                        <p className="font-medium">Benachrichtigung an Mitarbeitende</p>
+                        <p className="text-sm text-muted-foreground">
+                          Sendet eine Push/E-Mail an alle Mitarbeitenden beim Veröffentlichen.
+                        </p>
+                      </div>
+                      <Switch checked={sendEmployeeNotification} onCheckedChange={setSendEmployeeNotification} />
                     </div>
                   </div>
                   <DialogFooter>

@@ -1,11 +1,11 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { 
-  Users, 
-  LayoutDashboard, 
-  Newspaper, 
-  MessageSquare, 
+import {
+  LayoutDashboard,
+  Newspaper,
+  MessageSquare,
   Building2,
   Utensils,
   LogOut,
@@ -29,10 +29,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTheme } from 'next-themes';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationsMenu } from '@/components/NotificationsMenu';
@@ -47,6 +46,17 @@ interface LayoutProps {
 
 const BRAND_STORAGE_KEY = 'ari-brand-logo';
 
+type NavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
 export function Layout({ children }: LayoutProps) {
   const { user, signOut } = useAuth();
   const { profile } = useCurrentProfile();
@@ -54,7 +64,7 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const isAuthenticated = Boolean(user);
   const canAccessAdmin = profile?.role === 'SUPER_ADMIN' || profile?.role === 'ORG_ADMIN';
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const [themeReady, setThemeReady] = useState(false);
   const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(() => {
@@ -86,19 +96,7 @@ export function Layout({ children }: LayoutProps) {
 
   const pendingBadgeValue = formatPendingCount();
 
-  const AdminLinkContent = () => (
-    <>
-      <Shield className="h-4 w-4 mr-2" />
-      Admin
-      {pendingBadgeValue && (
-        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
-          {pendingBadgeValue}
-        </span>
-      )}
-    </>
-  );
-
-  const primaryNav = useMemo(() => {
+  const primaryNav = useMemo<NavItem[]>(() => {
     if (!isAuthenticated) {
       return [
         { to: '/', label: 'Start', icon: LayoutDashboard },
@@ -116,7 +114,7 @@ export function Layout({ children }: LayoutProps) {
     ];
   }, [isAuthenticated]);
 
-  const secondaryNav = useMemo(() => {
+  const secondaryNav = useMemo<NavItem[]>(() => {
     if (!isAuthenticated) return [];
     return [
       { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
@@ -126,6 +124,20 @@ export function Layout({ children }: LayoutProps) {
       { to: '/kaffee', label: 'Kaffee', icon: Coffee },
     ];
   }, [isAuthenticated]);
+
+  const navSections = useMemo<NavSection[]>(() => {
+    const sections: NavSection[] = [];
+    if (primaryNav.length) {
+      sections.push({ title: 'Arbeitsplatz', items: primaryNav });
+    }
+    if (secondaryNav.length) {
+      sections.push({ title: 'Community', items: secondaryNav });
+    }
+    if (canAccessAdmin) {
+      sections.push({ title: 'Verwaltung', items: [{ to: '/admin', label: 'Administration', icon: Shield }] });
+    }
+    return sections;
+  }, [primaryNav, secondaryNav, canAccessAdmin]);
 
   useEffect(() => {
     setThemeReady(true);
@@ -276,164 +288,123 @@ export function Layout({ children }: LayoutProps) {
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
-  const navButtonClasses = 'transition-colors data-[active=true]:bg-muted data-[active=true]:text-foreground';
+  const navButtonClasses =
+    'w-full justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/60 data-[active=true]:bg-primary/10 data-[active=true]:text-primary';
 
+  const renderNav = (onNavigate?: () => void) => (
+    <div className="space-y-6">
+      {navSections.map((section) => (
+        <div key={section.title}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</p>
+          <div className="mt-3 space-y-1">
+            {section.items.map(({ to, label, icon: Icon }) => (
+              <Button
+                key={to}
+                variant="ghost"
+                size="sm"
+                className={cn(navButtonClasses)}
+                data-active={isRouteActive(to) ? 'true' : undefined}
+                asChild
+                onClick={() => onNavigate?.()}
+              >
+                <Link to={to} className="flex w-full items-center gap-3">
+                  <Icon className="h-4 w-4" />
+                  <span className="flex-1 truncate">{label}</span>
+                  {to === '/admin' && pendingBadgeValue && (
+                    <span className="ml-auto inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+                      {pendingBadgeValue}
+                    </span>
+                  )}
+                </Link>
+              </Button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Zur Startseite">
-                <img
-                  src={displayLogo}
-                  alt="ARI Community"
-                  className="h-10 w-auto object-contain"
-                  loading="lazy"
-                />
-              </Link>
+    <div className="flex min-h-screen bg-background">
+      <aside className="hidden w-72 flex-col border-r border-border/60 bg-card/70 backdrop-blur lg:flex">
+        <Link to="/" className="flex items-center gap-3 border-b border-border/60 px-6 py-5" aria-label="Zur Startseite">
+          <img src={displayLogo} alt="ARI Community" className="h-10 w-auto object-contain" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">
+              {profile?.organization?.name ?? 'ARI Community'}
+            </p>
+            <p className="text-xs text-muted-foreground">Alles auf einen Blick</p>
+          </div>
+        </Link>
+        <div className="flex-1 overflow-y-auto px-4 py-6">{renderNav()}</div>
+        <div className="space-y-3 border-t border-border/60 px-4 py-6">
+          {themeReady && (
+            <Button variant="outline" className="w-full justify-start" onClick={toggleTheme}>
+              {resolvedTheme === 'dark' ? (
+                <>
+                  <Sun className="mr-2 h-4 w-4" />
+                  Helles Design
+                </>
+              ) : (
+                <>
+                  <Moon className="mr-2 h-4 w-4" />
+                  Dunkles Design
+                </>
+              )}
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground">Version {APP_VERSION}</p>
+        </div>
+      </aside>
 
-              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+      <div className="flex min-h-screen flex-1 flex-col">
+        <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+            <div className="flex items-center gap-3">
+              <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
+                  <Button variant="ghost" size="icon" className="lg:hidden">
                     <Menu className="h-5 w-5" />
-                    <span className="sr-only">Menü öffnen</span>
+                    <span className="sr-only">Navigation öffnen</span>
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-72 sm:w-80">
-                  <div className="flex flex-col gap-6 mt-6">
-                    <div className="space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Navigation</p>
-                      {primaryNav.map(({ to, label, icon: Icon }) => (
-                        <Button
-                          key={to}
-                          variant="ghost"
-                          className={cn('justify-start', navButtonClasses)}
-                          onClick={() => setMobileOpen(false)}
-                          data-active={isRouteActive(to) ? 'true' : undefined}
-                          asChild
-                        >
-                          <Link to={to}>
-                            <Icon className="h-4 w-4 mr-2" />
-                            {label}
-                          </Link>
-                        </Button>
-                      ))}
+                  <div className="mt-4 flex items-center gap-3 border-b border-border/60 pb-4">
+                    <img src={displayLogo} alt="ARI Community" className="h-10 w-auto object-contain" />
+                    <div>
+                      <p className="text-sm font-semibold">{profile?.organization?.name ?? 'ARI Community'}</p>
+                      <p className="text-xs text-muted-foreground">Alles auf einen Blick</p>
                     </div>
-                    {secondaryNav.length > 0 && (
-                      <div className="space-y-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schnellzugriffe</p>
-                        {secondaryNav.map(({ to, label, icon: Icon }) => (
-                          <Button
-                            key={to}
-                            variant="ghost"
-                            className={cn('justify-start', navButtonClasses)}
-                            onClick={() => setMobileOpen(false)}
-                            data-active={isRouteActive(to) ? 'true' : undefined}
-                            asChild
-                          >
-                            <Link to={to}>
-                              <Icon className="h-4 w-4 mr-2" />
-                              {label}
-                            </Link>
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                    {isAuthenticated && canAccessAdmin && (
-                      <Button
-                        variant="ghost"
-                        className={cn('justify-start', navButtonClasses)}
-                        onClick={() => setMobileOpen(false)}
-                        data-active={isRouteActive('/admin') ? 'true' : undefined}
-                        asChild
-                      >
-                        <Link to="/admin">
-                          <AdminLinkContent />
-                        </Link>
-                      </Button>
-                    )}
-                    {themeReady && (
-                      <Button
-                        variant="outline"
-                        className="justify-start"
-                        onClick={() => {
-                          toggleTheme();
-                          setMobileOpen(false);
-                        }}
-                      >
-                        {resolvedTheme === 'dark' ? (
-                          <>
-                            <Sun className="h-4 w-4 mr-2" />
-                            Helles Design
-                          </>
-                        ) : (
-                          <>
-                            <Moon className="h-4 w-4 mr-2" />
-                            Dunkles Design
-                          </>
-                        )}
-                      </Button>
-                    )}
                   </div>
+                  <div className="py-6">{renderNav(() => setSidebarOpen(false))}</div>
+                  {themeReady && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        toggleTheme();
+                        setSidebarOpen(false);
+                      }}
+                    >
+                      {resolvedTheme === 'dark' ? (
+                        <>
+                          <Sun className="mr-2 h-4 w-4" />
+                          Helles Design
+                        </>
+                      ) : (
+                        <>
+                          <Moon className="mr-2 h-4 w-4" />
+                          Dunkles Design
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <p className="mt-4 text-xs text-muted-foreground">Version {APP_VERSION}</p>
                 </SheetContent>
               </Sheet>
-
-              <div className="hidden md:flex flex-1 items-center justify-end gap-4">
-                <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap rounded-full border border-border/60 bg-card/70 px-3 py-1 shadow-inner">
-                  {primaryNav.map(({ to, label, icon: Icon }) => (
-                    <Button
-                      key={to}
-                      variant="ghost"
-                      size="sm"
-                      asChild
-                      data-active={isRouteActive(to) ? 'true' : undefined}
-                      className={cn('flex-shrink-0 rounded-full px-3 py-1 text-sm font-medium', navButtonClasses)}
-                    >
-                      <Link to={to} className="flex items-center gap-2">
-                        <Icon className="h-4 w-4" />
-                        {label}
-                      </Link>
-                    </Button>
-                  ))}
-                </div>
-                {secondaryNav.length > 0 && (
-                  <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap">
-                    {secondaryNav.map(({ to, label, icon: Icon }) => (
-                      <Tooltip key={to} delayDuration={200}>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn('flex-shrink-0 rounded-full', navButtonClasses)}
-                            data-active={isRouteActive(to) ? 'true' : undefined}
-                            asChild
-                          >
-                            <Link to={to}>
-                              <Icon className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>{label}</TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
-                )}
-                {isAuthenticated && canAccessAdmin && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    asChild
-                    data-active={isRouteActive('/admin') ? 'true' : undefined}
-                    className={navButtonClasses}
-                  >
-                    <Link to="/admin">
-                      <AdminLinkContent />
-                    </Link>
-                  </Button>
-                )}
-              </div>
+              <Link to="/" className="flex items-center gap-2 lg:hidden" aria-label="Zur Startseite">
+                <img src={displayLogo} alt="ARI Community" className="h-9 w-auto object-contain" />
+              </Link>
             </div>
 
             <div className="flex items-center gap-2">
@@ -445,6 +416,7 @@ export function Layout({ children }: LayoutProps) {
                       size="icon"
                       onClick={toggleTheme}
                       aria-label="Theme wechseln"
+                      className="lg:hidden"
                     >
                       {resolvedTheme === 'dark' ? (
                         <Sun className="h-[1.2rem] w-[1.2rem]" />
@@ -467,7 +439,7 @@ export function Layout({ children }: LayoutProps) {
                       }
                     }}
                   />
-                  
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -502,32 +474,34 @@ export function Layout({ children }: LayoutProps) {
               )}
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="container mx-auto flex-1 px-4 py-8">{children}</main>
+        <main className="flex-1 overflow-x-hidden">
+          <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10">{children}</div>
+        </main>
 
-      <footer className="mt-auto border-t border-border bg-card/60">
-        <div className="container mx-auto flex flex-col gap-3 px-4 py-6 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <a
-              href="https://aiddevs.com/impressum/"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-primary transition-colors"
-            >
-              Impressum
-            </a>
-            <Link to="/changelog" className="hover:text-primary transition-colors">
-              Changelog
-            </Link>
+        <footer className="border-t border-border bg-card/60">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-muted-foreground sm:px-6 lg:px-10 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
+              <a
+                href="https://aiddevs.com/impressum/"
+                target="_blank"
+                rel="noreferrer"
+                className="transition-colors hover:text-primary"
+              >
+                Impressum
+              </a>
+              <Link to="/changelog" className="transition-colors hover:text-primary">
+                Changelog
+              </Link>
+            </div>
+            <div className="flex flex-col gap-1 text-right md:text-left">
+              <p>Made with ❤️ in Worms by 8devs GmbH</p>
+              <p className="text-xs">Version {APP_VERSION}</p>
+            </div>
           </div>
-          <div className="flex flex-col gap-1 text-right md:text-left">
-            <p>Made with ❤️ in Worms by 8devs GmbH</p>
-            <p className="text-xs">Version {APP_VERSION}</p>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,15 @@
 
 Alle relevanten Änderungen der ARI Community App. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/) und setzt [SemVer](https://semver.org/lang/de/) ein.
 
+## [0.5.1] - 2025-11-19
+### Neu
+- Dashboard-Hero fasst die neuesten Pinnwand-Beiträge zusammen und zeigt sie dauerhaft oben auf der Übersichtsseite.
+- Pinnwand-Dialog enthält nun eine Option, ob beim Veröffentlichen Mitarbeitende benachrichtigt werden sollen.
+
+### Geändert
+- Hauptnavigation sitzt jetzt in einer permanent sichtbaren Sidebar inklusive Branding, wodurch das Logo nicht mehr überlagert wird und das Menü nicht umbrechen kann.
+- Der mobile Drawer übernimmt die neue Struktur samt Theme-Schalter und Versionshinweis.
+
 ## [0.5.0] - 2025-11-19
 ### Neu
 - Dashboard: Kompakte Profilkarte mit Statuschips sowie direkt verlinkte Who-is-Who-Kacheln.
