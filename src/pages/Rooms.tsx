@@ -219,38 +219,6 @@ export default function Rooms() {
     await sendEmailNotification(room.booking_notify_email, subject, html);
   };
 
-  useEffect(() => {
-    loadRooms();
-  }, []);
-
-  useEffect(() => {
-    loadBookings(currentMonth);
-  }, [currentMonth]);
-
-  useEffect(() => {
-    loadResourceGroups();
-  }, [profile?.role, profile?.organization_id]);
-
-  useEffect(() => {
-    if (profile?.role !== 'SUPER_ADMIN') return;
-    let ignore = false;
-    const fetchOrganizations = async () => {
-      try {
-        const { data, error } = await supabase.from('organizations').select('id, name').order('name');
-        if (error) throw error;
-        if (!ignore) {
-          setOrganizations(data ?? []);
-        }
-      } catch (error) {
-        console.error('Error loading organizations', error);
-      }
-    };
-    void fetchOrganizations();
-    return () => {
-      ignore = true;
-    };
-  }, [profile?.role]);
-
   const loadRooms = async () => {
     setRoomsLoading(true);
     try {
@@ -285,6 +253,38 @@ export default function Rooms() {
       console.error('Error loading resource groups', error);
     }
   };
+
+  useEffect(() => {
+    loadRooms();
+  }, []);
+
+  useEffect(() => {
+    loadBookings(currentMonth);
+  }, [currentMonth]);
+
+  useEffect(() => {
+    loadResourceGroups();
+  }, [profile?.role, profile?.organization_id]);
+
+  useEffect(() => {
+    if (profile?.role !== 'SUPER_ADMIN') return;
+    let ignore = false;
+    const fetchOrganizations = async () => {
+      try {
+        const { data, error } = await supabase.from('organizations').select('id, name').order('name');
+        if (error) throw error;
+        if (!ignore) {
+          setOrganizations(data ?? []);
+        }
+      } catch (error) {
+        console.error('Error loading organizations', error);
+      }
+    };
+    void fetchOrganizations();
+    return () => {
+      ignore = true;
+    };
+  }, [profile?.role]);
 
   const loadBookings = async (month: Date) => {
     setBookingsLoading(true);
