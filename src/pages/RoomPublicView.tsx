@@ -35,29 +35,37 @@ export default function RoomPublicView() {
       setLoading(true);
       setError(null);
       try {
-        const { data: roomData, error: roomError } = await supabase
-          .from('rooms')
-          .select('*, organization:organizations(name)')
-          .eq('public_share_token', token)
-          .maybeSingle();
+        const { data: roomRows, error: roomError } = await supabase.rpc('get_room_public_details', {
+          p_token: token,
+        });
         if (roomError) throw roomError;
-        if (!roomData) {
+        const rpcRoom = (roomRows?.[0] ?? null) as (RoomRow & { organization_name?: string | null }) | null;
+        if (!rpcRoom) {
           setError('Der Raum wurde nicht gefunden.');
           setRoom(null);
           setBookings([]);
           return;
         }
-        setRoom(roomData as RoomRow);
+        const { organization_name, ...restRoom } = rpcRoom;
+        setRoom({
+          ...(restRoom as RoomRow),
+          organization: organization_name ? { name: organization_name } : null,
+        });
 
-        const now = new Date().toISOString();
-        const { data: bookingData, error: bookingError } = await supabase
-          .from('room_bookings')
-          .select('*, creator:profiles!room_bookings_created_by_fkey(name)')
-          .eq('room_id', roomData.id)
-          .gte('end_time', now)
-          .order('start_time');
+        const { data: bookingRows, error: bookingError } = await supabase.rpc('get_room_public_bookings', {
+          p_token: token,
+        });
         if (bookingError) throw bookingError;
-        setBookings((bookingData as PublicBooking[]) ?? []);
+        const now = new Date();
+        const normalized = (bookingRows ?? []).map((row) => {
+          const { creator_name, ...rest } = row as PublicBooking & { creator_name?: string | null };
+          return {
+            ...(rest as PublicBooking),
+            creator: creator_name ? { name: creator_name } : null,
+          };
+        });
+        const futureBookings = normalized.filter((booking) => new Date(booking.end_time) >= now);
+        setBookings(futureBookings);
       } catch (err) {
         console.error('Public room view failed', err);
         setError('Die Raumdaten konnten nicht geladen werden.');
@@ -130,12 +138,6 @@ export default function RoomPublicView() {
                       Tische: {room.tables_default ?? '–'} / {room.tables_capacity ?? '–'}
                     </span>
                   )}
-                  {room.requires_beverage_catering && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
-                      <Droplet className="h-3 w-3" />
-                      Getränke-Catering
-                    </span>
-                  )}
                 </div>
                 {room.description && <p className="text-base text-foreground">{room.description}</p>}
                 {room.info_document_url && (
@@ -195,6 +197,17 @@ export default function RoomPublicView() {
                       </p>
                     </div>
                   )}
+                  {currentBooking.requires_catering && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                      <div className="flex items-center gap-2 font-medium text-primary">
+                        <Droplet className="h-4 w-4" />
+                        Catering angefragt
+                      </div>
+                      {currentBooking.catering_details && (
+                        <p className="mt-1 text-muted-foreground">{currentBooking.catering_details}</p>
+                      )}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -239,6 +252,12 @@ export default function RoomPublicView() {
                     )}
                     {booking.tables_needed !== null && (
                       <span className="rounded-full bg-muted px-2 py-1">{booking.tables_needed} Tische</span>
+                    )}
+                    {booking.requires_catering && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-primary">
+                        <Droplet className="h-3 w-3" />
+                        Catering
+                      </span>
                     )}
                   </div>
                 </div>

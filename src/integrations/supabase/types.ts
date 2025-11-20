@@ -1140,6 +1140,8 @@ export type Database = {
           description: string | null
           end_time: string
           expected_attendees: number | null
+          catering_details: string | null
+          requires_catering: boolean
           id: string
           organization_id: string | null
           room_id: string
@@ -1156,6 +1158,8 @@ export type Database = {
           description?: string | null
           end_time: string
           expected_attendees?: number | null
+          catering_details?: string | null
+          requires_catering?: boolean
           id?: string
           organization_id?: string | null
           room_id: string
@@ -1172,6 +1176,8 @@ export type Database = {
           description?: string | null
           end_time?: string
           expected_attendees?: number | null
+          catering_details?: string | null
+          requires_catering?: boolean
           id?: string
           organization_id?: string | null
           room_id?: string

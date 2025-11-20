@@ -55,7 +55,6 @@ const emptyRoomForm = {
   chairs_default: '',
   tables_capacity: '',
   tables_default: '',
-  requires_beverage_catering: false,
   notify_on_booking: false,
   booking_notify_email: '',
   info_document_url: '',
@@ -71,6 +70,8 @@ const emptyBookingForm = {
   chairs_needed: '',
   tables_needed: '',
   whiteboards_needed: '',
+  requires_catering: false,
+  catering_details: '',
 };
 
 const emptyGroupForm = {
@@ -189,6 +190,8 @@ export default function Rooms() {
       whiteboardsNeeded?: number | null;
       organizer?: string | null;
       organization?: string | null;
+      cateringNeeded?: boolean;
+      cateringDetails?: string | null;
     },
   ) => {
     if (!room.notify_on_booking || !room.booking_notify_email) return;
@@ -203,7 +206,12 @@ export default function Rooms() {
       <p><strong>Stühle benötigt:</strong> ${details.chairsNeeded ?? 'Nicht angegeben'}${room.chairs_capacity ? ` / ${room.chairs_capacity} verfügbar` : ''}</p>
       <p><strong>Tische benötigt:</strong> ${details.tablesNeeded ?? 'Nicht angegeben'}${room.tables_capacity ? ` / ${room.tables_capacity} verfügbar` : ''}</p>
       <p><strong>Whiteboards benötigt:</strong> ${details.whiteboardsNeeded ?? 'Nicht angegeben'}</p>
-      <p><strong>Getränke-Catering nötig:</strong> ${room.requires_beverage_catering ? 'Ja' : 'Nein'}</p>
+      <p><strong>Catering benötigt:</strong> ${details.cateringNeeded ? 'Ja' : 'Nein'}</p>
+      ${
+        details.cateringNeeded && details.cateringDetails
+          ? `<p><strong>Catering-Wunsch:</strong><br />${details.cateringDetails.replace(/\n/g, '<br />')}</p>`
+          : ''
+      }
       ${
         details.description
           ? `<p><strong>Beschreibung:</strong><br />${details.description.replace(/\n/g, '<br />')}</p>`
@@ -330,7 +338,6 @@ export default function Rooms() {
         chairs_default: room.chairs_default?.toString() ?? '',
         tables_capacity: room.tables_capacity?.toString() ?? '',
         tables_default: room.tables_default?.toString() ?? '',
-        requires_beverage_catering: room.requires_beverage_catering ?? false,
         notify_on_booking: room.notify_on_booking ?? false,
         booking_notify_email: room.booking_notify_email ?? '',
         info_document_url: room.info_document_url ?? '',
@@ -385,6 +392,15 @@ export default function Rooms() {
       toast.error('Es stehen aktuell keine Räume zur Verfügung.');
       return;
     }
+    const targetRoom = rooms.find((room) => room.id === targetRoomId) ?? null;
+    const targetGroup = targetRoom?.resource_group_id
+      ? resourceGroups.find((group) => group.id === targetRoom.resource_group_id) ?? null
+      : null;
+    const defaultChairsValue =
+      targetRoom?.chairs_default ?? targetRoom?.chairs_capacity ?? null;
+    const defaultTablesValue =
+      targetRoom?.tables_default ?? targetRoom?.tables_capacity ?? null;
+    const defaultWhiteboardsValue = targetGroup?.whiteboards_total ?? null;
     setSelectedRoomId(targetRoomId);
     if (booking) {
       setEditingBooking(booking);
@@ -397,6 +413,8 @@ export default function Rooms() {
         chairs_needed: booking.chairs_needed?.toString() ?? '',
         tables_needed: booking.tables_needed?.toString() ?? '',
         whiteboards_needed: booking.whiteboards_needed?.toString() ?? '',
+        requires_catering: booking.requires_catering ?? false,
+        catering_details: booking.catering_details ?? '',
       });
     } else {
       setEditingBooking(null);
@@ -408,9 +426,11 @@ export default function Rooms() {
         start: format(startDate, "yyyy-MM-dd'T'HH:mm"),
         end: format(endDate, "yyyy-MM-dd'T'HH:mm"),
         expected_attendees: '',
-        chairs_needed: '',
-        tables_needed: '',
-        whiteboards_needed: '',
+        chairs_needed: defaultChairsValue !== null ? String(defaultChairsValue) : '',
+        tables_needed: defaultTablesValue !== null ? String(defaultTablesValue) : '',
+        whiteboards_needed: defaultWhiteboardsValue !== null ? String(defaultWhiteboardsValue) : '',
+        requires_catering: false,
+        catering_details: '',
       });
     }
     setBookingDialogOpen(true);
@@ -420,7 +440,7 @@ export default function Rooms() {
     setRoomForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleBookingFormChange = (field: keyof typeof bookingForm, value: string) => {
+  const handleBookingFormChange = (field: keyof typeof bookingForm, value: string | boolean) => {
     setBookingForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -521,7 +541,6 @@ export default function Rooms() {
       chairs_default: numberOrNull(roomForm.chairs_default),
       tables_capacity: numberOrNull(roomForm.tables_capacity),
       tables_default: numberOrNull(roomForm.tables_default),
-      requires_beverage_catering: roomForm.requires_beverage_catering,
       notify_on_booking: roomForm.notify_on_booking,
       booking_notify_email: roomForm.notify_on_booking ? roomForm.booking_notify_email.trim() || null : null,
       info_document_url: infoDocumentUrl,
@@ -675,6 +694,8 @@ export default function Rooms() {
       chairs_needed: chairsNeeded,
       tables_needed: tablesNeeded,
       whiteboards_needed: whiteboardsNeeded,
+      requires_catering: bookingForm.requires_catering,
+      catering_details: bookingForm.requires_catering ? bookingForm.catering_details.trim() || null : null,
     };
 
     setSavingBooking(true);
@@ -706,6 +727,8 @@ export default function Rooms() {
           whiteboardsNeeded,
           organizer: profile.name ?? null,
           organization: profile.organization?.name ?? null,
+          cateringNeeded: payload.requires_catering,
+          cateringDetails: payload.catering_details,
         });
       }
       setBookingDialogOpen(false);
@@ -1100,12 +1123,6 @@ export default function Rooms() {
                       Tische: {selectedRoom.tables_default ?? '–'} / {selectedRoom.tables_capacity ?? '–'}
                     </span>
                   )}
-                  {selectedRoom.requires_beverage_catering && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
-                      <Droplet className="h-3 w-3" />
-                      Getränke-Catering
-                    </span>
-                  )}
                   {selectedGroup && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
                       Pool: {selectedGroup.name}
@@ -1484,16 +1501,27 @@ export default function Rooms() {
                               {booking.chairs_needed} Stühle
                             </span>
                           )}
-                          {typeof booking.tables_needed === 'number' && (
-                            <span className="rounded-full bg-muted px-2 py-1">
-                              {booking.tables_needed} Tische
-                            </span>
-                          )}
-                        </div>
+                        {typeof booking.tables_needed === 'number' && (
+                          <span className="rounded-full bg-muted px-2 py-1">
+                            {booking.tables_needed} Tische
+                          </span>
+                        )}
+                        {booking.requires_catering && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-primary">
+                            <Droplet className="h-3 w-3" />
+                            Catering
+                          </span>
+                        )}
+                      </div>
+                      {booking.requires_catering && booking.catering_details && (
                         <p className="text-xs text-muted-foreground">
-                          {booking.creator?.name ?? 'Unbekannt'}
-                          {booking.organization?.name ? ` · ${booking.organization.name}` : ''}
+                          Wunsch: {booking.catering_details}
                         </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {booking.creator?.name ?? 'Unbekannt'}
+                        {booking.organization?.name ? ` · ${booking.organization.name}` : ''}
+                      </p>
                       </div>
                       {canManageBooking(booking) && (
                         <div className="flex items-center gap-2">
@@ -1715,16 +1743,6 @@ export default function Rooms() {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div>
-                  <p className="font-medium">Getränke-Catering benötigt</p>
-                  <p className="text-sm text-muted-foreground">Hinweis für das Facility-Team.</p>
-                </div>
-                <Switch
-                  checked={roomForm.requires_beverage_catering}
-                  onCheckedChange={(checked) => handleRoomFormChange('requires_beverage_catering', checked)}
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div>
                   <p className="font-medium">E-Mail bei Buchungen senden</p>
                   <p className="text-sm text-muted-foreground">Informiert automatisch eine Kontaktadresse.</p>
                 </div>
@@ -1863,6 +1881,32 @@ export default function Rooms() {
                   onChange={(e) => handleBookingFormChange('whiteboards_needed', e.target.value)}
                 />
               </div>
+            </div>
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">Catering benötigt?</p>
+                  <p className="text-sm text-muted-foreground">
+                    Aktiviere diese Option, wenn ein Catering oder Getränke-Service vorbereitet werden soll.
+                  </p>
+                </div>
+                <Switch
+                  checked={bookingForm.requires_catering}
+                  onCheckedChange={(checked) => handleBookingFormChange('requires_catering', checked)}
+                />
+              </div>
+              {bookingForm.requires_catering && (
+                <div className="space-y-2">
+                  <Label htmlFor="booking-catering-details">Catering-Wunsch</Label>
+                  <Textarea
+                    id="booking-catering-details"
+                    rows={3}
+                    placeholder="z. B. Kaffee & Tee, Gebäck, vegetarische Snacks …"
+                    value={bookingForm.catering_details}
+                    onChange={(e) => handleBookingFormChange('catering_details', e.target.value)}
+                  />
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button type="submit" disabled={savingBooking}>
