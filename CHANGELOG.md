@@ -2,6 +2,11 @@
 
 Alle relevanten Änderungen der ARI Community App. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/) und setzt [SemVer](https://semver.org/lang/de/) ein.
 
+## [0.5.4] - 2025-11-19
+### Geändert
+- Gruppen & Räume erhalten mobile Sheets zur Auswahl der Listen sowie flexible Tableisten und Scrollbereiche für eine bessere Darstellung auf kleinen Screens.
+- Raumkalender und Zeitstrahl sind jetzt horizontal scrollbar und behalten ihre Lesbarkeit auch auf schmalen Geräten.
+
 ## [0.5.3] - 2025-11-19
 ### Neu
 - Räume: Ressourcenpools bündeln nun die Gesamtanzahl beweglicher Tische über mehrere Räume hinweg; Buchungen prüfen automatisch, ob der Pool noch Kapazität hat.

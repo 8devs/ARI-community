@@ -23,11 +23,12 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, MessageSquare, Plus, Shield, Users, Lock, Clock } from "lucide-react";
+import { Loader2, MessageSquare, Plus, Shield, Users, Lock, Clock, Menu } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface CommunityGroup {
   id: string;
@@ -85,6 +86,7 @@ export default function Groups() {
   const [memberSearch, setMemberSearch] = useState("");
   const [activeDetailTab, setActiveDetailTab] = useState<"chat" | "members">("chat");
   const [memberActionId, setMemberActionId] = useState<string | null>(null);
+  const [groupSheetOpen, setGroupSheetOpen] = useState(false);
 
   const groupChatRef = useRef<HTMLDivElement | null>(null);
 
@@ -200,6 +202,84 @@ export default function Groups() {
     if (!groupId) return false;
     return membershipMap.has(groupId);
   };
+
+  const renderGroupList = (onItemSelected?: () => void) => (
+    <div className="space-y-3">
+      {groupsQuery.isLoading && (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" /> Gruppen werden geladen...
+        </div>
+      )}
+      {!groupsQuery.isLoading && groups.length === 0 && (
+        <p className="text-sm text-muted-foreground">Keine Gruppen gefunden.</p>
+      )}
+      {groups.map((group) => {
+        const member = membershipMap.get(group.id);
+        const isSelected = (selectedGroupId ?? activeGroup?.id) === group.id;
+        return (
+          <div
+            key={group.id}
+            className={cn(
+              "rounded-xl border p-4 transition cursor-pointer",
+              isSelected ? "border-primary bg-primary/5" : "border-border/60",
+            )}
+            onClick={() => {
+              selectGroup(group.id);
+              onItemSelected?.();
+            }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold">{group.name}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">{group.description}</p>
+              </div>
+              <Badge variant={group.visibility === 'PUBLIC' ? 'secondary' : 'outline'}>
+                {group.visibility === 'PUBLIC' ? 'Offen' : 'Privat'}
+              </Badge>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" /> {group.member_count} Mitglieder
+              </span>
+              {member ? (
+                <span className="flex items-center gap-1">
+                  <Shield className="h-3.5 w-3.5" /> {member.role === 'ADMIN' ? 'Admin' : 'Mitglied'}
+                </span>
+              ) : group.visibility === 'PRIVATE' ? (
+                <span className="flex items-center gap-1 text-amber-600">
+                  <Lock className="h-3.5 w-3.5" /> Privat
+                </span>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleJoinGroup(group);
+                  }}
+                >
+                  Beitreten
+                </Button>
+              )}
+            </div>
+            {member && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleLeaveGroup(group.id);
+                }}
+              >
+                Verlassen
+              </Button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const isAdmin = (groupId: string | null) => {
     if (!groupId) return false;
@@ -430,6 +510,28 @@ export default function Groups() {
 
   return (
     <Layout>
+      <Sheet open={groupSheetOpen} onOpenChange={setGroupSheetOpen}>
+        <SheetContent side="left" className="flex w-full flex-col overflow-hidden border-r p-0 sm:max-w-md">
+          <div className="border-b px-6 py-4">
+            <SheetHeader className="text-left">
+              <SheetTitle>Gruppen entdecken</SheetTitle>
+              <SheetDescription>Wähle eine Gruppe aus oder starte eine neue Unterhaltung.</SheetDescription>
+            </SheetHeader>
+          </div>
+          <div className="flex-1 overflow-hidden px-6 pb-6 pt-4">
+            <div className="space-y-4">
+              <Input
+                placeholder="Suchen..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <ScrollArea className="h-[65vh] pr-2">
+                {renderGroupList(() => setGroupSheetOpen(false))}
+              </ScrollArea>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
       <div className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -485,10 +587,21 @@ export default function Groups() {
               </form>
             </DialogContent>
           </Dialog>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto lg:hidden"
+              onClick={() => setGroupSheetOpen(true)}
+            >
+              <Menu className="mr-2 h-4 w-4" />
+              Gruppen wählen
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-          <Card className="h-fit">
+          <Card className="h-fit hidden lg:block">
             <CardHeader>
               <CardTitle>Alle Gruppen</CardTitle>
               <CardDescription>Trete offenen Communities bei oder starte eine neue.</CardDescription>
@@ -500,74 +613,7 @@ export default function Groups() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="max-h-[65vh] pr-2">
-                <div className="space-y-3">
-                  {groupsQuery.isLoading && (
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Gruppen werden geladen...
-                    </div>
-                  )}
-                  {!groupsQuery.isLoading && groups.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Keine Gruppen gefunden.</p>
-                  )}
-                  {groups.map((group) => {
-                    const member = membershipMap.get(group.id);
-                    const isSelected = (selectedGroupId ?? activeGroup?.id) === group.id;
-                    return (
-                      <div
-                        key={group.id}
-                        className={cn(
-                          "rounded-xl border p-4 transition cursor-pointer",
-                          isSelected ? "border-primary bg-primary/5" : "border-border/60",
-                        )}
-                        onClick={() => selectGroup(group.id)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold">{group.name}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">{group.description}</p>
-                          </div>
-                          <Badge variant={group.visibility === 'PUBLIC' ? 'secondary' : 'outline'}>
-                            {group.visibility === 'PUBLIC' ? 'Offen' : 'Privat'}
-                          </Badge>
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5" /> {group.member_count} Mitglieder
-                          </span>
-                          {member ? (
-                            <span className="flex items-center gap-1">
-                              <Shield className="h-3.5 w-3.5" /> {member.role === 'ADMIN' ? 'Admin' : 'Mitglied'}
-                            </span>
-                          ) : group.visibility === 'PRIVATE' ? (
-                            <span className="flex items-center gap-1 text-amber-600">
-                              <Lock className="h-3.5 w-3.5" /> Privat
-                            </span>
-                          ) : (
-                            <Button size="sm" variant="outline" onClick={(event) => {
-                              event.stopPropagation();
-                              void handleJoinGroup(group);
-                            }}>
-                              Beitreten
-                            </Button>
-                          )}
-                        </div>
-                        {member && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="mt-2"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleLeaveGroup(group.id);
-                            }}
-                          >
-                            Verlassen
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                {renderGroupList()}
               </ScrollArea>
             </CardContent>
           </Card>
@@ -649,16 +695,16 @@ export default function Groups() {
                     onValueChange={(value) => setActiveDetailTab(value as "chat" | "members")}
                     className="flex h-full flex-col"
                   >
-                    <TabsList className="mb-4 grid w-full grid-cols-2 gap-2 bg-transparent p-0">
+                    <TabsList className="mb-4 flex w-full flex-wrap gap-2 bg-transparent p-0">
                       <TabsTrigger
                         value="chat"
-                        className="rounded-full border border-border/70 px-4 py-2 text-sm font-semibold transition data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                        className="flex-1 min-w-[140px] rounded-full border border-border/70 px-4 py-2 text-sm font-semibold transition data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
                       >
                         Unterhaltung
                       </TabsTrigger>
                       <TabsTrigger
                         value="members"
-                        className="rounded-full border border-border/70 px-4 py-2 text-sm font-semibold transition data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                        className="flex-1 min-w-[140px] rounded-full border border-border/70 px-4 py-2 text-sm font-semibold transition data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
                       >
                         Mitglieder
                       </TabsTrigger>
@@ -667,7 +713,7 @@ export default function Groups() {
                       <div className="flex h-full flex-col">
                         <div
                           ref={groupChatRef}
-                          className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4 pb-12 min-h-[320px] max-h-[65vh]"
+                          className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4 pb-12 min-h-[260px] max-h-[60vh]"
                         >
                           {messagesQuery.isLoading ? (
                             <div className="flex items-center gap-2 text-muted-foreground text-sm">

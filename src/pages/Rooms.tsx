@@ -1185,47 +1185,49 @@ export default function Rooms() {
                       Buchungen werden geladen...
                     </div>
                   ) : (
-                    <div className="grid grid-cols-7 gap-px rounded-xl border bg-border text-sm lg:text-base">
-                      {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((weekday) => (
-                        <div key={weekday} className="bg-muted/80 px-2 py-1 text-center font-medium">
-                          {weekday}
-                        </div>
-                      ))}
-                      {daysInCalendar.map((day) => {
-                        const key = format(day, 'yyyy-MM-dd');
-                        const dayBookings = bookingsByDay.get(key) || [];
-                        return (
-                          <div
-                            key={key}
-                            className={cn(
-                              'min-h-[120px] border-border bg-background p-2 align-top text-left text-xs sm:text-sm cursor-pointer transition',
-                              !isSameMonth(day, currentMonth) && 'bg-muted/50 text-muted-foreground',
-                              isSameDay(day, new Date()) && 'ring-1 ring-primary',
-                              isSameDay(day, selectedDay) && 'border-primary ring-2 ring-primary/60',
-                            )}
-                            onClick={() => setSelectedDay(startOfDay(day))}
-                          >
-                            <p className="font-semibold">{format(day, 'd.', { locale: de })}</p>
-                            <div className="mt-1 space-y-1">
-                              {dayBookings.length === 0 ? (
-                                <p className="text-[11px] text-muted-foreground">Frei</p>
-                              ) : (
-                                dayBookings.map((booking) => (
-                                  <div
-                                    key={booking.id}
-                                    className="rounded-md border bg-primary/10 px-2 py-1 text-[11px] leading-tight"
-                                  >
-                                    <p className="font-semibold">
-                                      {format(new Date(booking.start_time), 'HH:mm')} – {format(new Date(booking.end_time), 'HH:mm')}
-                                    </p>
-                                    <p className="truncate">{booking.title}</p>
-                                  </div>
-                                ))
-                              )}
-                            </div>
+                    <div className="overflow-x-auto">
+                      <div className="grid min-w-[640px] grid-cols-7 gap-px rounded-xl border bg-border text-sm lg:text-base">
+                        {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((weekday) => (
+                          <div key={weekday} className="bg-muted/80 px-2 py-1 text-center font-medium">
+                            {weekday}
                           </div>
-                        );
-                      })}
+                        ))}
+                        {daysInCalendar.map((day) => {
+                          const key = format(day, 'yyyy-MM-dd');
+                          const dayBookings = bookingsByDay.get(key) || [];
+                          return (
+                            <div
+                              key={key}
+                              className={cn(
+                                'min-h-[120px] border-border bg-background p-2 align-top text-left text-xs sm:text-sm cursor-pointer transition',
+                                !isSameMonth(day, currentMonth) && 'bg-muted/50 text-muted-foreground',
+                                isSameDay(day, new Date()) && 'ring-1 ring-primary',
+                                isSameDay(day, selectedDay) && 'border-primary ring-2 ring-primary/60',
+                              )}
+                              onClick={() => setSelectedDay(startOfDay(day))}
+                            >
+                              <p className="font-semibold">{format(day, 'd.', { locale: de })}</p>
+                              <div className="mt-1 space-y-1">
+                                {dayBookings.length === 0 ? (
+                                  <p className="text-[11px] text-muted-foreground">Frei</p>
+                                ) : (
+                                  dayBookings.map((booking) => (
+                                    <div
+                                      key={booking.id}
+                                      className="rounded-md border bg-primary/10 px-2 py-1 text-[11px] leading-tight"
+                                    >
+                                      <p className="font-semibold">
+                                        {format(new Date(booking.start_time), 'HH:mm')} – {format(new Date(booking.end_time), 'HH:mm')}
+                                      </p>
+                                      <p className="truncate">{booking.title}</p>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )
                 ) : (
@@ -1267,81 +1269,83 @@ export default function Rooms() {
                 ) : rooms.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Noch keine Räume vorhanden.</p>
                 ) : (
-                  <div className="space-y-6">
-                    <div className="flex justify-between text-xs text-muted-foreground pl-24 pr-3">
-                      {timelineHours.map((hour) => (
-                        <span key={hour}>{hour}:00</span>
-                      ))}
-                    </div>
-                    <div className="space-y-4">
-                      {rooms.map((room) => {
-                        const roomBookings = dayTimelineMap.get(room.id) ?? [];
-                        return (
-                          <div key={room.id}>
-                            <div className="flex items-center gap-3 pl-1 pb-1 text-sm font-medium">
-                              <DoorClosed className="h-4 w-4 text-primary" />
-                              {room.name}
-                            </div>
-                            <div
-                              className="relative h-24 rounded-xl border bg-muted/30 px-3 py-2 cursor-pointer"
-                              onClick={(event) => handleTimelineSlotSelect(room.id, event)}
-                            >
-                              {timelineHours.map((hour) => {
-                                const position =
-                                  ((hour - TIMELINE_START_HOUR) /
-                                    (TIMELINE_END_HOUR - TIMELINE_START_HOUR)) *
-                                  100;
-                                return (
-                                  <div
-                                    key={`${room.id}-${hour}`}
-                                    className="absolute top-0 bottom-0 border-l border-border/70"
-                                    style={{ left: `${position}%` }}
-                                  />
-                                );
-                              })}
-                              {roomBookings.length === 0 ? (
-                                <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-                                  Frei
-                                </div>
-                              ) : (
-                                roomBookings.map((booking) => {
-                                  const startDate = new Date(booking.start_time);
-                                  const endDate = new Date(booking.end_time);
-                                  const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
-                                  const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
-                                  const minMinutes = TIMELINE_START_HOUR * 60;
-                                  const maxMinutes = TIMELINE_END_HOUR * 60;
-                                  if (endMinutes <= minMinutes || startMinutes >= maxMinutes) {
-                                    return null;
-                                  }
-                                  const clampedStart = Math.max(minMinutes, Math.min(startMinutes, maxMinutes));
-                                  const clampedEnd = Math.max(clampedStart + 15, Math.min(endMinutes, maxMinutes));
-                                  const totalMinutes = maxMinutes - minMinutes;
-                                  const left = ((clampedStart - minMinutes) / totalMinutes) * 100;
-                                  const width = ((clampedEnd - clampedStart) / totalMinutes) * 100;
-
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[720px] space-y-6">
+                      <div className="flex justify-between text-xs text-muted-foreground pl-24 pr-3">
+                        {timelineHours.map((hour) => (
+                          <span key={hour}>{hour}:00</span>
+                        ))}
+                      </div>
+                      <div className="space-y-4">
+                        {rooms.map((room) => {
+                          const roomBookings = dayTimelineMap.get(room.id) ?? [];
+                          return (
+                            <div key={room.id}>
+                              <div className="flex items-center gap-3 pl-1 pb-1 text-sm font-medium">
+                                <DoorClosed className="h-4 w-4 text-primary" />
+                                {room.name}
+                              </div>
+                              <div
+                                className="relative h-24 rounded-xl border bg-muted/30 px-3 py-2 cursor-pointer"
+                                onClick={(event) => handleTimelineSlotSelect(room.id, event)}
+                              >
+                                {timelineHours.map((hour) => {
+                                  const position =
+                                    ((hour - TIMELINE_START_HOUR) /
+                                      (TIMELINE_END_HOUR - TIMELINE_START_HOUR)) *
+                                    100;
                                   return (
                                     <div
-                                      key={booking.id}
-                                      className="absolute top-5 rounded-lg bg-primary/80 px-3 py-2 text-xs text-primary-foreground shadow-md"
-                                      style={{ left: `${left}%`, width: `${Math.max(width, 6)}%` }}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        openBookingDialog(booking);
-                                      }}
-                                    >
-                                      <p className="font-semibold truncate">{booking.title}</p>
-                                      <p>
-                                        {format(startDate, 'HH:mm')} – {format(endDate, 'HH:mm')}
-                                      </p>
-                                    </div>
+                                      key={`${room.id}-${hour}`}
+                                      className="absolute top-0 bottom-0 border-l border-border/70"
+                                      style={{ left: `${position}%` }}
+                                    />
                                   );
-                                })
-                              )}
+                                })}
+                                {roomBookings.length === 0 ? (
+                                  <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                                    Frei
+                                  </div>
+                                ) : (
+                                  roomBookings.map((booking) => {
+                                    const startDate = new Date(booking.start_time);
+                                    const endDate = new Date(booking.end_time);
+                                    const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+                                    const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+                                    const minMinutes = TIMELINE_START_HOUR * 60;
+                                    const maxMinutes = TIMELINE_END_HOUR * 60;
+                                    if (endMinutes <= minMinutes || startMinutes >= maxMinutes) {
+                                      return null;
+                                    }
+                                    const clampedStart = Math.max(minMinutes, Math.min(startMinutes, maxMinutes));
+                                    const clampedEnd = Math.max(clampedStart + 15, Math.min(endMinutes, maxMinutes));
+                                    const totalMinutes = maxMinutes - minMinutes;
+                                    const left = ((clampedStart - minMinutes) / totalMinutes) * 100;
+                                    const width = ((clampedEnd - clampedStart) / totalMinutes) * 100;
+
+                                    return (
+                                      <div
+                                        key={booking.id}
+                                        className="absolute top-5 rounded-lg bg-primary/80 px-3 py-2 text-xs text-primary-foreground shadow-md"
+                                        style={{ left: `${left}%`, width: `${Math.max(width, 6)}%` }}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          openBookingDialog(booking);
+                                        }}
+                                      >
+                                        <p className="font-semibold truncate">{booking.title}</p>
+                                        <p>
+                                          {format(startDate, 'HH:mm')} – {format(endDate, 'HH:mm')}
+                                        </p>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}
