@@ -2,6 +2,11 @@
 
 Alle relevanten Änderungen der ARI Community App. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/) und setzt [SemVer](https://semver.org/lang/de/) ein.
 
+## [0.5.5] - 2025-11-19
+### Neu
+- Räume: Ressourcenpools verwalten jetzt getrennte Kontingente für Tische, Stühle und Whiteboards; Super-Admins ordnen Pools beliebigen Organisationen zu und Org-Admins können ihre eigenen Pools pflegen.
+- Buchungsdialog fragt zusätzlich den Whiteboard-Bedarf ab und verhindert Überbuchungen je Pool.
+
 ## [0.5.4] - 2025-11-19
 ### Geändert
 - Gruppen & Räume erhalten mobile Sheets zur Auswahl der Listen sowie flexible Tableisten und Scrollbereiche für eine bessere Darstellung auf kleinen Screens.

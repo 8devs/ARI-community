@@ -1145,6 +1145,7 @@ export type Database = {
           room_id: string
           start_time: string
           tables_needed: number | null
+          whiteboards_needed: number | null
           title: string
           updated_at: string
         }
@@ -1160,6 +1161,7 @@ export type Database = {
           room_id: string
           start_time: string
           tables_needed?: number | null
+          whiteboards_needed?: number | null
           title: string
           updated_at?: string
         }
@@ -1175,6 +1177,7 @@ export type Database = {
           room_id?: string
           start_time?: string
           tables_needed?: number | null
+          whiteboards_needed?: number | null
           title?: string
           updated_at?: string
         }
@@ -1298,27 +1301,33 @@ export type Database = {
       }
       room_resource_groups: {
         Row: {
+          chairs_total: number | null
           created_at: string
           id: string
           name: string
           organization_id: string | null
           tables_total: number | null
+          whiteboards_total: number | null
           updated_at: string
         }
         Insert: {
+          chairs_total?: number | null
           created_at?: string
           id?: string
           name: string
           organization_id?: string | null
           tables_total?: number | null
+          whiteboards_total?: number | null
           updated_at?: string
         }
         Update: {
+          chairs_total?: number | null
           created_at?: string
           id?: string
           name?: string
           organization_id?: string | null
           tables_total?: number | null
+          whiteboards_total?: number | null
           updated_at?: string
         }
         Relationships: [

@@ -38,7 +38,11 @@ type Booking = Tables<'room_bookings'> & {
     name: string | null;
   } | null;
 };
-type RoomResourceGroup = Tables<'room_resource_groups'>;
+type RoomResourceGroup = Tables<'room_resource_groups'> & {
+  organization?: {
+    name: string | null;
+  } | null;
+};
 
 const emptyRoomForm = {
   name: '',
@@ -66,11 +70,15 @@ const emptyBookingForm = {
   expected_attendees: '',
   chairs_needed: '',
   tables_needed: '',
+  whiteboards_needed: '',
 };
 
 const emptyGroupForm = {
   name: '',
   tables_total: '',
+  chairs_total: '',
+  whiteboards_total: '',
+  organization_id: null as string | null,
 };
 
 const TIMELINE_START_HOUR = 6;
@@ -107,6 +115,7 @@ export default function Rooms() {
   const [editingGroup, setEditingGroup] = useState<RoomResourceGroup | null>(null);
   const [groupForm, setGroupForm] = useState(emptyGroupForm);
   const [savingGroup, setSavingGroup] = useState(false);
+  const [organizations, setOrganizations] = useState<{ id: string; name: string | null }[]>([]);
 
   const isRoomAdmin = Boolean(profile && (profile.role === 'SUPER_ADMIN' || profile.role === 'ORG_ADMIN'));
   const selectedRoom = useMemo(() => rooms.find((room) => room.id === selectedRoomId) || null, [rooms, selectedRoomId]);
@@ -120,6 +129,12 @@ export default function Rooms() {
   );
 
   const numberOrNull = (value: string) => (value ? Number(value) : null);
+  const resolveDefaultGroupOrganization = () => {
+    if (profile?.role === 'SUPER_ADMIN') {
+      return profile?.organization_id ?? organizations[0]?.id ?? null;
+    }
+    return profile?.organization_id ?? null;
+  };
 
   const getPublicRoomUrl = (token: string) => {
     const suffix = `#/raeume/public/${token}`;
@@ -172,6 +187,7 @@ export default function Rooms() {
       expectedAttendees?: number | null;
       chairsNeeded?: number | null;
       tablesNeeded?: number | null;
+      whiteboardsNeeded?: number | null;
       organizer?: string | null;
       organization?: string | null;
     },
@@ -187,6 +203,7 @@ export default function Rooms() {
       <p><strong>Erwartete Personen:</strong> ${details.expectedAttendees ?? 'Nicht angegeben'}</p>
       <p><strong>Stühle benötigt:</strong> ${details.chairsNeeded ?? 'Nicht angegeben'}${room.chairs_capacity ? ` / ${room.chairs_capacity} verfügbar` : ''}</p>
       <p><strong>Tische benötigt:</strong> ${details.tablesNeeded ?? 'Nicht angegeben'}${room.tables_capacity ? ` / ${room.tables_capacity} verfügbar` : ''}</p>
+      <p><strong>Whiteboards benötigt:</strong> ${details.whiteboardsNeeded ?? 'Nicht angegeben'}</p>
       <p><strong>Getränke-Catering nötig:</strong> ${room.requires_beverage_catering ? 'Ja' : 'Nein'}</p>
       ${
         details.description
@@ -214,6 +231,26 @@ export default function Rooms() {
     loadResourceGroups();
   }, [profile?.role, profile?.organization_id]);
 
+  useEffect(() => {
+    if (profile?.role !== 'SUPER_ADMIN') return;
+    let ignore = false;
+    const fetchOrganizations = async () => {
+      try {
+        const { data, error } = await supabase.from('organizations').select('id, name').order('name');
+        if (error) throw error;
+        if (!ignore) {
+          setOrganizations(data ?? []);
+        }
+      } catch (error) {
+        console.error('Error loading organizations', error);
+      }
+    };
+    void fetchOrganizations();
+    return () => {
+      ignore = true;
+    };
+  }, [profile?.role]);
+
   const loadRooms = async () => {
     setRoomsLoading(true);
     try {
@@ -237,7 +274,7 @@ export default function Rooms() {
 
   const loadResourceGroups = async () => {
     try {
-      let query = supabase.from('room_resource_groups').select('*').order('name');
+      let query = supabase.from('room_resource_groups').select('*, organization:organizations(name)').order('name');
       if (profile?.role !== 'SUPER_ADMIN' && profile?.organization_id) {
         query = query.eq('organization_id', profile.organization_id);
       }
@@ -320,10 +357,16 @@ export default function Rooms() {
       setGroupForm({
         name: group.name,
         tables_total: group.tables_total?.toString() ?? '',
+        chairs_total: group.chairs_total?.toString() ?? '',
+        whiteboards_total: group.whiteboards_total?.toString() ?? '',
+        organization_id: group.organization_id ?? resolveDefaultGroupOrganization(),
       });
     } else {
       setEditingGroup(null);
-      setGroupForm(emptyGroupForm);
+      setGroupForm({
+        ...emptyGroupForm,
+        organization_id: resolveDefaultGroupOrganization(),
+      });
     }
     setGroupDialogOpen(true);
   };
@@ -345,6 +388,7 @@ export default function Rooms() {
         expected_attendees: booking.expected_attendees?.toString() ?? '',
         chairs_needed: booking.chairs_needed?.toString() ?? '',
         tables_needed: booking.tables_needed?.toString() ?? '',
+        whiteboards_needed: booking.whiteboards_needed?.toString() ?? '',
       });
     } else {
       setEditingBooking(null);
@@ -358,6 +402,7 @@ export default function Rooms() {
         expected_attendees: '',
         chairs_needed: '',
         tables_needed: '',
+        whiteboards_needed: '',
       });
     }
     setBookingDialogOpen(true);
@@ -371,40 +416,54 @@ export default function Rooms() {
     setBookingForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleGroupFormChange = (field: keyof typeof groupForm, value: string) => {
+  const handleGroupFormChange = (field: keyof typeof groupForm, value: string | null) => {
     setGroupForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const ensureGroupTablesAvailable = async (
+  const ensureGroupResourcesAvailable = async (
     group: RoomResourceGroup,
-    requestedTables: number | null,
+    request: { tables?: number | null; chairs?: number | null; whiteboards?: number | null },
     startIso: string,
     endIso: string,
   ) => {
-    if (!group.tables_total || !requestedTables || requestedTables <= 0) {
+    const needsValidation: Array<{
+      total: number | null | undefined;
+      requested: number | null | undefined;
+      label: string;
+      key: 'tables_needed' | 'chairs_needed' | 'whiteboards_needed';
+    }> = [
+      { total: group.tables_total, requested: request.tables, label: 'Tische', key: 'tables_needed' },
+      { total: group.chairs_total, requested: request.chairs, label: 'Stühle', key: 'chairs_needed' },
+      { total: group.whiteboards_total, requested: request.whiteboards, label: 'Whiteboards', key: 'whiteboards_needed' },
+    ].filter((item) => item.total && item.total > 0 && item.requested && item.requested > 0);
+
+    if (needsValidation.length === 0) {
       return true;
     }
+
     const groupRoomIds = rooms.filter((room) => room.resource_group_id === group.id).map((room) => room.id);
     if (groupRoomIds.length === 0) {
       return true;
     }
     const { data, error } = await supabase
       .from('room_bookings')
-      .select('id, tables_needed, start_time, end_time')
+      .select('id, tables_needed, chairs_needed, whiteboards_needed, start_time, end_time')
       .in('room_id', groupRoomIds)
       .lt('start_time', endIso)
       .gt('end_time', startIso);
     if (error) {
       console.error('Error validating shared tables', error);
-      toast.error('Die gemeinsamen Tische konnten nicht geprüft werden.');
+      toast.error('Die gemeinsamen Ressourcen konnten nicht geprüft werden.');
       return false;
     }
     const overlapping = (data ?? []).filter((row) => !editingBooking || row.id !== editingBooking.id);
-    const usedTables = overlapping.reduce((sum, row) => sum + (row.tables_needed ?? 0), 0);
-    const available = group.tables_total - usedTables;
-    if (requestedTables > available) {
-      toast.error(`Im Pool "${group.name}" sind nur noch ${Math.max(available, 0)} Tische verfügbar.`);
-      return false;
+    for (const item of needsValidation) {
+      const used = overlapping.reduce((sum, row) => sum + (row[item.key] ?? 0), 0);
+      const available = (item.total ?? 0) - used;
+      if ((item.requested ?? 0) > available) {
+        toast.error(`Im Pool "${group.name}" sind nur noch ${Math.max(available, 0)} ${item.label} verfügbar.`);
+        return false;
+      }
     }
     return true;
   };
@@ -500,12 +559,24 @@ export default function Rooms() {
       return;
     }
     const tablesTotal = groupForm.tables_total ? Number(groupForm.tables_total) : null;
+    const chairsTotal = groupForm.chairs_total ? Number(groupForm.chairs_total) : null;
+    const whiteboardsTotal = groupForm.whiteboards_total ? Number(groupForm.whiteboards_total) : null;
+    const targetOrgId =
+      profile?.role === 'SUPER_ADMIN'
+        ? groupForm.organization_id ?? resolveDefaultGroupOrganization()
+        : profile?.organization_id ?? null;
+    if (!targetOrgId) {
+      toast.error('Bitte wähle eine Organisation für den Pool aus.');
+      return;
+    }
     setSavingGroup(true);
     try {
       const payload = {
         name: groupForm.name.trim(),
         tables_total: tablesTotal,
-        organization_id: profile?.organization_id ?? null,
+        chairs_total: chairsTotal,
+        whiteboards_total: whiteboardsTotal,
+        organization_id: targetOrgId,
       };
       if (editingGroup) {
         const { error } = await supabase.from('room_resource_groups').update(payload).eq('id', editingGroup.id);
@@ -518,7 +589,10 @@ export default function Rooms() {
       }
       setGroupDialogOpen(false);
       setEditingGroup(null);
-      setGroupForm(emptyGroupForm);
+      setGroupForm({
+        ...emptyGroupForm,
+        organization_id: resolveDefaultGroupOrganization(),
+      });
       loadResourceGroups();
     } catch (error) {
       console.error('Error saving resource group', error);
@@ -553,6 +627,7 @@ export default function Rooms() {
     const expectedAttendees = numberOrNull(bookingForm.expected_attendees);
     const chairsNeeded = numberOrNull(bookingForm.chairs_needed);
     const tablesNeeded = numberOrNull(bookingForm.tables_needed);
+    const whiteboardsNeeded = numberOrNull(bookingForm.whiteboards_needed);
 
     if (selectedRoom.capacity && expectedAttendees && expectedAttendees > selectedRoom.capacity) {
       toast.error(`Es sind maximal ${selectedRoom.capacity} Personen zugelassen.`);
@@ -570,7 +645,12 @@ export default function Rooms() {
     const startDate = new Date(bookingForm.start);
     const endDate = new Date(bookingForm.end);
     if (selectedGroup) {
-      const groupOk = await ensureGroupTablesAvailable(selectedGroup, tablesNeeded, startDate.toISOString(), endDate.toISOString());
+      const groupOk = await ensureGroupResourcesAvailable(
+        selectedGroup,
+        { tables: tablesNeeded, chairs: chairsNeeded, whiteboards: whiteboardsNeeded },
+        startDate.toISOString(),
+        endDate.toISOString(),
+      );
       if (!groupOk) {
         return;
       }
@@ -586,6 +666,7 @@ export default function Rooms() {
       expected_attendees: expectedAttendees,
       chairs_needed: chairsNeeded,
       tables_needed: tablesNeeded,
+      whiteboards_needed: whiteboardsNeeded,
     };
 
     setSavingBooking(true);
@@ -614,6 +695,7 @@ export default function Rooms() {
           expectedAttendees,
           chairsNeeded,
           tablesNeeded,
+          whiteboardsNeeded,
           organizer: profile.name ?? null,
           organization: profile.organization?.name ?? null,
         });
@@ -1028,7 +1110,15 @@ export default function Rooms() {
                   {selectedGroup && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
                       Pool: {selectedGroup.name}
-                      {typeof selectedGroup.tables_total === 'number' ? ` (${selectedGroup.tables_total} Tische)` : ''}
+                      <span className="text-xs text-muted-foreground">
+                        {[
+                          typeof selectedGroup.tables_total === 'number' ? `${selectedGroup.tables_total} Tische` : null,
+                          typeof selectedGroup.chairs_total === 'number' ? `${selectedGroup.chairs_total} Stühle` : null,
+                          typeof selectedGroup.whiteboards_total === 'number' ? `${selectedGroup.whiteboards_total} Whiteboards` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
                     </span>
                   )}
                 </div>
@@ -1081,7 +1171,7 @@ export default function Rooms() {
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>Ressourcenpools</CardTitle>
-                <CardDescription>Verwalte die gemeinsame Tischanzahl Deiner Besprechungsräume.</CardDescription>
+                <CardDescription>Verwalte gemeinsame Tische, Stühle und Whiteboards Deiner Organisation.</CardDescription>
               </div>
               <Button size="sm" variant="outline" onClick={() => openGroupDialog()}>
                 <Layers className="mr-2 h-4 w-4" />
@@ -1104,13 +1194,20 @@ export default function Rooms() {
                       <div>
                         <p className="font-semibold">{group.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {typeof group.tables_total === 'number'
-                            ? `${group.tables_total} Tische im Pool`
-                            : 'Keine Begrenzung angegeben'}
+                          {[
+                            typeof group.tables_total === 'number' ? `${group.tables_total} Tische` : null,
+                            typeof group.chairs_total === 'number' ? `${group.chairs_total} Stühle` : null,
+                            typeof group.whiteboards_total === 'number' ? `${group.whiteboards_total} Whiteboards` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || 'Keine Ressourcenbegrenzung hinterlegt'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Zugewiesene Räume: {assignedRooms.length > 0 ? assignedRooms.map((room) => room.name).join(', ') : 'keine'}
                         </p>
+                        {group.organization?.name && (
+                          <p className="text-xs text-muted-foreground">Organisation: {group.organization.name}</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">{assignedRooms.length} Räume</Badge>
@@ -1726,7 +1823,7 @@ export default function Rooms() {
                 />
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
               <div className="space-y-2">
                 <Label htmlFor="booking-expected">Erwartete Personen</Label>
                 <Input
@@ -1757,6 +1854,16 @@ export default function Rooms() {
                   onChange={(e) => handleBookingFormChange('tables_needed', e.target.value)}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="booking-whiteboards">Whiteboards benötigt</Label>
+                <Input
+                  id="booking-whiteboards"
+                  type="number"
+                  min="0"
+                  value={bookingForm.whiteboards_needed}
+                  onChange={(e) => handleBookingFormChange('whiteboards_needed', e.target.value)}
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={savingBooking}>
@@ -1773,14 +1880,17 @@ export default function Rooms() {
           setGroupDialogOpen(open);
           if (!open) {
             setEditingGroup(null);
-            setGroupForm(emptyGroupForm);
+            setGroupForm({
+              ...emptyGroupForm,
+              organization_id: resolveDefaultGroupOrganization(),
+            });
           }
         }}
       >
         <DialogContent className="max-h-[75vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingGroup ? 'Pool bearbeiten' : 'Neuen Pool anlegen'}</DialogTitle>
-            <DialogDescription>Lege die Gesamtzahl beweglicher Tische fest.</DialogDescription>
+            <DialogDescription>Lege fest, welche Ressourcen mehrere Räume gemeinsam nutzen können.</DialogDescription>
           </DialogHeader>
           <form className="space-y-4" onSubmit={handleSaveGroup}>
             <div className="space-y-2">
@@ -1792,17 +1902,65 @@ export default function Rooms() {
                 required
               />
             </div>
+            {profile?.role === 'SUPER_ADMIN' && (
+              <div className="space-y-2">
+                <Label>Organisation</Label>
+                <Select
+                  value={groupForm.organization_id ?? 'none'}
+                  onValueChange={(value) => handleGroupFormChange('organization_id', value === 'none' ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Organisation wählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Keine Auswahl</SelectItem>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name ?? 'Ohne Namen'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Org-Admins sehen nur Pools ihrer eigenen Organisation.</p>
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="group-tables">Gesamtanzahl Tische</Label>
-              <Input
-                id="group-tables"
-                type="number"
-                min="0"
-                placeholder="z. B. 20"
-                value={groupForm.tables_total}
-                onChange={(e) => handleGroupFormChange('tables_total', e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Lass das Feld frei, wenn Du keine Grenze setzen möchtest.</p>
+              <Label>Gesamtressourcen</Label>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Input
+                    id="group-tables"
+                    type="number"
+                    min="0"
+                    placeholder="Tische"
+                    value={groupForm.tables_total}
+                    onChange={(e) => handleGroupFormChange('tables_total', e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Gesamtzahl Tische im Pool.</p>
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    id="group-chairs"
+                    type="number"
+                    min="0"
+                    placeholder="Stühle"
+                    value={groupForm.chairs_total}
+                    onChange={(e) => handleGroupFormChange('chairs_total', e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Optional: Gesamtzahl Stühle.</p>
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    id="group-whiteboards"
+                    type="number"
+                    min="0"
+                    placeholder="Whiteboards"
+                    value={groupForm.whiteboards_total}
+                    onChange={(e) => handleGroupFormChange('whiteboards_total', e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Optional: Gesamtzahl Whiteboards.</p>
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={savingGroup}>

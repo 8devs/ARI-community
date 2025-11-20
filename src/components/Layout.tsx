@@ -325,7 +325,7 @@ export function Layout({ children }: LayoutProps) {
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen bg-background">
       <aside className="hidden w-72 flex-col border-r border-border/60 bg-card/70 backdrop-blur lg:flex">
         <Link to="/" className="flex items-center gap-3 border-b border-border/60 px-6 py-5" aria-label="Zur Startseite">
           <img src={displayLogo} alt="ARI Community" className="h-10 w-auto object-contain" />
@@ -353,12 +353,11 @@ export function Layout({ children }: LayoutProps) {
               )}
             </Button>
           )}
-          <p className="text-xs text-muted-foreground">Version {APP_VERSION}</p>
         </div>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col">
-        <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-screen flex-1 flex-col overflow-hidden">
+        <header className="shrink-0 sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6">
             <div className="flex items-center gap-3">
               <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -401,7 +400,6 @@ export function Layout({ children }: LayoutProps) {
                       )}
                     </Button>
                   )}
-                  <p className="mt-4 text-xs text-muted-foreground">Version {APP_VERSION}</p>
                 </SheetContent>
               </Sheet>
               <Link to="/" className="flex items-center gap-2 lg:hidden" aria-label="Zur Startseite">
@@ -481,11 +479,11 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10">{children}</div>
         </main>
 
-        <footer className="mt-auto border-t border-border bg-card/60">
+        <footer className="shrink-0 border-t border-border bg-card/60">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-muted-foreground sm:px-6 lg:px-10 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap items-center gap-4">
               <a
