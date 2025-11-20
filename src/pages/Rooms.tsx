@@ -254,6 +254,36 @@ export default function Rooms() {
     }
   };
 
+  const loadBookings = async (month: Date) => {
+    setBookingsLoading(true);
+    try {
+      const rangeStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
+      const rangeEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+
+      const { data, error } = await supabase
+        .from('room_bookings')
+        .select(`
+          *,
+          creator:profiles!room_bookings_created_by_fkey(name),
+          organization:organizations(name)
+        `)
+        .gte('start_time', rangeStart.toISOString())
+        .lte('start_time', rangeEnd.toISOString())
+        .order('start_time');
+      if (error) throw error;
+      const todayStart = startOfDay(new Date());
+      const filtered = ((data as Booking[]) || []).filter(
+        (booking) => new Date(booking.end_time) >= todayStart,
+      );
+      setBookings(filtered);
+    } catch (error: any) {
+      console.error('Error loading bookings', error);
+      toast.error('Buchungen konnten nicht geladen werden.');
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadRooms();
   }, []);
@@ -285,36 +315,6 @@ export default function Rooms() {
       ignore = true;
     };
   }, [profile?.role]);
-
-  const loadBookings = async (month: Date) => {
-    setBookingsLoading(true);
-    try {
-      const rangeStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-      const rangeEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
-
-      const { data, error } = await supabase
-        .from('room_bookings')
-        .select(`
-          *,
-          creator:profiles!room_bookings_created_by_fkey(name),
-          organization:organizations(name)
-        `)
-        .gte('start_time', rangeStart.toISOString())
-        .lte('start_time', rangeEnd.toISOString())
-        .order('start_time');
-      if (error) throw error;
-      const todayStart = startOfDay(new Date());
-      const filtered = ((data as Booking[]) || []).filter(
-        (booking) => new Date(booking.end_time) >= todayStart,
-      );
-      setBookings(filtered);
-    } catch (error: any) {
-      console.error('Error loading bookings', error);
-      toast.error('Buchungen konnten nicht geladen werden.');
-    } finally {
-      setBookingsLoading(false);
-    }
-  };
 
   const openRoomDialog = (room?: Room) => {
     if (!isRoomAdmin) return;
