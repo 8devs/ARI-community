@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-const EMAIL_RELAY_URL = Deno.env.get("EMAIL_RELAY_URL");
-const EMAIL_RELAY_TOKEN = Deno.env.get("EMAIL_RELAY_TOKEN");
+const EMAIL_RELAY_URL = Deno.env.get("EMAIL_RELAY_URL") ?? Deno.env.get("_URL");
+const EMAIL_RELAY_TOKEN = Deno.env.get("EMAIL_RELAY_TOKEN") ?? Deno.env.get("_TOKEN");
 const FROM_EMAIL = Deno.env.get("NOTIFY_FROM_EMAIL") ?? "notifications@ari-worms.de";
 
 const corsHeaders = {
