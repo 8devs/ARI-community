@@ -371,6 +371,15 @@ export default function Rooms() {
     setGroupDialogOpen(true);
   };
 
+  const resolveActiveRoomId = () => {
+    if (selectedRoomId) return selectedRoomId;
+    const fallback = rooms.find((room) => room.is_active)?.id ?? rooms[0]?.id ?? null;
+    if (fallback) {
+      setSelectedRoomId(fallback);
+    }
+    return fallback;
+  };
+
   const openBookingDialog = (booking?: Booking, options?: { roomId?: string; start?: Date; end?: Date }) => {
     const targetRoomId = options?.roomId ?? resolveActiveRoomId();
     if (!targetRoomId) {
@@ -847,15 +856,6 @@ export default function Rooms() {
     if (closePanel) {
       setRoomsSheetOpen(false);
     }
-  };
-
-  const resolveActiveRoomId = () => {
-    if (selectedRoomId) return selectedRoomId;
-    const fallback = rooms.find((room) => room.is_active)?.id ?? rooms[0]?.id ?? null;
-    if (fallback) {
-      setSelectedRoomId(fallback);
-    }
-    return fallback;
   };
 
   const handleTimelineQuickBooking = () => {
