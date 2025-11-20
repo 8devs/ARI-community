@@ -118,6 +118,11 @@ export default function Rooms() {
   const [organizations, setOrganizations] = useState<{ id: string; name: string | null }[]>([]);
 
   const isRoomAdmin = Boolean(profile && (profile.role === 'SUPER_ADMIN' || profile.role === 'ORG_ADMIN'));
+  const getPublicRoomUrl = (token: string) => {
+    const suffix = `#/raeume/public/${token}`;
+    if (typeof window === 'undefined') return suffix;
+    return `${window.location.origin}${window.location.pathname}${suffix}`;
+  };
   const selectedRoom = useMemo(() => rooms.find((room) => room.id === selectedRoomId) || null, [rooms, selectedRoomId]);
   const publicRoomLink = useMemo(
     () => (selectedRoom?.public_share_token ? getPublicRoomUrl(selectedRoom.public_share_token) : null),
@@ -134,12 +139,6 @@ export default function Rooms() {
       return profile?.organization_id ?? organizations[0]?.id ?? null;
     }
     return profile?.organization_id ?? null;
-  };
-
-  const getPublicRoomUrl = (token: string) => {
-    const suffix = `#/raeume/public/${token}`;
-    if (typeof window === 'undefined') return suffix;
-    return `${window.location.origin}${window.location.pathname}${suffix}`;
   };
 
   const copyPublicLink = async () => {
