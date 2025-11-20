@@ -402,6 +402,20 @@ export default function Rooms() {
       targetRoom?.tables_default ?? targetRoom?.tables_capacity ?? null;
     const defaultWhiteboardsValue = targetGroup?.whiteboards_total ?? null;
     setSelectedRoomId(targetRoomId);
+    const now = new Date();
+    let inferredStart: Date | null = null;
+    if (!options?.start) {
+      const activeBooking = bookings.find((booking) => {
+        if (booking.room_id !== targetRoomId) return false;
+        const start = new Date(booking.start_time);
+        const end = new Date(booking.end_time);
+        return start <= now && end > now;
+      });
+      if (activeBooking) {
+        const bookingEnd = new Date(activeBooking.end_time);
+        inferredStart = bookingEnd > now ? bookingEnd : now;
+      }
+    }
     if (booking) {
       setEditingBooking(booking);
       setBookingForm({
@@ -418,7 +432,7 @@ export default function Rooms() {
       });
     } else {
       setEditingBooking(null);
-      const startDate = options?.start ?? new Date();
+      const startDate = options?.start ?? inferredStart ?? now;
       const endDate = options?.end ?? addHours(startDate, 1);
       setBookingForm({
         title: '',
@@ -1840,7 +1854,7 @@ export default function Rooms() {
                 />
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="booking-expected">Erwartete Personen</Label>
                 <Input
