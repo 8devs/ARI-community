@@ -1,3 +1,16 @@
+create or replace function public.set_timestamps()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  if tg_op = 'INSERT' and new.created_at is null then
+    new.created_at = now();
+  end if;
+  return new;
+end;
+$$;
+
 create table if not exists public.room_resource_groups (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references public.organizations(id) on delete cascade,
