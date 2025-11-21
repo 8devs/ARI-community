@@ -117,15 +117,24 @@ export default function Profile() {
     }
 
     setPasswordSaving(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) {
-      toast.error(error.message ?? 'Passwort konnte nicht geändert werden');
-    } else {
-      toast.success('Passwort aktualisiert');
-      setNewPassword('');
-      setConfirmPassword('');
+    try {
+      const response = await fetch('/api/auth/password/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        toast.error(data.error ?? 'Passwort konnte nicht geändert werden');
+      } else {
+        toast.success('Passwort aktualisiert');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } finally {
+      setPasswordSaving(false);
     }
-    setPasswordSaving(false);
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

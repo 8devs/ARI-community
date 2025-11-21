@@ -793,23 +793,22 @@ export default function AdminSettings() {
     is_news_manager?: boolean;
     is_event_manager?: boolean;
   }) => {
-    const redirectTo = `${window.location.origin}/#/passwort/neu`;
-    const { error } = await supabase.auth.signInWithOtp({
-      email: payload.email.trim(),
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: redirectTo,
-        data: {
-          name: payload.name.trim(),
-          role: payload.role ?? 'MEMBER',
-          organization_id: payload.organization_id,
-          invited_by: currentProfile?.id ?? null,
-          is_news_manager: payload.is_news_manager ?? false,
-          is_event_manager: payload.is_event_manager ?? false,
-        },
-      },
+    const response = await fetch('/api/auth/invitations/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: payload.email.trim(),
+        organization_id: payload.organization_id,
+        role: payload.role ?? 'MEMBER',
+        is_news_manager: payload.is_news_manager ?? false,
+        is_event_manager: payload.is_event_manager ?? false,
+      }),
+      credentials: 'include',
     });
-    if (error) throw error;
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error ?? 'Einladung fehlgeschlagen');
+    }
   };
 
   const setDefaultPasswordForUser = async (body: { user_id?: string; email?: string }) => {

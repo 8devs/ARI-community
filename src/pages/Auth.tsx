@@ -42,7 +42,7 @@ export default function Auth() {
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
@@ -64,49 +64,40 @@ export default function Auth() {
       return;
     }
 
-    if (!inviteToken) return;
-    const uuidRegex = /^[0-9a-fA-F-]{36}$/;
-    if (!uuidRegex.test(inviteToken)) {
-      setInviteError('Ungültiger Einladungslink.');
-      setInviteInfo(null);
-      return;
-    }
-
     const loadInvitation = async () => {
       setInviteLoading(true);
       try {
-        const { data, error } = await supabase
-          .rpc('get_invitation_details', { _token: inviteToken });
-        
-        if (error) {
-          console.error('Error loading invitation', error);
-          setInviteError('Einladung konnte nicht gefunden werden.');
+        const response = await fetch(`/api/auth/invitations/details?token=${inviteToken}`);
+        if (!response.ok) {
+          const data = await response.json();
+          setInviteError(data.error ?? 'Einladung konnte nicht gefunden werden.');
           setInviteInfo(null);
-        } else if (!data || data.length === 0) {
-          setInviteError('Diese Einladung existiert nicht.');
+          return;
+        }
+        const record = await response.json();
+        if (record.accepted_at) {
+          setInviteError('Diese Einladung wurde bereits verwendet.');
+          setInviteInfo(null);
+        } else if (record.expires_at && new Date(record.expires_at) < new Date()) {
+          setInviteError('Diese Einladung ist abgelaufen.');
           setInviteInfo(null);
         } else {
-          const record = data[0];
-          if (record.accepted_at) {
-            setInviteError('Diese Einladung wurde bereits verwendet.');
-            setInviteInfo(null);
-          } else if (record.expires_at && new Date(record.expires_at) < new Date()) {
-            setInviteError('Diese Einladung ist abgelaufen.');
-            setInviteInfo(null);
-          } else {
-            setInviteInfo({
-              email: record.email ?? '',
-              organization_name: record.organization_name,
-              role: record.role ?? 'MEMBER',
-            });
-            setInviteError(null);
-          }
+          setInviteInfo({
+            email: record.email ?? '',
+            organization_name: record.organization_name,
+            role: record.role ?? 'MEMBER',
+          });
+          setInviteError(null);
         }
+      } catch (error) {
+        console.error('Error loading invitation', error);
+        setInviteError('Einladung konnte nicht gefunden werden.');
+        setInviteInfo(null);
       } finally {
         setInviteLoading(false);
       }
     };
-    
+
     loadInvitation();
   }, [inviteToken]);
 
@@ -145,24 +136,28 @@ export default function Auth() {
     }
 
     setResetLoading(true);
-    const redirectURL = `${window.location.origin}/#/passwort/neu`;
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
-      redirectTo: redirectURL,
-    });
-
-    if (error) {
-      toast.error(error.message ?? 'E-Mail konnte nicht gesendet werden.');
-    } else {
-      toast.success('Wenn die Adresse existiert, erhältst Du gleich eine E-Mail zum Zurücksetzen.');
-      setShowResetForm(false);
-      setResetEmail('');
+    try {
+      const response = await fetch('/api/auth/password/request-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail.trim() }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        toast.error(data.error ?? 'E-Mail konnte nicht gesendet werden.');
+      } else {
+        toast.success('Wenn die Adresse existiert, erhältst Du gleich eine E-Mail zum Zurücksetzen.');
+        setShowResetForm(false);
+        setResetEmail('');
+      }
+    } finally {
+      setResetLoading(false);
     }
-    setResetLoading(false);
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteInfo) return;
+    if (!inviteInfo || !inviteToken) return;
 
     setSignupLoading(true);
     try {
@@ -171,11 +166,20 @@ export default function Auth() {
         password: signupPassword,
       });
 
-      const { error } = await signUp(inviteInfo.email, validated.password, validated.name);
-      if (error) {
-        toast.error(error.message ?? 'Registrierung fehlgeschlagen');
+      const response = await fetch('/api/auth/invitations/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: inviteToken,
+          password: validated.password,
+          name: validated.name,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        toast.error(data.error ?? 'Registrierung fehlgeschlagen');
       } else {
-        toast.success('Einladung angenommen! Bitte prüfe Dein Postfach zur Bestätigung.');
+        toast.success('Einladung angenommen! Du kannst Dich jetzt anmelden.');
         setSignupName('');
         setSignupPassword('');
       }

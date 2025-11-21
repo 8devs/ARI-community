@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -15,10 +14,16 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [validated, setValidated] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('type=magiclink')) {
+    const queryIndex = hash.indexOf('?');
+    const query = queryIndex >= 0 ? hash.slice(queryIndex + 1) : '';
+    const params = new URLSearchParams(query);
+    const token = params.get('token');
+    if (token) {
+      setResetToken(token);
       setValidated(true);
     } else if (user) {
       setValidated(true);
@@ -39,14 +44,38 @@ export default function ResetPassword() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      toast.error(error.message ?? 'Passwort konnte nicht gesetzt werden.');
-    } else {
-      toast.success('Passwort gespeichert! Du kannst Dich jetzt anmelden.');
-      navigate('/app');
+    try {
+      if (resetToken) {
+        const response = await fetch('/api/auth/password/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: resetToken, password }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          toast.error(data.error ?? 'Passwort konnte nicht gesetzt werden.');
+        } else {
+          toast.success('Passwort gespeichert! Du kannst Dich jetzt anmelden.');
+          navigate('/login');
+        }
+      } else if (user) {
+        const response = await fetch('/api/auth/password/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+          credentials: 'include',
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          toast.error(data.error ?? 'Passwort konnte nicht gesetzt werden.');
+        } else {
+          toast.success('Passwort gespeichert!');
+          navigate('/app');
+        }
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
