@@ -40,10 +40,22 @@ export default async function handler(req, res) {
   });
 
   const resetUrlBase = process.env.PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "";
-  const base = resetUrlBase.replace(/\/$/, "");
-  const resetUrl = base
-    ? `${base}/#/passwort/neu?token=${encodeURIComponent(rawToken)}`
-    : rawToken;
+  let base = resetUrlBase.replace(/\/$/, "");
+  if (!base) {
+    const host =
+      req.headers["x-forwarded-host"] ??
+      req.headers.host ??
+      process.env.VERCEL_URL ??
+      "";
+    if (host) {
+      const protocol = req.headers["x-forwarded-proto"] ?? "https";
+      base = `${protocol}://${host}`.replace(/\/$/, "");
+    }
+  }
+  if (!base) {
+    base = "https://www.ari-worms.de";
+  }
+  const resetUrl = `${base}/#/passwort/neu?token=${encodeURIComponent(rawToken)}`;
 
   await sendEmailNotification(
     user.email,
