@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../lib/server/supabaseAdmin";
-import { verifyPassword } from "../../lib/server/password";
-import { signSession } from "../../lib/server/jwt";
-import { createSessionCookie } from "../../lib/server/authCookies";
+import { supabaseAdmin } from "../../lib/server/supabaseAdmin.js";
+import { verifyPassword } from "../../lib/server/password.js";
+import { signSession } from "../../lib/server/jwt.js";
+import { createSessionCookie } from "../../lib/server/authCookies.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
