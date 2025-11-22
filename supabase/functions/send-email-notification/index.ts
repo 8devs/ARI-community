@@ -18,13 +18,14 @@ function wrapWithAriTemplate(title: string, innerHtml: string, badge?: string) {
     <style>
       :root {
         color-scheme: light;
-        --primary-start: #ff591a;
-        --primary-end: #ff914d;
+        --primary-start: #0f172a;
+        --primary-end: #1d4ed8;
         --surface: #ffffff;
-        --bg: #f6f7fb;
+        --bg: #eef2ff;
         --text-strong: #111827;
         --text: #4b5563;
         --text-muted: #6b7280;
+        --border: #e2e8f0;
       }
 
       body {
@@ -37,41 +38,50 @@ function wrapWithAriTemplate(title: string, innerHtml: string, badge?: string) {
 
       .wrapper {
         width: 100%;
-        padding: 32px 12px;
+        padding: 40px 16px;
         background: var(--bg);
       }
 
       .container {
-        max-width: 560px;
+        max-width: 600px;
         margin: 0 auto;
         background-color: var(--surface);
         border-radius: 18px;
-        border: 1px solid #edf0f7;
-        box-shadow: 0 25px 55px rgba(15, 23, 42, 0.15);
+        border: 1px solid var(--border);
+        box-shadow: 0 35px 80px rgba(15, 23, 42, 0.20);
         overflow: hidden;
+        position: relative;
+        isolation: isolate;
       }
 
       .header {
-        background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
-        color: #fffdf9;
-        padding: 34px 32px 46px;
+        background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.2), transparent),
+          linear-gradient(120deg, var(--primary-start), var(--primary-end));
+        color: #f8fafc;
+        padding: 40px 32px 60px;
         text-align: center;
+        position: relative;
+        overflow: hidden;
       }
 
       .header h1 {
+        position: relative;
         margin: 0;
-        font-size: 26px;
+        font-size: 30px;
+        letter-spacing: -0.03em;
       }
 
       .badge {
         display: inline-block;
-        margin-top: 16px;
+        margin-top: 20px;
         padding: 6px 14px;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        font-size: 13px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 1.4px;
+        color: #e2e8f0;
+        background: rgba(15,23,42,0.25);
       }
 
       .content {
@@ -79,10 +89,12 @@ function wrapWithAriTemplate(title: string, innerHtml: string, badge?: string) {
         line-height: 1.55;
         font-size: 16px;
         color: var(--text);
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
       }
 
       .content p {
         margin: 0 0 18px;
+        color: var(--text);
       }
 
       .footer {
