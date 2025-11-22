@@ -57,11 +57,14 @@ export default async function handler(req, res) {
 
   const siteUrl = resolveSiteUrl(req);
   const inviteUrl = `${siteUrl}/#/login?invite=${inviteToken}`;
+  const inviteeName = typeof req.body?.name === "string" && req.body.name.trim().length > 0
+    ? req.body.name.trim()
+    : "Community-Mitglied";
   await sendEmailNotification(
     email,
     "Einladung zur ARI Community",
     `
-      <p style="font-size:15px;color:#0f172a;margin-bottom:16px;">Hallo ${payload.name.trim() || "Community-Mitglied"},</p>
+      <p style="font-size:15px;color:#0f172a;margin-bottom:16px;">Hallo ${inviteeName},</p>
       <p style="font-size:15px;color:#0f172a;margin-bottom:16px;">
         ${inviterProfile.name ?? "Eine Administratorin"} hat Dich eingeladen, Teil der ARI Community zu werden.
         Mit Deinem Zugang kannst Du Räume buchen, Pinnwände lesen und Dich mit Kolleg:innen vernetzen.
