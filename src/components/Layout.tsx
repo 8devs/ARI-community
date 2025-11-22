@@ -20,6 +20,7 @@ import {
   DoorClosed,
   Bell,
   UserPlus,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -121,6 +122,7 @@ export function Layout({ children }: LayoutProps) {
       { to: '/events', label: 'Events', icon: CalendarDays },
       { to: '/organisationen', label: 'Organisationen', icon: Building2 },
       { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
+      { to: '/mittagessen', label: 'Lunch Orte', icon: UtensilsCrossed },
       { to: '/kaffee', label: 'Kaffee', icon: Coffee },
     ];
   }, [isAuthenticated]);

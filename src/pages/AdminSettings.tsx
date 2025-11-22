@@ -1138,18 +1138,26 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
       return;
     }
     setDeletingUserId(member.id);
-    const { error } = await supabase.rpc('delete_user_with_scope', {
-      _target_user_id: member.id,
-    });
-    if (error) {
-      console.error('Error deleting user', error);
-      toast.error(error.message ?? 'Nutzer konnte nicht gelöscht werden');
-    } else {
+    try {
+      const response = await fetch('/api/auth/members/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ user_id: member.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Nutzer konnte nicht gelöscht werden');
+      }
       toast.success('Nutzer gelöscht');
       loadMembers();
       loadOrganizations();
+    } catch (error) {
+      console.error('Error deleting user', error);
+      toast.error(error instanceof Error ? error.message : 'Nutzer konnte nicht gelöscht werden');
+    } finally {
+      setDeletingUserId(null);
     }
-    setDeletingUserId(null);
   };
 
   if (profileLoading) {

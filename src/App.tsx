@@ -26,6 +26,7 @@ import Groups from "./pages/Groups";
 import NotificationsCenter from "./pages/NotificationsCenter";
 import Changelog from "./pages/Changelog";
 import RoomPublicView from "./pages/RoomPublicView";
+import LunchPlaces from "./pages/LunchPlaces";
 
 const queryClient = new QueryClient();
 
@@ -102,6 +103,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Coffee />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/mittagessen"
+              element={
+                <ProtectedRoute>
+                  <LunchPlaces />
                 </ProtectedRoute>
               }
             />
