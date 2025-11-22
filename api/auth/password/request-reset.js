@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { supabaseAdmin } from "../../../lib/server/supabaseAdmin.js";
 import { hashToken } from "../../../lib/server/tokens.js";
 import { sendEmailNotification } from "../../../lib/server/sendEmail.js";
+import { resolveSiteUrl } from "../../../lib/server/siteUrl.js";
 
 const RESET_TOKEN_TTL_MINUTES = Number(process.env.AUTH_RESET_TOKEN_TTL_MINUTES ?? 60);
 
@@ -39,32 +40,27 @@ export default async function handler(req, res) {
     expires_at: expiresAt,
   });
 
-  const resetUrlBase = process.env.PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "";
-  let base = resetUrlBase.replace(/\/$/, "");
-  if (!base) {
-    const host =
-      req.headers["x-forwarded-host"] ??
-      req.headers.host ??
-      process.env.VERCEL_URL ??
-      "";
-    if (host) {
-      const protocol = req.headers["x-forwarded-proto"] ?? "https";
-      base = `${protocol}://${host}`.replace(/\/$/, "");
-    }
-  }
-  if (!base) {
-    base = "https://www.ari-worms.de";
-  }
-  const resetUrl = `${base}/#/passwort/neu?token=${encodeURIComponent(rawToken)}`;
+  const baseUrl = resolveSiteUrl(req);
+  const resetUrl = `${baseUrl}/#/passwort/neu?token=${encodeURIComponent(rawToken)}`;
 
   await sendEmailNotification(
     user.email,
     "Passwort zurücksetzen",
     `
-      <p>Hallo ${user.name ?? "Community-Mitglied"},</p>
-      <p>Nutze den folgenden Link, um Dein Passwort zurückzusetzen:</p>
-      <p><a href="${resetUrl}">${resetUrl}</a></p>
-      <p>Der Link ist ${RESET_TOKEN_TTL_MINUTES} Minuten gültig.</p>
+      <p style="font-size:15px;color:#0f172a;margin-bottom:16px;">Hallo ${user.name ?? "Community-Mitglied"},</p>
+      <p style="font-size:15px;color:#0f172a;margin-bottom:16px;">
+        Du hast angefordert, Dein Passwort zurückzusetzen. Klicke auf den folgenden Button und wähle ein neues Passwort.
+      </p>
+      <div style="margin:24px 0;">
+        <a href="${resetUrl}" style="display:inline-block;padding:12px 28px;background:#0f172a;color:#ffffff;border-radius:999px;font-weight:600;text-decoration:none;">
+          Passwort zurücksetzen
+        </a>
+      </div>
+      <p style="font-size:13px;color:#475569;margin-bottom:8px;">Falls der Button nicht funktioniert, kopiere diesen Link:</p>
+      <p style="font-size:13px;color:#1d4ed8;margin-bottom:16px;word-break:break-all;">
+        <a href="${resetUrl}" style="color:#1d4ed8;text-decoration:none;">${resetUrl}</a>
+      </p>
+      <p style="font-size:13px;color:#475569;margin-bottom:0;">Der Link ist ${RESET_TOKEN_TTL_MINUTES} Minuten gültig.</p>
     `,
     "Passwort",
   );
