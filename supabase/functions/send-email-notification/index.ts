@@ -18,98 +18,127 @@ function wrapWithAriTemplate(title: string, innerHtml: string, badge?: string) {
     <style>
       :root {
         color-scheme: light;
-        --primary-start: #0f172a;
-        --primary-end: #1d4ed8;
-        --surface: #ffffff;
-        --bg: #eef2ff;
-        --text-strong: #111827;
-        --text: #4b5563;
-        --text-muted: #6b7280;
-        --border: #e2e8f0;
+        --slate-50: #f8fafc;
+        --slate-100: #eef2ff;
+        --slate-200: #e2e8f0;
+        --slate-500: #64748b;
+        --slate-700: #334155;
+        --slate-900: #0f172a;
+        --indigo-500: #6366f1;
+        --indigo-600: #4f46e5;
+        --gradient-start: #101828;
+        --gradient-end: #4338ca;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         margin: 0;
         padding: 0;
-        background: var(--bg);
-        font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        color: var(--text-strong);
+        background: var(--slate-100);
+        font-family: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: var(--slate-900);
       }
 
       .wrapper {
         width: 100%;
-        padding: 40px 16px;
-        background: var(--bg);
+        padding: 48px 16px;
+        background: radial-gradient(circle at 20% 20%, rgba(99,102,241,0.12), transparent),
+          radial-gradient(circle at 80% 0%, rgba(14,165,233,0.14), transparent);
       }
 
       .container {
-        max-width: 600px;
+        max-width: 640px;
         margin: 0 auto;
-        background-color: var(--surface);
-        border-radius: 18px;
-        border: 1px solid var(--border);
-        box-shadow: 0 35px 80px rgba(15, 23, 42, 0.20);
+        background: #ffffff;
+        border-radius: 28px;
+        border: 1px solid rgba(99,102,241,0.12);
+        box-shadow:
+          0 30px 80px rgba(15, 23, 42, 0.22),
+          inset 0 1px 0 rgba(255,255,255,0.6);
         overflow: hidden;
-        position: relative;
-        isolation: isolate;
       }
 
       .header {
-        background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.2), transparent),
-          linear-gradient(120deg, var(--primary-start), var(--primary-end));
-        color: #f8fafc;
-        padding: 40px 32px 60px;
-        text-align: center;
+        padding: 42px 36px 36px;
+        background:
+          linear-gradient(130deg, rgba(255,255,255,0.08), transparent),
+          linear-gradient(120deg, var(--gradient-start), var(--gradient-end));
+        color: #f1f5f9;
+        text-align: left;
         position: relative;
-        overflow: hidden;
       }
 
       .header h1 {
-        position: relative;
-        margin: 0;
-        font-size: 30px;
-        letter-spacing: -0.03em;
+        margin: 0 0 16px;
+        font-size: 34px;
+        letter-spacing: -0.04em;
+        font-weight: 600;
       }
 
       .badge {
-        display: inline-block;
-        margin-top: 20px;
-        padding: 6px 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(255,255,255,0.35);
         font-size: 12px;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
-        letter-spacing: 1.4px;
-        color: #e2e8f0;
-        background: rgba(15,23,42,0.25);
+        color: rgba(255,255,255,0.85);
+        background: rgba(15,23,42,0.35);
       }
 
       .content {
-        padding: 32px;
-        line-height: 1.55;
+        padding: 40px 36px 36px;
+        line-height: 1.65;
         font-size: 16px;
-        color: var(--text);
-        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        color: var(--slate-700);
+        background: #fdfdff;
       }
 
       .content p {
         margin: 0 0 18px;
-        color: var(--text);
       }
 
       .footer {
-        padding: 0 32px 32px;
+        padding: 0 36px 32px;
         text-align: center;
         font-size: 13px;
-        color: #94a3b8;
+        color: var(--slate-500);
       }
 
-      @media (max-width: 620px) {
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 12px;
+        color: rgba(255,255,255,0.8);
+      }
+
+      .logo-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #38bdf8;
+        box-shadow: 0 0 16px rgba(56,189,248,0.8);
+      }
+
+      @media (max-width: 640px) {
         .content,
         .header,
         .footer {
           padding-left: 20px;
           padding-right: 20px;
+        }
+        .header h1 {
+          font-size: 30px;
         }
       }
     </style>
@@ -118,6 +147,10 @@ function wrapWithAriTemplate(title: string, innerHtml: string, badge?: string) {
     <div class="wrapper">
       <div class="container">
         <div class="header">
+          <div class="logo">
+            <span class="logo-dot"></span>
+            ARI COMMUNITY
+          </div>
           <h1>${title}</h1>
           ${badge ? `<div class="badge">${badge}</div>` : ""}
         </div>
