@@ -1,7 +1,6 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { clearSessionCookie } from "../../lib/server/authCookies.js";
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });

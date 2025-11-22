@@ -1,10 +1,9 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../../lib/server/supabaseAdmin.js";
 import { verifyPassword } from "../../lib/server/password.js";
 import { signSession } from "../../lib/server/jwt.js";
 import { createSessionCookie } from "../../lib/server/authCookies.js";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
