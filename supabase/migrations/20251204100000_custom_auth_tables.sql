@@ -1,4 +1,4 @@
--- Custom auth bootstrap: prepare application-managed users separate from Supabase auth
+-- Step 1: introduce custom auth tables without touching existing profile rows
 create table if not exists public.app_users (
   id uuid primary key default uuid_generate_v4(),
   email text not null unique,
@@ -31,21 +31,6 @@ create table if not exists public.auth_tokens (
 create index if not exists auth_tokens_user_id_idx on public.auth_tokens(user_id);
 create index if not exists auth_tokens_token_hash_idx on public.auth_tokens(token_hash);
 
-alter table public.profiles
-  add column if not exists local_user_id uuid references public.app_users(id);
-
-update public.profiles
-  set local_user_id = id
-  where local_user_id is null;
-
-alter table public.profiles
-  drop constraint if exists profiles_id_fkey;
-
-alter table public.profiles
-  add constraint profiles_id_fkey foreign key (id) references public.app_users(id) on delete cascade;
-
 alter table public.employee_invitations
   add column if not exists is_news_manager boolean not null default false,
   add column if not exists is_event_manager boolean not null default false;
-
-create index if not exists profiles_local_user_idx on public.profiles(local_user_id);

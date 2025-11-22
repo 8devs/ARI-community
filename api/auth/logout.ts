@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { clearSessionCookie } from "../_lib/authCookies";
+import { clearSessionCookie } from "../../lib/server/authCookies";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {

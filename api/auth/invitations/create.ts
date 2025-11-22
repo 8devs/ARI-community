@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import crypto from "crypto";
-import { requireAuth } from "../../_lib/authGuard";
-import { supabaseAdmin } from "../../_lib/supabaseAdmin";
-import { sendEmailNotification } from "../../_lib/sendEmail";
+import { requireAuth } from "../../../lib/server/authGuard";
+import { supabaseAdmin } from "../../../lib/server/supabaseAdmin";
+import { sendEmailNotification } from "../../../lib/server/sendEmail";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {

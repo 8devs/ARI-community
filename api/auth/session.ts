@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { readSessionCookie } from "../_lib/authCookies";
-import { verifySession } from "../_lib/jwt";
-import { supabaseAdmin } from "../_lib/supabaseAdmin";
+import { readSessionCookie } from "../../lib/server/authCookies";
+import { verifySession } from "../../lib/server/jwt";
+import { supabaseAdmin } from "../../lib/server/supabaseAdmin";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireAuth } from "../../_lib/authGuard";
-import { hashPassword } from "../../_lib/password";
-import { supabaseAdmin } from "../../_lib/supabaseAdmin";
+import { requireAuth } from "../../../lib/server/authGuard";
+import { hashPassword } from "../../../lib/server/password";
+import { supabaseAdmin } from "../../../lib/server/supabaseAdmin";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
