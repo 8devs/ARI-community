@@ -7,6 +7,21 @@ export type ChangelogEntry = {
 
 export const changelogEntries: ChangelogEntry[] = [
   {
+    version: "0.6.0",
+    date: "05.12.2025",
+    highlights: [
+      "Eigenes Auth-System ersetzt Supabase Auth vollständig inklusive Passwort-Reset-Flows",
+      "Neues Modul „Mittagessen & Orte“ mit Bewertungen, Karte und Upload von Speisekarten",
+      "Überarbeitete System-E-Mails im ARI-Look & moderne 404-Seite",
+    ],
+    details: [
+      "Login läuft jetzt über Vercel-APIs, JWT-Cookies und `app_users`; Admins verschicken Reset-Mails statt Standardpasswörtern",
+      "Lunch-Orte inkl. Filter, Bewertungen, Google-Maps-Karte und Upload von Menüs wurden ergänzt; Orte lassen sich nach Distanz/Küche suchen",
+      "Alle Mail-Templates erhielten Branding mit farbigem Verlauf-Header, CTA-Buttons und inhaltlich klaren Abschnitten",
+      "Mitgliederverwaltung kann Nutzer serverseitig löschen; neue /mittagessen-Route in der Navigation",
+    ],
+  },
+  {
     version: "0.4.1",
     date: "14.11.2025",
     highlights: [

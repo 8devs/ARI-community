@@ -16,7 +16,7 @@ import { Loader2, MapPin, Phone, Globe, Mail, FileText, Star, Navigation, Plus, 
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-type LunchPlace = Tables<'lunch_places'>;
+type LunchPlace = Tables<'lunch_places'> & { open_days?: string[] | null };
 type Profile = Tables<'profiles'>;
 type LunchReview = Tables<'lunch_reviews'> & {
   profiles?: Profile | null;
@@ -26,11 +26,25 @@ const cuisineOptions = [
   'Hausmannskost',
   'Mediterran',
   'Asiatisch',
+  'Italienisch',
   'Vegetarisch',
   'Vegan',
   'Burger & Bowls',
   'Bäckerei',
 ];
+
+const weekdayOptions = [
+  { value: 'monday', label: 'Montag' },
+  { value: 'tuesday', label: 'Dienstag' },
+  { value: 'wednesday', label: 'Mittwoch' },
+  { value: 'thursday', label: 'Donnerstag' },
+  { value: 'friday', label: 'Freitag' },
+  { value: 'saturday', label: 'Samstag' },
+  { value: 'sunday', label: 'Sonntag' },
+];
+
+const weekdayLabel = (value: string) => weekdayOptions.find((day) => day.value === value)?.label ?? value;
+const jsDayToValue = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 export default function LunchPlaces() {
   const { profile } = useCurrentProfile();
@@ -52,11 +66,15 @@ export default function LunchPlaces() {
     opening_hours: '',
     latitude: '',
     longitude: '',
+    open_days: [] as string[],
   });
   const [menuFile, setMenuFile] = useState<File | null>(null);
   const [savingPlace, setSavingPlace] = useState(false);
   const [filteredCuisine, setFilteredCuisine] = useState<string>('all');
   const [maxDistance, setMaxDistance] = useState<string>('all');
+  const [openDayFilter, setOpenDayFilter] = useState<string>('today');
+  const todayValue = jsDayToValue[new Date().getDay()];
+  const resolvedDayFilter = openDayFilter === 'today' ? todayValue : openDayFilter;
 
   const [reviewForm, setReviewForm] = useState({
     place_id: '',
@@ -115,9 +133,15 @@ export default function LunchPlaces() {
       if (maxDistance !== 'all' && place.distance_minutes && place.distance_minutes > Number(maxDistance)) {
         return false;
       }
+      if (resolvedDayFilter !== 'all') {
+        const openDays = place.open_days ?? [];
+        if (!openDays.includes(resolvedDayFilter)) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [places, filteredCuisine, maxDistance]);
+  }, [places, filteredCuisine, maxDistance, resolvedDayFilter]);
 
   useEffect(() => {
     if (filteredPlaces.length && (!selectedPlaceId || !filteredPlaces.some((place) => place.id === selectedPlaceId))) {
@@ -152,6 +176,7 @@ export default function LunchPlaces() {
         opening_hours: place.opening_hours ?? '',
         latitude: place.latitude?.toString() ?? '',
         longitude: place.longitude?.toString() ?? '',
+        open_days: place.open_days ?? [],
       });
       setEditingPlace(place);
     }
@@ -197,6 +222,7 @@ export default function LunchPlaces() {
       menu_url: menuUrl,
       latitude: placeForm.latitude ? Number(placeForm.latitude) : null,
       longitude: placeForm.longitude ? Number(placeForm.longitude) : null,
+      open_days: placeForm.open_days,
       created_by: editingPlace?.created_by ?? profile?.id ?? '',
     };
     try {
@@ -319,6 +345,20 @@ export default function LunchPlaces() {
                     <SelectItem value="15">&lt; 15 min</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={openDayFilter} onValueChange={setOpenDayFilter}>
+                  <SelectTrigger className="w-[190px]">
+                    <SelectValue placeholder="Wochentag" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Heute</SelectItem>
+                    <SelectItem value="all">Alle Tage</SelectItem>
+                    {weekdayOptions.map((day) => (
+                      <SelectItem key={day.value} value={day.value}>
+                        {day.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -342,6 +382,11 @@ export default function LunchPlaces() {
                 <div className="space-y-4">
                   {filteredPlaces.map((place) => {
                     const rating = averageRating(place.id);
+                    const openDays = place.open_days ?? [];
+                    const isSelectedDayOpen =
+                      resolvedDayFilter !== 'all'
+                        ? openDays.includes(resolvedDayFilter)
+                        : openDays.includes(todayValue);
                     return (
                       <Card
                         key={place.id}
@@ -359,9 +404,18 @@ export default function LunchPlaces() {
                               </p>
                               <h3 className="text-xl font-semibold">{place.name}</h3>
                             </div>
-                            <Badge variant="outline" className="text-xs">
-                              {place.distance_minutes ? `${place.distance_minutes} min Fußweg` : 'Distanz n/a'}
-                            </Badge>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant="outline" className="text-xs">
+                                {place.distance_minutes ? `${place.distance_minutes} min Fußweg` : 'Distanz n/a'}
+                              </Badge>
+                              {isSelectedDayOpen && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {openDayFilter === 'today'
+                                    ? 'Heute geöffnet'
+                                    : `Geöffnet am ${weekdayLabel(resolvedDayFilter)}`}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                             <span className="inline-flex items-center gap-1">
@@ -400,20 +454,32 @@ export default function LunchPlaces() {
                                 {place.contact_email}
                               </a>
                             )}
-                            {place.menu_url && (
-                              <a
-                                href={place.menu_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                <FileText className="h-4 w-4" />
-                                Speisekarte
-                              </a>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-3">
+                          {place.menu_url && (
+                            <a
+                              href={place.menu_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <FileText className="h-4 w-4" />
+                              Speisekarte
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          {openDays.length > 0 ? (
+                            <>
+                              <UtensilsCrossed className="h-3.5 w-3.5 text-primary" />
+                              <span className="tracking-[0.3em] uppercase">
+                                {openDays.map((day) => weekdayLabel(day)).join(' · ')}
+                              </span>
+                            </>
+                          ) : (
+                            <span>Keine Öffnungstage hinterlegt</span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
                             <div className="flex items-center gap-1 text-amber-500">
                               {Array.from({ length: 5 }).map((_, index) => (
                                 <Star
@@ -647,6 +713,35 @@ export default function LunchPlaces() {
               <div className="space-y-2">
                 <Label>Longitude (Optional)</Label>
                 <Input value={placeForm.longitude} onChange={(event) => handlePlaceFormChange('longitude', event.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Geöffnet an diesen Tagen</Label>
+              <div className="flex flex-wrap gap-2">
+                {weekdayOptions.map((day) => {
+                  const isActive = placeForm.open_days.includes(day.value);
+                  return (
+                    <Button
+                      type="button"
+                      key={day.value}
+                      variant={isActive ? 'default' : 'outline'}
+                      className={cn(
+                        'rounded-full border px-4 py-2 text-sm',
+                        isActive ? 'bg-primary text-primary-foreground' : 'border-dashed text-muted-foreground',
+                      )}
+                      onClick={() =>
+                        setPlaceForm((prev) => ({
+                          ...prev,
+                          open_days: isActive
+                            ? prev.open_days.filter((value) => value !== day.value)
+                            : [...prev.open_days, day.value],
+                        }))
+                      }
+                    >
+                      {day.label}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
             <div className="space-y-2">
