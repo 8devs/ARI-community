@@ -64,6 +64,7 @@ export default function ReceptionTasks() {
   const [savingOrgTask, setSavingOrgTask] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [addingLogId, setAddingLogId] = useState<string | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -306,7 +307,25 @@ export default function ReceptionTasks() {
     loadTasks();
   };
 
+  const handleDeleteTask = async (taskId: string) => {
+    if (!canDeleteTask) {
+      toast.error('Nur Empfangspersonen können Aufgaben löschen.');
+      return;
+    }
+    setDeletingTaskId(taskId);
+    const { error } = await supabase.from('reception_tasks').delete().eq('id', taskId);
+    setDeletingTaskId(null);
+    if (error) {
+      console.error('Error deleting reception task', error);
+      toast.error('Aufgabe konnte nicht gelöscht werden');
+      return;
+    }
+    toast.success('Aufgabe gelöscht');
+    loadTasks();
+  };
+
   const canUpdateTask = canManageReception;
+  const canDeleteTask = canManageReception;
 
   return (
     <Layout>
@@ -461,6 +480,37 @@ export default function ReceptionTasks() {
                           <span className="ml-auto text-xs text-muted-foreground">
                             {formatDistanceToNow(new Date(task.created_at), { addSuffix: true, locale: de })}
                           </span>
+                          {canDeleteTask && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  Löschen
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Aufgabe löschen?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Diese Aufgabe wird dauerhaft entfernt.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => handleDeleteTask(task.id)}
+                                    disabled={deletingTaskId === task.id}
+                                  >
+                                    {deletingTaskId === task.id ? 'Löscht...' : 'Löschen'}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </div>
                         <div>
                           <h3 className="text-lg font-semibold">{task.title}</h3>

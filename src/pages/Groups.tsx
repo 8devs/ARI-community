@@ -135,6 +135,11 @@ export default function Groups() {
     return map;
   }, [membershipsQuery.data]);
 
+  const isMember = (groupId: string | null) => {
+    if (!groupId) return false;
+    return membershipMap.has(groupId) || Boolean(hasGlobalGroupRights);
+  };
+
   const isSelectedMember = selectedGroupId ? isMember(selectedGroupId) : false;
 
   const messagesQuery = useQuery({
@@ -205,11 +210,6 @@ export default function Groups() {
   const selectGroup = (groupId: string) => {
     setSelectedGroupId(groupId);
     setMessageInput("");
-  };
-
-  const isMember = (groupId: string | null) => {
-    if (!groupId) return false;
-    return membershipMap.has(groupId) || Boolean(hasGlobalGroupRights);
   };
 
   const renderGroupList = (onItemSelected?: () => void) => (
