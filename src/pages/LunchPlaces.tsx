@@ -134,8 +134,8 @@ export default function LunchPlaces() {
         return false;
       }
       if (resolvedDayFilter !== 'all') {
-        const openDays = place.open_days ?? [];
-        if (!openDays.includes(resolvedDayFilter)) {
+        const openDays = Array.isArray(place.open_days) ? place.open_days : [];
+        if (openDays.length > 0 && !openDays.includes(resolvedDayFilter)) {
           return false;
         }
       }
@@ -162,6 +162,7 @@ export default function LunchPlaces() {
         opening_hours: '',
         latitude: '',
         longitude: '',
+        open_days: [],
       });
       setEditingPlace(null);
     } else {
