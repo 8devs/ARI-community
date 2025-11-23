@@ -955,6 +955,26 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
   setMemberUpdates((prev) => ({ ...prev, [member.id]: false }));
 };
 
+const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => {
+  if (!canEditMember(member)) {
+    toast.error('Keine Berechtigung für diese Änderung');
+    return;
+  }
+  setMemberUpdates((prev) => ({ ...prev, [member.id]: true }));
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_receptionist: nextState })
+    .eq('id', member.id);
+  if (error) {
+    console.error('Error updating reception flag', error);
+    toast.error('Status konnte nicht aktualisiert werden');
+  } else {
+    toast.success(nextState ? 'Als Empfangsperson markiert' : 'Empfangsrolle entfernt');
+    loadMembers();
+  }
+  setMemberUpdates((prev) => ({ ...prev, [member.id]: false }));
+};
+
   const handleGeneratePasswordLink = async (member: ProfileRow) => {
     if (!canEditMember(member)) {
       toast.error('Keine Berechtigung für diesen Nutzer');
@@ -1568,6 +1588,17 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                     disabled={isUpdating}
                                   />
                                 </div>
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                  <div>
+                                    <p className="text-sm font-medium leading-tight">Empfangsperson</p>
+                                    <p className="text-xs text-muted-foreground">Kann Empfangsaufgaben bearbeiten</p>
+                                  </div>
+                                  <Switch
+                                    checked={member.is_receptionist}
+                                    onCheckedChange={(checked) => handleReceptionToggle(member, checked)}
+                                    disabled={isUpdating}
+                                  />
+                                </div>
                               </div>
                               <div className="grid gap-2">
                                 <Button
@@ -1625,6 +1656,7 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                           <TableHead>Rolle</TableHead>
                           <TableHead>Newsmanager</TableHead>
                           <TableHead>Eventmanager</TableHead>
+                          <TableHead>Empfang</TableHead>
                           <TableHead className="w-48 text-right">Aktionen</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1721,11 +1753,18 @@ const handleEventManagerToggle = async (member: ProfileRow, nextState: boolean) 
                                   disabled={!canEditMember(member) || isUpdating}
                                 />
                               </TableCell>
+                              <TableCell>
+                                <Switch
+                                  checked={Boolean(member.is_receptionist)}
+                                  onCheckedChange={(checked) => handleReceptionToggle(member, checked)}
+                                  disabled={!canEditMember(member) || isUpdating}
+                                />
+                              </TableCell>
                               <TableCell className="flex flex-wrap items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSendPasswordResetEmail(member)}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendPasswordResetEmail(member)}
                             disabled={!canEditMember(member) || resettingPasswordId === member.id}
                           >
                             {resettingPasswordId === member.id ? (

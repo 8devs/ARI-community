@@ -10,13 +10,13 @@ export const changelogEntries: ChangelogEntry[] = [
     version: "0.6.0",
     date: "22.11.2025",
     highlights: [
-      "Neues Modul „Empfang & Aufgaben“ mit To-Dos, Logs und Empfänger-Rollenrecht „RECEPTION“",
+      "Neues Modul „Empfang & Aufgaben“ mit To-Dos, Protokoll und Flag „Empfangsperson“",
       "Admins können Lunch-Orte/Bewertungen löschen sowie Community-Gruppen bearbeiten und entfernen",
       "Leaflet-basierte Karte für Lunch-Orte, öffentliche Speisekarten und erweiterte Lunch-Roulette Steuerung",
     ],
     details: [
       "Empfang erhält eigenes Aufgabenboard inkl. Organisations-To-Dos, Meldungen von Mitarbeitenden, Benachrichtigungen und Protokollführung",
-      "Neue DB-Tabellen `reception_tasks` + Logs sowie Rolle `RECEPTION` – Aufgaben triggern E-Mail & In-App-Notifications",
+      "Neue DB-Tabellen `reception_tasks` + Logs sowie das Profil-Flag `is_receptionist` – Aufgaben triggern E-Mail & In-App-Notifications",
       "Lunch-Orte bieten OpenStreetMap mit Campus-Marker, Admin-Löschfunktionen und öffentlichen Speisekarten dank Storage-Policies",
       "Community-Gruppen lassen sich jetzt bearbeiten, globale Admins gelten als Gruppen-Admins; Lunch-Roulette-Runden können gelöscht werden",
       "Navigation & Texte angepasst („Getränke-Abrechnung“, neuer Empfängereintrag), Version und Datum aktualisiert",

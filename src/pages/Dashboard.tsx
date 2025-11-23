@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Circle,
   X,
+  ClipboardList,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,6 +54,23 @@ type NewsItem = Pick<
   } | null;
 };
 
+type ReceptionStatus = Tables<'reception_tasks'>['status'];
+
+type ReceptionDashboardTask = Pick<
+  Tables<'reception_tasks'>,
+  'id' | 'title' | 'status' | 'direction' | 'created_at'
+> & {
+  organization?: {
+    name: string | null;
+  } | null;
+};
+
+const RECEPTION_STATUS_LABELS: Record<ReceptionStatus, string> = {
+  OPEN: 'Offen',
+  IN_PROGRESS: 'In Arbeit',
+  DONE: 'Erledigt',
+};
+
 export default function Dashboard() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -78,6 +96,8 @@ export default function Dashboard() {
   const [whoLoading, setWhoLoading] = useState(true);
   const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
+  const [receptionTasks, setReceptionTasks] = useState<ReceptionDashboardTask[]>([]);
+  const [receptionTasksLoading, setReceptionTasksLoading] = useState(false);
 
   useEffect(() => {
     loadActivities();
@@ -236,6 +256,64 @@ export default function Dashboard() {
     };
   }, [profile?.id]);
 
+  useEffect(() => {
+    if (!profile?.id) {
+      setReceptionTasks([]);
+      return;
+    }
+    let ignore = false;
+
+    const fetchReceptionTasks = async () => {
+      setReceptionTasksLoading(true);
+      try {
+        let query = supabase
+          .from('reception_tasks')
+          .select(
+            `
+              id,
+              title,
+              status,
+              direction,
+              created_at,
+              organization:organizations(name)
+            `,
+          )
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (profile.is_receptionist) {
+          query = query.in('status', ['OPEN', 'IN_PROGRESS']);
+        } else {
+          const filters = [`created_by.eq.${profile.id}`];
+          if (profile.organization_id) {
+            filters.push(`and(direction.eq.ORG_TODO,organization_id.eq.${profile.organization_id})`);
+          }
+          query = query.or(filters.join(','));
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!ignore) {
+          setReceptionTasks(data ?? []);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error('Error loading reception tasks', error);
+          setReceptionTasks([]);
+        }
+      } finally {
+        if (!ignore) {
+          setReceptionTasksLoading(false);
+        }
+      }
+    };
+
+    void fetchReceptionTasks();
+    return () => {
+      ignore = true;
+    };
+  }, [profile?.id, profile?.organization_id, profile?.is_receptionist]);
+
   const loadActivities = async () => {
     setActivityLoading(true);
     try {
@@ -385,6 +463,7 @@ export default function Dashboard() {
     { title: 'Organisationen', icon: Building2, to: '/organisationen' },
     { title: 'Benachrichtigungen', icon: Bell, to: '/benachrichtigungen' },
     { title: 'Lunch Roulette', icon: Utensils, to: '/lunch-roulette' },
+    { title: 'Empfang', icon: ClipboardList, to: '/empfang' },
   ];
 
   return (
@@ -473,6 +552,59 @@ export default function Dashboard() {
             </Card>
           )}
         </div>
+
+        <Card className="border border-border/70 bg-card/80 shadow-sm">
+          <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Empfang & Aufgaben
+              </CardTitle>
+              <CardDescription>Überblick über Deine Meldungen und Organisations-To-Dos.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/empfang">Zum Empfang</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {receptionTasksLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Aufgaben werden geladen...
+              </div>
+            ) : receptionTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Noch keine Aufgaben für Dich oder Deine Organisation vorhanden.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {receptionTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="rounded-2xl border border-border/60 bg-background/70 p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-foreground">{task.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {task.direction === 'ORG_TODO'
+                            ? `To-do für ${task.organization?.name ?? 'Organisation'}`
+                            : 'Meldung an den Empfang'}
+                        </p>
+                      </div>
+                      <Badge variant={task.status === 'DONE' ? 'outline' : 'secondary'}>
+                        {RECEPTION_STATUS_LABELS[task.status]}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(task.created_at), { addSuffix: true, locale: de })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="border border-primary/40 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

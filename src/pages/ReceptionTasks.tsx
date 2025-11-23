@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Mail, Users, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { Loader2, Users, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -43,9 +43,7 @@ const NO_ORGANIZATION_VALUE = '__none__';
 
 export default function ReceptionTasks() {
   const { profile } = useCurrentProfile();
-  const canManageReception = Boolean(
-    profile && (profile.role === 'RECEPTION' || profile.role === 'SUPER_ADMIN' || profile.role === 'ORG_ADMIN'),
-  );
+  const canManageReception = Boolean(profile?.is_receptionist);
   const [tasks, setTasks] = useState<ReceptionTaskRow[]>([]);
   const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
@@ -117,15 +115,21 @@ export default function ReceptionTasks() {
   };
 
   const visibleTasks = useMemo(() => {
-    const base = canManageReception ? tasks : tasks.filter((task) => task.created_by === profile?.id);
+    const base = canManageReception
+      ? tasks
+      : tasks.filter(
+          (task) =>
+            task.created_by === profile?.id ||
+            (task.direction === 'ORG_TODO' && task.organization_id && task.organization_id === profile?.organization_id),
+        );
     return base.filter((task) => task.status === statusFilter);
-  }, [tasks, canManageReception, profile?.id, statusFilter]);
+  }, [tasks, canManageReception, profile?.id, profile?.organization_id, statusFilter]);
 
   const recipientsForReception = async (): Promise<Recipient[]> => {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, email, name')
-      .in('role', ['RECEPTION']);
+      .eq('is_receptionist', true);
     if (error) {
       console.error('Error loading reception recipients', error);
       return [];
@@ -250,6 +254,10 @@ export default function ReceptionTasks() {
   };
 
   const handleStatusChange = async (taskId: string, nextStatus: ReceptionTaskStatus) => {
+    if (!canManageReception) {
+      toast.error('Nur Empfangspersonen können den Status ändern.');
+      return;
+    }
     setUpdatingTaskId(taskId);
     const { error } = await supabase.from('reception_tasks').update({ status: nextStatus }).eq('id', taskId);
     setUpdatingTaskId(null);
@@ -262,7 +270,10 @@ export default function ReceptionTasks() {
   };
 
   const handleAssignToMe = async (taskId: string) => {
-    if (!profile?.id) return;
+    if (!canManageReception || !profile?.id) {
+      toast.error('Nur Empfangspersonen können Aufgaben übernehmen.');
+      return;
+    }
     setUpdatingTaskId(taskId);
     const { error } = await supabase
       .from('reception_tasks')
@@ -278,6 +289,10 @@ export default function ReceptionTasks() {
   };
 
   const handleAddLog = async (taskId: string) => {
+    if (!canManageReception) {
+      toast.error('Nur Empfangspersonen können Kommentare ergänzen.');
+      return;
+    }
     const text = (logDrafts[taskId] ?? '').trim();
     if (!text) return;
     setAddingLogId(taskId);
@@ -292,8 +307,7 @@ export default function ReceptionTasks() {
     loadTasks();
   };
 
-  const canUpdateTask = (task: ReceptionTaskRow) =>
-    canManageReception || task.created_by === profile?.id || task.assigned_reception_id === profile?.id;
+  const canUpdateTask = canManageReception;
 
   return (
     <Layout>
@@ -485,7 +499,7 @@ export default function ReceptionTasks() {
                         <div className="text-xs text-muted-foreground">
                           Verantwortlich: <span className="font-medium text-foreground">{assigneeName}</span>
                         </div>
-                        {canUpdateTask(task) && (
+                        {canUpdateTask && (
                           <div className="flex flex-wrap items-center gap-2">
                             <Select
                               value={task.status}
@@ -534,7 +548,7 @@ export default function ReceptionTasks() {
                           ) : (
                             <p className="text-xs text-muted-foreground">Noch keine Notizen.</p>
                           )}
-                          {canUpdateTask(task) && (
+                          {canUpdateTask && (
                             <div className="space-y-2">
                               <Textarea
                                 value={logDrafts[task.id] ?? ''}

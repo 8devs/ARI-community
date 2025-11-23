@@ -1091,6 +1091,7 @@ export type Database = {
           id: string
           is_news_manager: boolean
           is_event_manager: boolean
+          is_receptionist: boolean
           name: string
           organization_id: string
           phone: string | null
@@ -1112,6 +1113,7 @@ export type Database = {
           id: string
           is_news_manager?: boolean
           is_event_manager?: boolean
+          is_receptionist?: boolean
           name: string
           organization_id: string
           phone?: string | null
@@ -1133,6 +1135,7 @@ export type Database = {
           id?: string
           is_news_manager?: boolean
           is_event_manager?: boolean
+          is_receptionist?: boolean
           name?: string
           organization_id?: string
           phone?: string | null
