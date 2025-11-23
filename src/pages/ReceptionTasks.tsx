@@ -39,6 +39,7 @@ const DIRECTION_LABELS: Record<ReceptionTaskDirection, { label: string; badge: '
 };
 
 const STATUS_FLOW: ReceptionTaskStatus[] = ['OPEN', 'IN_PROGRESS', 'DONE'];
+const NO_ORGANIZATION_VALUE = '__none__';
 
 export default function ReceptionTasks() {
   const { profile } = useCurrentProfile();
@@ -335,14 +336,19 @@ export default function ReceptionTasks() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Organisation (optional)</label>
                   <Select
-                    value={reportForm.organization_id}
-                    onValueChange={(value) => setReportForm((prev) => ({ ...prev, organization_id: value }))}
+                    value={reportForm.organization_id || NO_ORGANIZATION_VALUE}
+                    onValueChange={(value) =>
+                      setReportForm((prev) => ({
+                        ...prev,
+                        organization_id: value === NO_ORGANIZATION_VALUE ? '' : value,
+                      }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={loadingOrganizations ? 'Lädt...' : 'Organisation auswählen'} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Keine Angabe</SelectItem>
+                      <SelectItem value={NO_ORGANIZATION_VALUE}>Keine Angabe</SelectItem>
                       {organizations.map((org) => (
                         <SelectItem key={org.id} value={org.id}>
                           {org.name}
@@ -369,13 +375,19 @@ export default function ReceptionTasks() {
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Organisation</label>
                     <Select
-                      value={orgTaskForm.organization_id}
-                      onValueChange={(value) => setOrgTaskForm((prev) => ({ ...prev, organization_id: value }))}
+                      value={orgTaskForm.organization_id || NO_ORGANIZATION_VALUE}
+                      onValueChange={(value) =>
+                        setOrgTaskForm((prev) => ({
+                          ...prev,
+                          organization_id: value === NO_ORGANIZATION_VALUE ? '' : value,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={loadingOrganizations ? 'Lädt...' : 'Organisation wählen'} />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={NO_ORGANIZATION_VALUE}>Bitte wählen</SelectItem>
                         {organizations.map((org) => (
                           <SelectItem key={org.id} value={org.id}>
                             {org.name}

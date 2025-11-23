@@ -1,6 +1,3 @@
--- Extend roles for reception staff
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'RECEPTION';
-
 -- Task enums
 DO $$
 BEGIN
