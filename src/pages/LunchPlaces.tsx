@@ -12,9 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, MapPin, Phone, Globe, Mail, FileText, Star, Navigation, Plus, Filter, UtensilsCrossed } from 'lucide-react';
+import { Loader2, MapPin, Phone, Globe, Mail, FileText, Star, Navigation, Plus, Filter, UtensilsCrossed, MapPinned, Compass } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip as LeafletTooltip } from 'react-leaflet';
+import L, { Map as LeafletMap } from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 type LunchPlace = Tables<'lunch_places'> & { open_days?: string[] | null };
 type Profile = Tables<'profiles'>;
@@ -45,6 +48,34 @@ const weekdayOptions = [
 
 const weekdayLabel = (value: string) => weekdayOptions.find((day) => day.value === value)?.label ?? value;
 const jsDayToValue = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const CAMPUS_COORDS: [number, number] = [49.633342, 8.361155];
+const CAMPUS_ADDRESS = 'Adenauerring 1, 67547 Worms';
+const CAMPUS_LABEL = 'ARI Campus';
+const CAMPUS_ROUTE_PART = `${CAMPUS_COORDS[0].toFixed(5)},${CAMPUS_COORDS[1].toFixed(5)}`;
+
+type MapEntry = {
+  place: LunchPlace;
+  coords: [number, number];
+};
+
+const parseCoordinate = (value: number | string | null | undefined) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const buildDirectionsUrl = (destination: [number, number] | null, fallbackAddress: string) => {
+  if (!destination) {
+    return `https://www.openstreetmap.org/search?query=${encodeURIComponent(fallbackAddress)}`;
+  }
+  const destinationPart = `${destination[0].toFixed(5)},${destination[1].toFixed(5)}`;
+  return `https://www.openstreetmap.org/directions?engine=graphhopper_foot&route=${CAMPUS_ROUTE_PART};${destinationPart}`;
+};
 
 export default function LunchPlaces() {
   const { profile } = useCurrentProfile();
@@ -73,6 +104,9 @@ export default function LunchPlaces() {
   const [filteredCuisine, setFilteredCuisine] = useState<string>('all');
   const [maxDistance, setMaxDistance] = useState<string>('all');
   const [openDayFilter, setOpenDayFilter] = useState<string>('today');
+  const [activeTab, setActiveTab] = useState<'list' | 'map'>('list');
+  const [mapFocus, setMapFocus] = useState<[number, number] | null>(null);
+  const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
   const todayValue = jsDayToValue[new Date().getDay()];
   const resolvedDayFilter = openDayFilter === 'today' ? todayValue : openDayFilter;
 
@@ -143,11 +177,62 @@ export default function LunchPlaces() {
     });
   }, [places, filteredCuisine, maxDistance, resolvedDayFilter]);
 
+  const mapPlaces = useMemo<MapEntry[]>(() => {
+    return filteredPlaces
+      .map((place) => {
+        const lat = parseCoordinate(place.latitude);
+        const lon = parseCoordinate(place.longitude);
+        if (lat === null || lon === null) {
+          return null;
+        }
+        return { place, coords: [lat, lon] as [number, number] };
+      })
+      .filter((entry): entry is MapEntry => Boolean(entry));
+  }, [filteredPlaces]);
+
+  const coordsById = useMemo(() => {
+    const entries = new Map<string, [number, number]>();
+    mapPlaces.forEach((entry) => entries.set(entry.place.id, entry.coords));
+    return entries;
+  }, [mapPlaces]);
+
+  const selectedPlaceCoords = selectedPlace ? coordsById.get(selectedPlace.id) ?? null : null;
+
+  const mapBounds = useMemo(() => {
+    if (!mapPlaces.length) return null;
+    const coords = mapPlaces.map((entry) => entry.coords);
+    coords.push([...CAMPUS_COORDS] as [number, number]);
+    return L.latLngBounds(coords);
+  }, [mapPlaces]);
+
   useEffect(() => {
     if (filteredPlaces.length && (!selectedPlaceId || !filteredPlaces.some((place) => place.id === selectedPlaceId))) {
       setSelectedPlaceId(filteredPlaces[0]?.id ?? null);
     }
   }, [filteredPlaces, selectedPlaceId]);
+
+  useEffect(() => {
+    if (activeTab !== 'map') {
+      setMapInstance(null);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'map' || !mapInstance) return;
+    if (mapFocus) {
+      mapInstance.flyTo(mapFocus, 16, { duration: 0.6 });
+      return;
+    }
+    if (mapBounds) {
+      mapInstance.fitBounds(mapBounds, { padding: [48, 48] });
+    } else {
+      mapInstance.setView(CAMPUS_COORDS, 15);
+    }
+  }, [activeTab, mapInstance, mapFocus, mapBounds]);
+
+  useEffect(() => {
+    setMapFocus(null);
+  }, [filteredCuisine, maxDistance, resolvedDayFilter]);
 
   const openAddDialog = (place?: LunchPlace) => {
     if (!place) {
@@ -287,6 +372,26 @@ export default function LunchPlaces() {
 
   const selectedPlaceReviews = reviews.filter((review) => review.place_id === selectedPlaceId);
   const selectedPlaceRating = selectedPlaceId ? averageRating(selectedPlaceId) : null;
+  const handleShowOnMap = (place: LunchPlace) => {
+    const coords = coordsById.get(place.id);
+    if (!coords) {
+      toast.info('Für diesen Ort sind noch keine Koordinaten hinterlegt.');
+      return;
+    }
+    setSelectedPlaceId(place.id);
+    setActiveTab('map');
+    setMapFocus([coords[0], coords[1]]);
+  };
+
+  const handleFocusCampus = () => {
+    setActiveTab('map');
+    setMapFocus([CAMPUS_COORDS[0], CAMPUS_COORDS[1]]);
+  };
+
+  const handleShowAllOnMap = () => {
+    setActiveTab('map');
+    setMapFocus(null);
+  };
 
   return (
     <Layout>
@@ -313,7 +418,7 @@ export default function LunchPlaces() {
           </div>
         </div>
 
-        <Tabs defaultValue="list" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'list' | 'map')} className="space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <TabsList>
               <TabsTrigger value="list">Übersicht</TabsTrigger>
@@ -523,27 +628,38 @@ export default function LunchPlaces() {
                       <Card>
                         <CardHeader>
                           <CardTitle>Ort auf der Karte</CardTitle>
-                          <CardDescription>{selectedPlace.address}</CardDescription>
+                          <CardDescription>
+                            Öffne {selectedPlace.name} direkt in der Lunch-Karte oder starte eine Route ab dem ARI Campus.
+                          </CardDescription>
                         </CardHeader>
-                        <CardContent>
-                          <div className="overflow-hidden rounded-2xl border shadow-sm">
-                            <iframe
-                              title={selectedPlace.name}
-                              src={`https://www.google.com/maps?q=${encodeURIComponent(selectedPlace.address)}&output=embed`}
-                              width="100%"
-                              height="260"
-                              style={{ border: 0 }}
-                              loading="lazy"
-                              allowFullScreen
-                              referrerPolicy="no-referrer-when-downgrade"
-                            />
-                          </div>
-                          {selectedPlace.latitude && selectedPlace.longitude && (
-                            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Die Kartenansicht basiert auf OpenStreetMap und zeigt alle Orte gemeinsam mit dem Adenauerring 1.
+                          </p>
+                          {selectedPlaceCoords ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Navigation className="h-4 w-4" />
-                              {selectedPlace.latitude.toFixed(4)}, {selectedPlace.longitude.toFixed(4)}
+                              {selectedPlaceCoords[0].toFixed(4)}, {selectedPlaceCoords[1].toFixed(4)}
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                              Für diesen Ort fehlen noch Koordinaten. Ergänze Latitude und Longitude, damit er auf der Karte erscheint.
                             </div>
                           )}
+                          <div className="flex flex-wrap gap-2">
+                            <Button onClick={() => handleShowOnMap(selectedPlace)} disabled={!selectedPlaceCoords}>
+                              In Kartenansicht öffnen
+                            </Button>
+                            <Button variant="outline" asChild>
+                              <a
+                                href={buildDirectionsUrl(selectedPlaceCoords, selectedPlace.address)}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Route planen
+                              </a>
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
 
@@ -602,45 +718,152 @@ export default function LunchPlaces() {
             )}
           </TabsContent>
 
-          <TabsContent value="map">
+          <TabsContent value="map" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Alle Orte auf der Karte</CardTitle>
-                <CardDescription>Jeder Marker öffnet Google Maps direkt.</CardDescription>
+                <CardTitle>OpenStreetMap Übersicht</CardTitle>
+                <CardDescription>
+                  Alle Lunch-Orte und der Adenauerring 1 auf einer gemeinsamen Karte.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  {filteredPlaces.map((place) => (
-                    <Card key={place.id} className="overflow-hidden">
+                <div className="relative h-[520px] w-full overflow-hidden rounded-2xl border border-border/60">
+                  <MapContainer
+                    center={CAMPUS_COORDS}
+                    zoom={15}
+                    scrollWheelZoom
+                    className="h-full w-full"
+                    whenCreated={setMapInstance}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
+                    <CircleMarker
+                      center={[CAMPUS_COORDS[0], CAMPUS_COORDS[1]]}
+                      radius={14}
+                      pathOptions={{ color: '#ea580c', fillColor: '#fdba74', fillOpacity: 0.8, weight: 3 }}
+                    >
+                      <LeafletTooltip direction="top" offset={[0, -12]} permanent>
+                        {CAMPUS_LABEL}
+                      </LeafletTooltip>
+                      <Popup>
+                        <div className="space-y-1 text-sm">
+                          <p className="font-semibold">{CAMPUS_LABEL}</p>
+                          <p className="text-muted-foreground">{CAMPUS_ADDRESS}</p>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                    {mapPlaces.map(({ place, coords }) => {
+                      const isSelected = place.id === selectedPlaceId;
+                      return (
+                        <CircleMarker
+                          key={place.id}
+                          center={coords}
+                          radius={isSelected ? 10 : 8}
+                          pathOptions={{
+                            color: isSelected ? '#2563eb' : '#7c3aed',
+                            fillColor: isSelected ? '#3b82f6' : '#a855f7',
+                            fillOpacity: 0.9,
+                            weight: isSelected ? 3 : 2,
+                          }}
+                          eventHandlers={{
+                            click: () => {
+                              setSelectedPlaceId(place.id);
+                            },
+                          }}
+                        >
+                          <LeafletTooltip direction="top" offset={[0, -8]}>
+                            {place.name}
+                          </LeafletTooltip>
+                          <Popup>
+                            <div className="space-y-2 text-sm">
+                              <div>
+                                <p className="font-semibold">{place.name}</p>
+                                <p className="text-muted-foreground">{place.address}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button size="sm" onClick={() => setSelectedPlaceId(place.id)}>
+                                  Details
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleShowOnMap(place)}>
+                                  Fokus
+                                </Button>
+                              </div>
+                            </div>
+                          </Popup>
+                        </CircleMarker>
+                      );
+                    })}
+                  </MapContainer>
+
+                  <div className="pointer-events-none absolute inset-0">
+                    <div className="pointer-events-auto absolute left-4 top-4 flex flex-col gap-2">
+                      <Button size="sm" variant="secondary" onClick={handleShowAllOnMap}>
+                        Alle Orte
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleFocusCampus}>
+                        <Compass className="mr-2 h-4 w-4" />
+                        Adenauerring 1
+                      </Button>
+                    </div>
+                    <div className="pointer-events-auto absolute right-4 top-4">
+                      <Badge variant="secondary" className="bg-background/80 text-foreground shadow-sm backdrop-blur">
+                        {mapPlaces.length}/{filteredPlaces.length} Orte
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                {!mapPlaces.length && (
+                  <p className="text-sm text-muted-foreground">
+                    Noch keine Koordinaten hinterlegt. Ergänze Latitude und Longitude, um Orte auf der Karte zu sehen.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {filteredPlaces.length ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredPlaces.map((place) => {
+                  const coords = coordsById.get(place.id) ?? null;
+                  return (
+                    <Card key={place.id} className="flex flex-col justify-between">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-lg">{place.name}</CardTitle>
-                        <CardDescription>{place.address}</CardDescription>
+                        <CardDescription className="flex items-center gap-2">
+                          <MapPinned className="h-4 w-4" />
+                          <span>{place.address}</span>
+                        </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <iframe
-                          title={place.name}
-                          src={`https://www.google.com/maps?q=${encodeURIComponent(place.address)}&output=embed`}
-                          width="100%"
-                          height="200"
-                          style={{ border: 0 }}
-                          loading="lazy"
-                        />
-                        <div className="flex items-center justify-between">
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.address)}`} target="_blank" rel="noreferrer">
+                        <div className="text-sm text-muted-foreground">
+                          {coords ? 'Koordinaten gespeichert' : 'Koordinaten fehlen noch'}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" onClick={() => handleShowOnMap(place)} disabled={!coords}>
+                            {coords ? 'Auf Karte fokussieren' : 'Koordinaten hinzufügen'}
+                          </Button>
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={buildDirectionsUrl(coords, place.address)} target="_blank" rel="noreferrer">
                               Route planen
                             </a>
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedPlaceId(place.id)}>
-                            Details ansehen
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedPlaceId(place.id)}>
+                            Details öffnen
                           </Button>
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center text-muted-foreground">
+                  Keine Orte passen zu Deiner Auswahl.
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>

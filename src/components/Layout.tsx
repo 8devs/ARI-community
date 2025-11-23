@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Moon,
   Sun,
+  Laptop,
   DoorClosed,
   Bell,
   UserPlus,
@@ -28,6 +29,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -58,6 +62,29 @@ type NavSection = {
   items: NavItem[];
 };
 
+type ThemeChoice = 'light' | 'dark' | 'system';
+
+const THEME_OPTIONS: { value: ThemeChoice; label: string; description: string; icon: LucideIcon }[] = [
+  {
+    value: 'system',
+    label: 'Automatisch',
+    description: 'Richtet sich nach Deiner Systemeinstellung',
+    icon: Laptop,
+  },
+  {
+    value: 'light',
+    label: 'Hell',
+    description: 'Optimiert für helle Umgebungen',
+    icon: Sun,
+  },
+  {
+    value: 'dark',
+    label: 'Dunkel',
+    description: 'Setzt auf minimale Lichtemission',
+    icon: Moon,
+  },
+];
+
 export function Layout({ children }: LayoutProps) {
   const { user, signOut } = useAuth();
   const { profile } = useCurrentProfile();
@@ -66,7 +93,7 @@ export function Layout({ children }: LayoutProps) {
   const isAuthenticated = Boolean(user);
   const canAccessAdmin = profile?.role === 'SUPER_ADMIN' || profile?.role === 'ORG_ADMIN';
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme, theme } = useTheme();
   const [themeReady, setThemeReady] = useState(false);
   const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -144,6 +171,83 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     setThemeReady(true);
   }, []);
+
+  const currentThemeValue = (theme as ThemeChoice | undefined) ?? 'system';
+  const currentThemeLabel =
+    THEME_OPTIONS.find((option) => option.value === currentThemeValue)?.label ?? 'Automatisch';
+
+  const ThemeMenu = ({
+    variant = 'sidebar',
+    className,
+    onSelection,
+  }: {
+    variant?: 'sidebar' | 'icon';
+    className?: string;
+    onSelection?: () => void;
+  }) => {
+    if (!themeReady) return null;
+
+    const icon =
+      resolvedTheme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />;
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          {variant === 'icon' ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Erscheinungsbild wählen"
+              className={className}
+            >
+              {resolvedTheme === 'dark' ? (
+                <Moon className="h-[1.1rem] w-[1.1rem]" />
+              ) : (
+                <Sun className="h-[1.1rem] w-[1.1rem]" />
+              )}
+            </Button>
+          ) : (
+            <Button variant="outline" className={cn('justify-between', className)}>
+              <span className="flex items-center gap-2">
+                {icon}
+                <span>Erscheinungsbild</span>
+              </span>
+              <span className="text-xs font-semibold text-muted-foreground">{currentThemeLabel}</span>
+            </Button>
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align={variant === 'icon' ? 'end' : 'start'}
+          sideOffset={8}
+          className="w-64"
+        >
+          <DropdownMenuLabel>Darstellung</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuRadioGroup
+            value={currentThemeValue}
+            onValueChange={(value) => {
+              setTheme(value as ThemeChoice);
+              onSelection?.();
+            }}
+          >
+            {THEME_OPTIONS.map((option) => (
+              <DropdownMenuRadioItem
+                key={option.value}
+                value={option.value}
+                className="flex items-start gap-3 py-2"
+              >
+                <option.icon className="mt-0.5 h-4 w-4" />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium leading-none">{option.label}</p>
+                  <p className="text-xs text-muted-foreground">{option.description}</p>
+                </div>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   const cacheBrandLogo = (logoUrl: string | null) => {
     if (typeof window === 'undefined') return;
@@ -278,11 +382,6 @@ export function Layout({ children }: LayoutProps) {
     };
   }, [canAccessAdmin, profile?.role, profile?.organization_id]);
 
-  const toggleTheme = () => {
-    if (!themeReady) return;
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-  };
-
   const isRouteActive = (path: string) => {
     if (path === '/') {
       return location.pathname === '/' || location.pathname === '';
@@ -340,21 +439,7 @@ export function Layout({ children }: LayoutProps) {
         </Link>
         <div className="flex-1 overflow-y-auto px-4 py-6">{renderNav()}</div>
         <div className="space-y-3 border-t border-border/60 px-4 py-6">
-          {themeReady && (
-            <Button variant="outline" className="w-full justify-start" onClick={toggleTheme}>
-              {resolvedTheme === 'dark' ? (
-                <>
-                  <Sun className="mr-2 h-4 w-4" />
-                  Helles Design
-                </>
-              ) : (
-                <>
-                  <Moon className="mr-2 h-4 w-4" />
-                  Dunkles Design
-                </>
-              )}
-            </Button>
-          )}
+          <ThemeMenu className="w-full" />
         </div>
       </aside>
 
@@ -380,28 +465,7 @@ export function Layout({ children }: LayoutProps) {
                     </div>
                   </div>
                   <div className="py-6">{renderNav(() => setSidebarOpen(false))}</div>
-                  {themeReady && (
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        toggleTheme();
-                        setSidebarOpen(false);
-                      }}
-                    >
-                      {resolvedTheme === 'dark' ? (
-                        <>
-                          <Sun className="mr-2 h-4 w-4" />
-                          Helles Design
-                        </>
-                      ) : (
-                        <>
-                          <Moon className="mr-2 h-4 w-4" />
-                          Dunkles Design
-                        </>
-                      )}
-                    </Button>
-                  )}
+                  <ThemeMenu className="w-full" onSelection={() => setSidebarOpen(false)} />
                 </SheetContent>
               </Sheet>
               <Link to="/" className="flex items-center gap-2 lg:hidden" aria-label="Zur Startseite">
@@ -410,23 +474,9 @@ export function Layout({ children }: LayoutProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <ThemeMenu variant="icon" className="lg:hidden" />
               {isAuthenticated ? (
                 <>
-                  {themeReady && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={toggleTheme}
-                      aria-label="Theme wechseln"
-                      className="lg:hidden"
-                    >
-                      {resolvedTheme === 'dark' ? (
-                        <Sun className="h-[1.2rem] w-[1.2rem]" />
-                      ) : (
-                        <Moon className="h-[1.2rem] w-[1.2rem]" />
-                      )}
-                    </Button>
-                  )}
 
                   <NotificationsMenu
                     unread={notifications.unreadCount}
