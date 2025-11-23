@@ -8,17 +8,18 @@ export type ChangelogEntry = {
 export const changelogEntries: ChangelogEntry[] = [
   {
     version: "0.6.0",
-    date: "05.12.2025",
+    date: "22.11.2025",
     highlights: [
-      "Eigenes Auth-System ersetzt Supabase Auth vollständig inklusive Passwort-Reset-Flows",
-      "Neues Modul „Mittagessen & Orte“ mit Bewertungen, Karte und Upload von Speisekarten",
-      "Überarbeitete System-E-Mails im ARI-Look & moderne 404-Seite",
+      "Neues Modul „Empfang & Aufgaben“ mit To-Dos, Logs und Empfänger-Rollenrecht „RECEPTION“",
+      "Admins können Lunch-Orte/Bewertungen löschen sowie Community-Gruppen bearbeiten und entfernen",
+      "Leaflet-basierte Karte für Lunch-Orte, öffentliche Speisekarten und erweiterte Lunch-Roulette Steuerung",
     ],
     details: [
-      "Login läuft jetzt über Vercel-APIs, JWT-Cookies und `app_users`; Admins verschicken Reset-Mails statt Standardpasswörtern",
-      "Lunch-Orte inkl. Filter, Bewertungen, Google-Maps-Karte und Upload von Menüs wurden ergänzt; Orte lassen sich nach Distanz/Küche suchen",
-      "Alle Mail-Templates erhielten Branding mit farbigem Verlauf-Header, CTA-Buttons und inhaltlich klaren Abschnitten",
-      "Mitgliederverwaltung kann Nutzer serverseitig löschen; neue /mittagessen-Route in der Navigation",
+      "Empfang erhält eigenes Aufgabenboard inkl. Organisations-To-Dos, Meldungen von Mitarbeitenden, Benachrichtigungen und Protokollführung",
+      "Neue DB-Tabellen `reception_tasks` + Logs sowie Rolle `RECEPTION` – Aufgaben triggern E-Mail & In-App-Notifications",
+      "Lunch-Orte bieten OpenStreetMap mit Campus-Marker, Admin-Löschfunktionen und öffentlichen Speisekarten dank Storage-Policies",
+      "Community-Gruppen lassen sich jetzt bearbeiten, globale Admins gelten als Gruppen-Admins; Lunch-Roulette-Runden können gelöscht werden",
+      "Navigation & Texte angepasst („Getränke-Abrechnung“, neuer Empfängereintrag), Version und Datum aktualisiert",
     ],
   },
   {

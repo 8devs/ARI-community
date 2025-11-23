@@ -24,6 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, MessageSquare, Plus, Shield, Users, Lock, Clock, Menu } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
 import { toast } from "sonner";
@@ -87,8 +88,16 @@ export default function Groups() {
   const [activeDetailTab, setActiveDetailTab] = useState<"chat" | "members">("chat");
   const [memberActionId, setMemberActionId] = useState<string | null>(null);
   const [groupSheetOpen, setGroupSheetOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [updatingGroup, setUpdatingGroup] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    visibility: "PUBLIC" as "PUBLIC" | "PRIVATE",
+  });
 
   const groupChatRef = useRef<HTMLDivElement | null>(null);
+  const hasGlobalGroupRights = profile?.role === "SUPER_ADMIN" || profile?.role === "ORG_ADMIN";
 
   const groupsQuery = useQuery({
     queryKey: ["community-groups"],
@@ -126,7 +135,7 @@ export default function Groups() {
     return map;
   }, [membershipsQuery.data]);
 
-  const isSelectedMember = selectedGroupId ? membershipMap.has(selectedGroupId) : false;
+  const isSelectedMember = selectedGroupId ? isMember(selectedGroupId) : false;
 
   const messagesQuery = useQuery({
     queryKey: ["group-messages", selectedGroupId],
@@ -200,7 +209,7 @@ export default function Groups() {
 
   const isMember = (groupId: string | null) => {
     if (!groupId) return false;
-    return membershipMap.has(groupId);
+    return membershipMap.has(groupId) || Boolean(hasGlobalGroupRights);
   };
 
   const renderGroupList = (onItemSelected?: () => void) => (
@@ -283,6 +292,7 @@ export default function Groups() {
 
   const isAdmin = (groupId: string | null) => {
     if (!groupId) return false;
+    if (hasGlobalGroupRights) return true;
     return membershipMap.get(groupId)?.role === "ADMIN";
   };
 
@@ -489,6 +499,46 @@ export default function Groups() {
     }
   };
 
+  const openEditGroupDialog = () => {
+    if (!activeGroup || !isAdmin(activeGroup.id)) return;
+    setEditForm({
+      name: activeGroup.name,
+      description: activeGroup.description ?? "",
+      visibility: activeGroup.visibility,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateGroup = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!activeGroup || !isAdmin(activeGroup.id)) return;
+    if (!editForm.name.trim()) {
+      toast.error("Bitte gib einen Namen ein");
+      return;
+    }
+    setUpdatingGroup(true);
+    const { error } = await supabase
+      .from("community_groups")
+      .update({
+        name: editForm.name.trim(),
+        description: editForm.description.trim() || null,
+        visibility: editForm.visibility,
+      })
+      .eq("id", activeGroup.id);
+    setUpdatingGroup(false);
+    if (error) {
+      console.error("update group failed", error);
+      toast.error("Gruppe konnte nicht aktualisiert werden");
+      return;
+    }
+    toast.success("Gruppe aktualisiert");
+    setEditDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ["community-groups"] });
+    if (activeGroupId) {
+      queryClient.invalidateQueries({ queryKey: ["group-members", activeGroupId] });
+    }
+  };
+
   const handleDeleteGroup = async (groupId: string) => {
     if (!groupId) return;
     setDeletingGroupId(groupId);
@@ -587,6 +637,56 @@ export default function Groups() {
               </form>
             </DialogContent>
           </Dialog>
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Gruppe bearbeiten</DialogTitle>
+              </DialogHeader>
+              <form className="space-y-4" onSubmit={handleUpdateGroup}>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="edit-group-name">
+                    Name
+                  </label>
+                  <Input
+                    id="edit-group-name"
+                    value={editForm.name}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="edit-group-description">
+                    Beschreibung
+                  </label>
+                  <Textarea
+                    id="edit-group-description"
+                    value={editForm.description}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, description: event.target.value }))}
+                    placeholder="Worum geht es in der Gruppe?"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Sichtbarkeit</label>
+                  <Select
+                    value={editForm.visibility}
+                    onValueChange={(value) => setEditForm((prev) => ({ ...prev, visibility: value as "PUBLIC" | "PRIVATE" }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sichtbarkeit wählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PUBLIC">Öffentlich</SelectItem>
+                      <SelectItem value="PRIVATE">Privat</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={updatingGroup}>
+                    {updatingGroup ? "Speichert..." : "Änderungen sichern"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
@@ -632,6 +732,11 @@ export default function Groups() {
                     <CardDescription>{activeGroup.description || 'Noch keine Beschreibung'}</CardDescription>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {isAdmin(activeGroup.id) && (
+                      <Button variant="outline" size="sm" onClick={openEditGroupDialog}>
+                        Gruppe bearbeiten
+                      </Button>
+                    )}
                     {isAdmin(activeGroup.id) && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

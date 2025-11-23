@@ -262,7 +262,7 @@ useEffect(() => {
           <CardHeader>
             <CardTitle>Keine Organisation zugeordnet</CardTitle>
             <CardDescription>
-              Für die Kaffee-Abrechnung musst Du einer Organisation zugeordnet sein.
+              Für die Getränke-Abrechnung musst Du einer Organisation zugeordnet sein.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -280,9 +280,9 @@ useEffect(() => {
     <Layout>
       <div className="space-y-6">
         <div className="flex flex-col gap-2">
-          <h1 className="text-4xl font-bold">Kaffee-Abrechnung</h1>
+          <h1 className="text-4xl font-bold">Getränke-Abrechnung</h1>
           <p className="text-lg text-muted-foreground">
-            Getränke auswählen, QR-Code scannen und Transaktionen für die Kostenstelle dokumentieren.
+            Kaffee, Tee oder Kaltgetränke erfassen und direkt der Kostenstelle zuordnen.
           </p>
         </div>
 
@@ -290,7 +290,7 @@ useEffect(() => {
           <CardHeader>
             <CardTitle>Produkte</CardTitle>
             <CardDescription>
-              Wähle Dein Getränk aus und scanne den QR-Code an der Kaffeemaschine.
+              Wähle Dein Getränk aus und scanne den QR-Code an der Station im Ari.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -303,7 +303,7 @@ useEffect(() => {
               <Alert>
                 <AlertTitle>Keine Produkte vorhanden</AlertTitle>
                 <AlertDescription>
-                  Bitte wende Dich an Deinen Organisations-Admin, um Kaffee-Produkte zu hinterlegen.
+                  Bitte wende Dich an Deinen Organisations-Admin, um Getränke-Produkte zu hinterlegen.
                 </AlertDescription>
               </Alert>
             ) : (

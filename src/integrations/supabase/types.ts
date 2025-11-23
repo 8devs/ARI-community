@@ -59,6 +59,109 @@ export type Database = {
           },
         ]
       }
+      reception_task_logs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entry: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entry: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entry?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reception_task_logs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reception_task_logs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "reception_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reception_tasks: {
+        Row: {
+          assigned_reception_id: string | null
+          created_at: string
+          created_by: string
+          details: string | null
+          direction: Database["public"]["Enums"]["reception_task_direction"]
+          due_at: string | null
+          id: string
+          organization_id: string | null
+          status: Database["public"]["Enums"]["reception_task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_reception_id?: string | null
+          created_at?: string
+          created_by?: string
+          details?: string | null
+          direction?: Database["public"]["Enums"]["reception_task_direction"]
+          due_at?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: Database["public"]["Enums"]["reception_task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_reception_id?: string | null
+          created_at?: string
+          created_by?: string
+          details?: string | null
+          direction?: Database["public"]["Enums"]["reception_task_direction"]
+          due_at?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: Database["public"]["Enums"]["reception_task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reception_tasks_assigned_reception_id_fkey"
+            columns: ["assigned_reception_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reception_tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reception_tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       answer_votes: {
         Row: {
           answer_id: string
@@ -1532,7 +1635,7 @@ export type Database = {
       is_org_admin_of: { Args: { _user_id: string; _organization_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "SUPER_ADMIN" | "ORG_ADMIN" | "MEMBER"
+      app_role: "SUPER_ADMIN" | "ORG_ADMIN" | "MEMBER" | "RECEPTION"
       audience_type: "PUBLIC" | "INTERNAL" | "ORG_ONLY"
       booking_status: "REQUESTED" | "APPROVED" | "DECLINED" | "CANCELLED"
       listing_kind: "OFFER" | "REQUEST" | "LOST_FOUND" | "RIDESHARE"
@@ -1545,11 +1648,13 @@ export type Database = {
         | "QNA"
         | "BOOKING"
         | "LUNCH"
-      group_visibility: "PUBLIC" | "PRIVATE"
-      group_member_role: "MEMBER" | "ADMIN"
         | "COFFEE"
         | "POLL"
         | "MESSAGE"
+      group_visibility: "PUBLIC" | "PRIVATE"
+      group_member_role: "MEMBER" | "ADMIN"
+      reception_task_direction: "ORG_TODO" | "USER_NOTE"
+      reception_task_status: "OPEN" | "IN_PROGRESS" | "DONE"
       report_status: "OPEN" | "RESOLVED"
       report_target: "QUESTION" | "ANSWER" | "POST"
     }
@@ -1679,7 +1784,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["SUPER_ADMIN", "ORG_ADMIN", "MEMBER"],
+      app_role: ["SUPER_ADMIN", "ORG_ADMIN", "MEMBER", "RECEPTION"],
       audience_type: ["PUBLIC", "INTERNAL", "ORG_ONLY"],
       booking_status: ["REQUESTED", "APPROVED", "DECLINED", "CANCELLED"],
       listing_kind: ["OFFER", "REQUEST", "LOST_FOUND", "RIDESHARE"],

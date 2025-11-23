@@ -12,9 +12,35 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, MapPin, Phone, Globe, Mail, FileText, Star, Navigation, Plus, Filter, UtensilsCrossed, MapPinned, Compass } from 'lucide-react';
+import {
+  Loader2,
+  MapPin,
+  Phone,
+  Globe,
+  Mail,
+  FileText,
+  Star,
+  Navigation,
+  Plus,
+  Filter,
+  UtensilsCrossed,
+  MapPinned,
+  Compass,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip as LeafletTooltip } from 'react-leaflet';
 import L, { Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -101,6 +127,8 @@ export default function LunchPlaces() {
   });
   const [menuFile, setMenuFile] = useState<File | null>(null);
   const [savingPlace, setSavingPlace] = useState(false);
+  const [deletingPlaceId, setDeletingPlaceId] = useState<string | null>(null);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
   const [filteredCuisine, setFilteredCuisine] = useState<string>('all');
   const [maxDistance, setMaxDistance] = useState<string>('all');
   const [openDayFilter, setOpenDayFilter] = useState<string>('today');
@@ -370,6 +398,38 @@ export default function LunchPlaces() {
     }
   };
 
+  const handleDeletePlace = async (placeId: string) => {
+    if (!placeId) return;
+    setDeletingPlaceId(placeId);
+    const { error } = await supabase.from('lunch_places').delete().eq('id', placeId);
+    setDeletingPlaceId(null);
+    if (error) {
+      console.error('delete place failed', error);
+      toast.error('Ort konnte nicht gelöscht werden.');
+      return;
+    }
+    toast.success('Ort gelöscht');
+    if (selectedPlaceId === placeId) {
+      setSelectedPlaceId(null);
+    }
+    void loadPlaces();
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!reviewId) return;
+    setDeletingReviewId(reviewId);
+    const { error } = await supabase.from('lunch_reviews').delete().eq('id', reviewId);
+    setDeletingReviewId(null);
+    if (error) {
+      console.error('delete review failed', error);
+      toast.error('Bewertung konnte nicht gelöscht werden.');
+      return;
+    }
+    toast.success('Bewertung gelöscht');
+    void loadReviews();
+    void loadPlaces();
+  };
+
   const selectedPlaceReviews = reviews.filter((review) => review.place_id === selectedPlaceId);
   const selectedPlaceRating = selectedPlaceId ? averageRating(selectedPlaceId) : null;
   const handleShowOnMap = (place: LunchPlace) => {
@@ -612,9 +672,49 @@ export default function LunchPlaces() {
                                 : 'Jetzt bewerten'}
                             </Button>
                             {isAdmin && (
-                              <Button variant="ghost" size="sm" onClick={(event) => openAddDialog(place)}>
-                                Bearbeiten
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openAddDialog(place);
+                                  }}
+                                >
+                                  Bearbeiten
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-destructive hover:text-destructive"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      <Trash2 className="mr-1 h-4 w-4" />
+                                      Löschen
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Ort endgültig löschen?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        {place.name} und alle zugehörigen Bewertungen werden dauerhaft entfernt.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        onClick={() => handleDeletePlace(place.id)}
+                                        disabled={deletingPlaceId === place.id}
+                                      >
+                                        {deletingPlaceId === place.id ? 'Löscht...' : 'Löschen'}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
                             )}
                           </div>
                         </CardContent>
@@ -695,6 +795,38 @@ export default function LunchPlaces() {
                                     <Badge variant="outline">
                                       Wartezeit ~ {review.wait_time_minutes} min
                                     </Badge>
+                                  )}
+                                  {isAdmin && (
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="ml-auto text-destructive hover:text-destructive"
+                                        >
+                                          <Trash2 className="mr-1 h-3.5 w-3.5" />
+                                          Löschen
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Bewertung löschen?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Dieser Eintrag wird für alle entfernt.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            onClick={() => handleDeleteReview(review.id)}
+                                            disabled={deletingReviewId === review.id}
+                                          >
+                                            {deletingReviewId === review.id ? 'Löscht...' : 'Löschen'}
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
                                   )}
                                 </div>
                                 {review.comment && (

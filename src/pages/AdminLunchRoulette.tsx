@@ -6,12 +6,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Settings, Plus, Users, Shuffle, CheckCircle2, Calendar } from 'lucide-react';
+import { Settings, Plus, Users, Shuffle, CheckCircle2, Calendar, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { format, addDays, nextThursday, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface MatchRound {
   id: string;
@@ -27,6 +38,7 @@ export default function AdminLunchRoulette() {
   const [loading, setLoading] = useState(true);
   const [newRoundDate, setNewRoundDate] = useState('');
   const [weekday, setWeekday] = useState(4); // Thursday
+  const [deletingRoundId, setDeletingRoundId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -97,6 +109,19 @@ export default function AdminLunchRoulette() {
       console.error('Error creating round:', error);
       toast.error('Fehler beim Erstellen der Runde');
     }
+  };
+
+  const deleteRound = async (roundId: string) => {
+    setDeletingRoundId(roundId);
+    const { error } = await supabase.from('match_rounds').delete().eq('id', roundId);
+    setDeletingRoundId(null);
+    if (error) {
+      console.error('Error deleting round:', error);
+      toast.error('Runde konnte nicht gelöscht werden');
+      return;
+    }
+    toast.success('Runde gelöscht');
+    loadRounds();
   };
 
   const createPairings = async (roundId: string) => {
@@ -303,21 +328,49 @@ export default function AdminLunchRoulette() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {round.status === 'OPEN' && (
-                      <Button
-                        onClick={() => createPairings(round.id)}
-                        disabled={!round.participants[0]?.count || round.participants[0].count < 2}
-                      >
-                        <Shuffle className="h-4 w-4 mr-2" />
-                        Paarungen erstellen
-                      </Button>
-                    )}
-                    {round.status === 'PAIRED' && (
-                      <div className="flex items-center gap-2 text-success">
-                        <CheckCircle2 className="h-5 w-5" />
-                        <span className="font-medium">Paarungen wurden erstellt</span>
-                      </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {round.status === 'OPEN' && (
+                        <Button
+                          onClick={() => createPairings(round.id)}
+                          disabled={!round.participants[0]?.count || round.participants[0].count < 2}
+                        >
+                          <Shuffle className="h-4 w-4 mr-2" />
+                          Paarungen erstellen
+                        </Button>
+                      )}
+                      {round.status === 'PAIRED' && (
+                        <div className="flex items-center gap-2 text-success">
+                          <CheckCircle2 className="h-5 w-5" />
+                          <span className="font-medium">Paarungen wurden erstellt</span>
+                        </div>
+                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" className="text-destructive hover:text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Runde löschen
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Lunch Roulette löschen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Die Runde am {format(parseISO(round.scheduled_date), 'dd.MM.yyyy', { locale: de })} und alle Anmeldungen werden entfernt.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => deleteRound(round.id)}
+                              disabled={deletingRoundId === round.id}
+                            >
+                              {deletingRoundId === round.id ? 'Löscht...' : 'Löschen'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
