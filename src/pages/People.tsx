@@ -197,9 +197,9 @@ export default function People() {
                 .filter(Boolean) ?? [];
               return (
                 <Card key={profile.id} className="flex h-full flex-col hover:shadow-lg transition-shadow">
-                <CardHeader>
-                    <div className="flex items-start gap-4">
-                      <Avatar className="h-14 w-14">
+                <CardHeader className="pb-3">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-12 w-12">
                       {profile.avatar_url && (
                         <AvatarImage
                           src={profile.avatar_url}
@@ -226,7 +226,7 @@ export default function People() {
                       </div>
                     </div>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col justify-between space-y-3">
+                <CardContent className="flex flex-1 flex-col justify-between space-y-2 pt-0">
                   {profile.bio && (
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {profile.bio}

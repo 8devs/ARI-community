@@ -217,7 +217,7 @@ export default function Messages() {
         const preview = trimmed.length > 200 ? `${trimmed.slice(0, 200)}…` : trimmed;
         void sendEmailNotification(
           selectedPartner.email,
-          `${profile.name} hat Dir eine Nachricht geschickt`,
+          `Neue Nachricht aus der ARI Community`,
           `<p>Hallo ${selectedPartner.name},</p><p>${profile.name} hat Dir in der ARI Community eine Nachricht gesendet:</p><blockquote>${preview}</blockquote><p><a href="${appUrl}">Hier klicken</a>, um direkt zu antworten.</p>`,
         );
       }

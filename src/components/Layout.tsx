@@ -58,11 +58,6 @@ type NavItem = {
   icon: LucideIcon;
 };
 
-type NavSection = {
-  title: string;
-  items: NavItem[];
-};
-
 type ThemeChoice = 'light' | 'dark' | 'system';
 
 const THEME_OPTIONS: { value: ThemeChoice; label: string; description: string; icon: LucideIcon }[] = [
@@ -125,7 +120,7 @@ export function Layout({ children }: LayoutProps) {
 
   const pendingBadgeValue = formatPendingCount();
 
-  const primaryNav = useMemo<NavItem[]>(() => {
+  const navItems = useMemo<NavItem[]>(() => {
     if (!isAuthenticated) {
       return [
         { to: '/', label: 'Start', icon: LayoutDashboard },
@@ -134,41 +129,26 @@ export function Layout({ children }: LayoutProps) {
         { to: '/organisationen', label: 'Organisationen', icon: Building2 },
       ];
     }
-    return [
+    const items: NavItem[] = [
       { to: '/app', label: 'Übersicht', icon: LayoutDashboard },
       { to: '/gruppen', label: 'Gruppen', icon: UserPlus },
+      { to: '/personen', label: 'Who-is-Who', icon: Users },
       { to: '/nachrichten', label: 'Nachrichten', icon: MessageCircle },
-      { to: '/raeume', label: 'Räume', icon: DoorClosed },
-      { to: '/qa', label: 'Q&A', icon: MessageSquare },
-    ];
-  }, [isAuthenticated]);
-
-  const secondaryNav = useMemo<NavItem[]>(() => {
-    if (!isAuthenticated) return [];
-    return [
       { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },
       { to: '/events', label: 'Events', icon: CalendarDays },
       { to: '/organisationen', label: 'Organisationen', icon: Building2 },
+      { to: '/raeume', label: 'Räume', icon: DoorClosed },
+      { to: '/qa', label: 'Q&A', icon: MessageSquare },
       { to: '/lunch-roulette', label: 'Lunch', icon: Utensils },
       { to: '/mittagessen', label: 'Lunch Orte', icon: UtensilsCrossed },
       { to: '/kaffee', label: 'Getränke-Abrechnung', icon: Coffee },
       { to: '/empfang', label: 'Empfang & Aufgaben', icon: ClipboardList },
     ];
-  }, [isAuthenticated]);
-
-  const navSections = useMemo<NavSection[]>(() => {
-    const sections: NavSection[] = [];
-    if (primaryNav.length) {
-      sections.push({ title: 'Arbeitsplatz', items: primaryNav });
-    }
-    if (secondaryNav.length) {
-      sections.push({ title: 'Community', items: secondaryNav });
-    }
     if (canAccessAdmin) {
-      sections.push({ title: 'Verwaltung', items: [{ to: '/admin', label: 'Administration', icon: Shield }] });
+      items.push({ to: '/admin', label: 'Administration', icon: Shield });
     }
-    return sections;
-  }, [primaryNav, secondaryNav, canAccessAdmin]);
+    return items;
+  }, [isAuthenticated, canAccessAdmin]);
 
   useEffect(() => {
     setThemeReady(true);
@@ -392,37 +372,30 @@ export function Layout({ children }: LayoutProps) {
   };
 
   const navButtonClasses =
-    'w-full justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/60 data-[active=true]:bg-primary/10 data-[active=true]:text-primary';
+    'w-full justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent/60 dark:hover:bg-accent/30 data-[active=true]:bg-primary/15 data-[active=true]:text-primary-foreground';
 
   const renderNav = (onNavigate?: () => void) => (
-    <div className="space-y-6">
-      {navSections.map((section) => (
-        <div key={section.title}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.title}</p>
-          <div className="mt-3 space-y-1">
-            {section.items.map(({ to, label, icon: Icon }) => (
-              <Button
-                key={to}
-                variant="ghost"
-                size="sm"
-                className={cn(navButtonClasses)}
-                data-active={isRouteActive(to) ? 'true' : undefined}
-                asChild
-                onClick={() => onNavigate?.()}
-              >
-                <Link to={to} className="flex w-full items-center gap-3">
-                  <Icon className="h-4 w-4" />
-                  <span className="flex-1 truncate">{label}</span>
-                  {to === '/admin' && pendingBadgeValue && (
-                    <span className="ml-auto inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
-                      {pendingBadgeValue}
-                    </span>
-                  )}
-                </Link>
-              </Button>
-            ))}
-          </div>
-        </div>
+    <div className="space-y-1">
+      {navItems.map(({ to, label, icon: Icon }) => (
+        <Button
+          key={to}
+          variant="ghost"
+          size="sm"
+          className={cn(navButtonClasses)}
+          data-active={isRouteActive(to) ? 'true' : undefined}
+          asChild
+          onClick={() => onNavigate?.()}
+        >
+          <Link to={to} className="flex w-full items-center gap-3">
+            <Icon className="h-4 w-4" />
+            <span className="flex-1 truncate">{label}</span>
+            {to === '/admin' && pendingBadgeValue && (
+              <span className="ml-auto inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-white">
+                {pendingBadgeValue}
+              </span>
+            )}
+          </Link>
+        </Button>
       ))}
     </div>
   );
