@@ -21,6 +21,7 @@ import {
   DoorClosed,
   Bell,
   UserPlus,
+  Users,
   UtensilsCrossed,
   ClipboardList,
 } from 'lucide-react';
