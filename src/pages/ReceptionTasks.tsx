@@ -52,7 +52,6 @@ export default function ReceptionTasks() {
   const [reportForm, setReportForm] = useState({
     title: '',
     details: '',
-    organization_id: '',
   });
   const [orgTaskForm, setOrgTaskForm] = useState({
     title: '',
@@ -93,7 +92,7 @@ export default function ReceptionTasks() {
         `
           *,
           organization:organizations(name),
-          creator:profiles(id, name, email),
+          creator:profiles!reception_tasks_created_by_fkey(id, name, email),
           assignee:profiles!reception_tasks_assigned_reception_id_fkey(id, name),
           logs:reception_task_logs(
             id,
@@ -191,7 +190,7 @@ export default function ReceptionTasks() {
         details: reportForm.details.trim() || null,
         direction: 'USER_NOTE',
         created_by: profile.id,
-        organization_id: reportForm.organization_id || profile.organization_id || null,
+        organization_id: profile.organization_id || null,
       })
       .select('id, title, details')
       .single();
@@ -201,7 +200,7 @@ export default function ReceptionTasks() {
       toast.error('Meldung konnte nicht übermittelt werden');
       return;
     }
-    setReportForm({ title: '', details: '', organization_id: '' });
+    setReportForm({ title: '', details: '' });
     toast.success('Meldung wurde an den Empfang gesendet');
     loadTasks();
     const recipients = await recipientsForReception();
@@ -346,30 +345,6 @@ export default function ReceptionTasks() {
                     rows={4}
                     placeholder="Kurze Beschreibung oder Hinweise (optional)"
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Organisation (optional)</label>
-                  <Select
-                    value={reportForm.organization_id || NO_ORGANIZATION_VALUE}
-                    onValueChange={(value) =>
-                      setReportForm((prev) => ({
-                        ...prev,
-                        organization_id: value === NO_ORGANIZATION_VALUE ? '' : value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={loadingOrganizations ? 'Lädt...' : 'Organisation auswählen'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NO_ORGANIZATION_VALUE}>Keine Angabe</SelectItem>
-                      {organizations.map((org) => (
-                        <SelectItem key={org.id} value={org.id}>
-                          {org.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 <Button type="submit" disabled={savingReport}>
                   {savingReport ? 'Wird gesendet...' : 'Meldung senden'}
