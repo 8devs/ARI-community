@@ -23,6 +23,21 @@ export const changelogEntries: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.5.0",
+    date: "18.11.2025",
+    highlights: [
+      "Eigenes Auth-System ersetzt Supabase Auth mitsamt Reset-, Invite- und Session-Flows",
+      "Öffentliche Raumbuchung & E-Mail-Templates im ARI-Look",
+      "Neues Modul „Mittagessen & Orte“ inkl. Bewertungen und Kartenvorschau",
+    ],
+    details: [
+      "JWT-basierte Sessions über Vercel-APIs, `app_users`-Tabellen sowie Admin-Tools zum Setzen von Passwörtern",
+      "Invite-, Reset- und Notifications-Mails erhielten einen gebrandeten HTML-Aufbau und präzise Texte",
+      "Raumbuchungs-Links funktionieren extern; Catering-Optionen & Standardwerte wurden ergänzt",
+      "Lunch-Orte bieten Filter, Wartezeit-Bewertungen und Upload einer Speisekarte",
+    ],
+  },
+  {
     version: "0.4.1",
     date: "14.11.2025",
     highlights: [
