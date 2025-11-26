@@ -1,5 +1,7 @@
-import { requireAuth } from "../../../../lib/server/authGuard.js";
-import { supabaseAdmin } from "../../../../lib/server/supabaseAdmin.js";
+// These files live at repo/lib/server; the function root is /api/auth/members,
+// so we only need to go three levels up.
+import { requireAuth } from "../../../lib/server/authGuard.js";
+import { supabaseAdmin } from "../../../lib/server/supabaseAdmin.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
