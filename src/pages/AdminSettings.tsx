@@ -1482,346 +1482,215 @@ const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => 
                 {filteredMembers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Keine Mitarbeitenden gefunden.</p>
                 ) : (
-                  <>
-                    <div className="space-y-4 md:hidden">
-                      {filteredMembers.map((member) => {
-                        const isUpdating = memberUpdates[member.id];
-                        const isSelf = member.id === currentProfile?.id;
-                        return (
-                          <div key={member.id} className="space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
-                            <div className="flex items-start gap-3">
-                              <Avatar className="h-10 w-10">
-                                {member.avatar_url ? (
-                                  <AvatarImage src={member.avatar_url} alt={member.name} />
-                                ) : (
-                                  <AvatarFallback>{member.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                                )}
-                              </Avatar>
-                              <div className="flex-1 space-y-1">
-                                <div className="flex flex-col">
-                                  <p className="text-base font-semibold leading-tight">{member.name}</p>
-                                  {member.position && (
-                                    <span className="text-xs text-foreground">{member.position}</span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-muted-foreground">{member.email}</p>
-                                {member.phone && (
-                                  <p className="text-xs text-muted-foreground">{member.phone}</p>
-                                )}
-                              </div>
-                            </div>
-                            <div className="space-y-3">
-                              {isSuperAdmin && (
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">Organisation</Label>
-                                  <Select
-                                    value={member.organization_id ?? undefined}
-                                    onValueChange={(value) => handleMemberOrgChange(member.id, value)}
-                                    disabled={isUpdating}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Organisation wählen" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {organizations.map((org) => (
-                                        <SelectItem key={org.id} value={org.id}>
-                                          {org.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    {filteredMembers.map((member) => {
+                      const isUpdating = memberUpdates[member.id];
+                      const isSelf = member.id === currentProfile?.id;
+
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex flex-col gap-3 rounded-2xl border bg-card/70 p-4 shadow-sm transition hover:shadow-md"
+                        >
+                          <div className="flex items-start gap-3">
+                            <Avatar className="h-10 w-10">
+                              {member.avatar_url ? (
+                                <AvatarImage src={member.avatar_url} alt={member.name} />
+                              ) : (
+                                <AvatarFallback>{member.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                               )}
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Rolle</Label>
-                                {isSuperAdmin ? (
-                                  <Select
-                                    value={member.role}
-                                    onValueChange={(value: 'MEMBER' | 'ORG_ADMIN' | 'SUPER_ADMIN') =>
-                                      handleMemberRoleChange(member.id, value)
-                                    }
-                                    disabled={!canEditMember(member) || isUpdating || isSelf}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Rolle wählen" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="MEMBER">Mitarbeiter</SelectItem>
-                                      <SelectItem value="ORG_ADMIN">Organisations-Admin</SelectItem>
-                                      <SelectItem value="SUPER_ADMIN">Superadmin</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                ) : (
-                                  <Badge
-                                    variant={
-                                      member.role === 'ORG_ADMIN'
-                                        ? 'secondary'
-                                        : member.role === 'SUPER_ADMIN'
-                                        ? 'default'
-                                        : 'outline'
-                                    }
-                                  >
-                                    {member.role}
-                                  </Badge>
-                                )}
+                            </Avatar>
+                            <div className="flex-1 space-y-1">
+                              <div className="flex flex-col">
+                                <p className="text-base font-semibold leading-tight">{member.name}</p>
+                                {member.position && <span className="text-xs text-foreground">{member.position}</span>}
                               </div>
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between rounded-lg border p-3">
-                                  <div>
-                                    <p className="text-sm font-medium leading-tight">Newsmanager</p>
-                                    <p className="text-xs text-muted-foreground">Kann Pinnwandeinträge verwalten</p>
-                                  </div>
-                                  <Switch
-                                    checked={member.is_news_manager}
-                                    onCheckedChange={(checked) => handleNewsManagerToggle(member, checked)}
-                                    disabled={isUpdating}
-                                  />
-                                </div>
-                                <div className="flex items-center justify-between rounded-lg border p-3">
-                                  <div>
-                                    <p className="text-sm font-medium leading-tight">Eventmanager</p>
-                                    <p className="text-xs text-muted-foreground">Darf Events veröffentlichen</p>
-                                  </div>
-                                  <Switch
-                                    checked={member.is_event_manager}
-                                    onCheckedChange={(checked) => handleEventManagerToggle(member, checked)}
-                                    disabled={isUpdating}
-                                  />
-                                </div>
-                                <div className="flex items-center justify-between rounded-lg border p-3">
-                                  <div>
-                                    <p className="text-sm font-medium leading-tight">Empfangsperson</p>
-                                    <p className="text-xs text-muted-foreground">Kann Empfangsaufgaben bearbeiten</p>
-                                  </div>
-                                  <Switch
-                                    checked={member.is_receptionist}
-                                    onCheckedChange={(checked) => handleReceptionToggle(member, checked)}
-                                    disabled={isUpdating}
-                                  />
-                                </div>
-                              </div>
-                              <div className="grid gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleSendPasswordResetEmail(member)}
-                                  disabled={!canEditMember(member) || resettingPasswordId === member.id}
-                                >
-                                  {resettingPasswordId === member.id ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Wird gesendet...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Mail className="mr-2 h-4 w-4" />
-                                      Reset-E-Mail
-                                    </>
-                                  )}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleGeneratePasswordLink(member)}
-                                  disabled={!canEditMember(member) || resetLinkMemberId === member.id}
-                                >
-                                  {resetLinkMemberId === member.id ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Wird erstellt...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="mr-2 h-4 w-4" />
-                                      Passwort-Link
-                                    </>
-                                  )}
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => openMemberEditDialog(member)}>
-                                  Profil bearbeiten
-                                </Button>
-                              </div>
+                              <p className="text-xs text-muted-foreground break-words">{member.email}</p>
+                              {member.phone && <p className="text-xs text-muted-foreground">{member.phone}</p>}
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge
+                                variant={
+                                  member.role === 'ORG_ADMIN'
+                                    ? 'secondary'
+                                    : member.role === 'SUPER_ADMIN'
+                                    ? 'default'
+                                    : 'outline'
+                                }
+                              >
+                                {member.role}
+                              </Badge>
+                              {member.organization?.name && (
+                                <span className="text-[11px] text-muted-foreground text-right">
+                                  {member.organization.name}
+                                </span>
+                              )}
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
 
-                    <div className="hidden rounded-md border overflow-x-auto md:block">
-                      <Table className="min-w-full">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Person</TableHead>
-                          {isSuperAdmin && <TableHead>Organisation</TableHead>}
-                          <TableHead>Rolle</TableHead>
-                          <TableHead>Newsmanager</TableHead>
-                          <TableHead>Eventmanager</TableHead>
-                          <TableHead>Empfang</TableHead>
-                          <TableHead className="w-48 text-right">Aktionen</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredMembers.map((member) => {
-                          const isUpdating = memberUpdates[member.id];
-                          const isSelf = member.id === currentProfile?.id;
-                          return (
-                            <TableRow key={member.id}>
-                              <TableCell>
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="h-8 w-8">
-                                    {member.avatar_url ? (
-                                      <AvatarImage src={member.avatar_url} alt={member.name} />
-                                    ) : (
-                                      <AvatarFallback>{member.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                                    )}
-                                  </Avatar>
-                                  <div className="space-y-0.5">
-                                    <p className="font-medium">{member.name}</p>
-                                    {member.position && (
-                                      <p className="text-xs text-foreground">{member.position}</p>
-                                    )}
-                                    <p className="text-xs text-muted-foreground">{member.email}</p>
-                                    {member.phone && (
-                                      <p className="text-xs text-muted-foreground">{member.phone}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </TableCell>
-                              {isSuperAdmin && (
-                                <TableCell className="min-w-[180px]">
-                                  <Select
-                                    value={member.organization_id ?? undefined}
-                                    onValueChange={(value) => handleMemberOrgChange(member.id, value)}
-                                    disabled={isUpdating}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Organisation wählen" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {organizations.map((org) => (
-                                        <SelectItem key={org.id} value={org.id}>
-                                          {org.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </TableCell>
-                              )}
-                              <TableCell className="min-w-[160px]">
-                                {isSuperAdmin ? (
-                                  <Select
-                                    value={member.role}
-                                    onValueChange={(value: 'MEMBER' | 'ORG_ADMIN' | 'SUPER_ADMIN') =>
-                                      handleMemberRoleChange(member.id, value)
-                                    }
-                                    disabled={!canEditMember(member) || isUpdating || isSelf}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Rolle wählen" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="MEMBER">Mitarbeiter</SelectItem>
-                                      <SelectItem value="ORG_ADMIN">Organisations-Admin</SelectItem>
-                                      <SelectItem value="SUPER_ADMIN">Superadmin</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                ) : (
-                                  <Badge
-                                    variant={
-                                      member.role === 'ORG_ADMIN'
-                                        ? 'secondary'
-                                        : member.role === 'SUPER_ADMIN'
-                                        ? 'default'
-                                        : 'outline'
-                                    }
-                                  >
-                                    {member.role}
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Switch
-                                  checked={Boolean(member.is_news_manager)}
-                                  onCheckedChange={(checked) => handleNewsManagerToggle(member, checked)}
-                                  disabled={!canEditMember(member) || isUpdating}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Switch
-                                  checked={Boolean(member.is_event_manager)}
-                                  onCheckedChange={(checked) => handleEventManagerToggle(member, checked)}
-                                  disabled={!canEditMember(member) || isUpdating}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Switch
-                                  checked={Boolean(member.is_receptionist)}
-                                  onCheckedChange={(checked) => handleReceptionToggle(member, checked)}
-                                  disabled={!canEditMember(member) || isUpdating}
-                                />
-                              </TableCell>
-                              <TableCell className="flex flex-wrap items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSendPasswordResetEmail(member)}
-                            disabled={!canEditMember(member) || resettingPasswordId === member.id}
-                          >
-                            {resettingPasswordId === member.id ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Wird gesendet...
-                              </>
-                            ) : (
-                              <>
-                                <Mail className="mr-2 h-4 w-4" />
-                                Reset-E-Mail
-                              </>
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-1">
+                            {isSuperAdmin && (
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Organisation</Label>
+                                <Select
+                                  value={member.organization_id ?? undefined}
+                                  onValueChange={(value) => handleMemberOrgChange(member.id, value)}
+                                  disabled={isUpdating}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Organisation wählen" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {organizations.map((org) => (
+                                      <SelectItem key={org.id} value={org.id}>
+                                        {org.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             )}
-                          </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleGeneratePasswordLink(member)}
-                                  disabled={!canEditMember(member) || resetLinkMemberId === member.id}
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Rolle</Label>
+                              {isSuperAdmin ? (
+                                <Select
+                                  value={member.role}
+                                  onValueChange={(value: 'MEMBER' | 'ORG_ADMIN' | 'SUPER_ADMIN') =>
+                                    handleMemberRoleChange(member.id, value)
+                                  }
+                                  disabled={!canEditMember(member) || isUpdating || isSelf}
                                 >
-                                  {resetLinkMemberId === member.id ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Wird erstellt...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="mr-2 h-4 w-4" />
-                                      Passwort-Link
-                                    </>
-                                  )}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => openMemberEditDialog(member)}
-                                  disabled={!canEditMember(member)}
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Rolle wählen" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="MEMBER">Mitarbeiter</SelectItem>
+                                    <SelectItem value="ORG_ADMIN">Organisations-Admin</SelectItem>
+                                    <SelectItem value="SUPER_ADMIN">Superadmin</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Badge
+                                  variant={
+                                    member.role === 'ORG_ADMIN'
+                                      ? 'secondary'
+                                      : member.role === 'SUPER_ADMIN'
+                                      ? 'default'
+                                      : 'outline'
+                                  }
                                 >
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Bearbeiten
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  disabled={!canDeleteMember(member) || deletingUserId === member.id}
-                                  onClick={() => handleDeleteMember(member)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                                  {member.role}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2">
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                              <div>
+                                <p className="text-sm font-medium leading-tight">Newsmanager</p>
+                                <p className="text-xs text-muted-foreground">Kann Pinnwandeinträge verwalten</p>
+                              </div>
+                              <Switch
+                                checked={Boolean(member.is_news_manager)}
+                                onCheckedChange={(checked) => handleNewsManagerToggle(member, checked)}
+                                disabled={!canEditMember(member) || isUpdating}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                              <div>
+                                <p className="text-sm font-medium leading-tight">Eventmanager</p>
+                                <p className="text-xs text-muted-foreground">Darf Events veröffentlichen</p>
+                              </div>
+                              <Switch
+                                checked={Boolean(member.is_event_manager)}
+                                onCheckedChange={(checked) => handleEventManagerToggle(member, checked)}
+                                disabled={!canEditMember(member) || isUpdating}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                              <div>
+                                <p className="text-sm font-medium leading-tight">Empfangsperson</p>
+                                <p className="text-xs text-muted-foreground">Kann Empfangsaufgaben bearbeiten</p>
+                              </div>
+                              <Switch
+                                checked={Boolean(member.is_receptionist)}
+                                onCheckedChange={(checked) => handleReceptionToggle(member, checked)}
+                                disabled={!canEditMember(member) || isUpdating}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSendPasswordResetEmail(member)}
+                              disabled={!canEditMember(member) || resettingPasswordId === member.id}
+                            >
+                              {resettingPasswordId === member.id ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Wird gesendet...
+                                </>
+                              ) : (
+                                <>
+                                  <Mail className="mr-2 h-4 w-4" />
+                                  Reset-E-Mail
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleGeneratePasswordLink(member)}
+                              disabled={!canEditMember(member) || resetLinkMemberId === member.id}
+                            >
+                              {resetLinkMemberId === member.id ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Wird erstellt...
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Passwort-Link
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openMemberEditDialog(member)}
+                              disabled={!canEditMember(member)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Bearbeiten
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={!canDeleteMember(member) || deletingUserId === member.id}
+                              onClick={() => handleDeleteMember(member)}
+                              className="justify-start text-destructive"
+                            >
+                              {deletingUserId === member.id ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Löschen...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Löschen
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  </>
                 )}
               </CardContent>
             </Card>
