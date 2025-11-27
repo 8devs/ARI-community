@@ -53,6 +53,13 @@ export default async function handler(req, res) {
     }
   }
 
+  // Delete profile first to avoid local_user_id FK blocking app_users deletion
+  const { error: profileDeleteError } = await supabaseAdmin.from("profiles").delete().eq("id", targetUserId);
+  if (profileDeleteError) {
+    console.error("delete profile failed", profileDeleteError);
+    return res.status(500).json({ error: "Profil konnte nicht gelöscht werden." });
+  }
+
   const { error: deleteError } = await supabaseAdmin.from("app_users").delete().eq("id", targetUserId);
   if (deleteError) {
     console.error("delete app_user failed", deleteError);
