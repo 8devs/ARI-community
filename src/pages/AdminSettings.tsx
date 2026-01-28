@@ -13,6 +13,12 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -37,6 +43,7 @@ import {
   RotateCcw,
   Copy,
   X,
+  MoreHorizontal,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -1686,17 +1693,17 @@ const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => 
                     </div>
 
                     {/* Desktop: Tabelle mit Wrap und Scroll */}
-                    <div className="hidden overflow-x-auto rounded-md border md:block">
-                      <Table className="min-w-[1000px]">
+                    <div className="hidden overflow-x-auto rounded-md border bg-card/50 md:block">
+                      <Table className="min-w-[1100px] table-auto">
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Person</TableHead>
-                            {isSuperAdmin && <TableHead>Organisation</TableHead>}
-                            <TableHead>Rolle</TableHead>
-                            <TableHead>Newsmanager</TableHead>
-                            <TableHead>Eventmanager</TableHead>
-                            <TableHead>Empfang</TableHead>
-                            <TableHead className="min-w-[260px] text-right">Aktionen</TableHead>
+                            <TableHead className="whitespace-nowrap">Person</TableHead>
+                            {isSuperAdmin && <TableHead className="whitespace-nowrap">Organisation</TableHead>}
+                            <TableHead className="whitespace-nowrap">Rolle</TableHead>
+                            <TableHead className="whitespace-nowrap">Newsmanager</TableHead>
+                            <TableHead className="whitespace-nowrap">Eventmanager</TableHead>
+                            <TableHead className="whitespace-nowrap">Empfang</TableHead>
+                            <TableHead className="min-w-[220px] text-right">Aktionen</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1774,21 +1781,21 @@ const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => 
                                     </Badge>
                                   )}
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="text-center">
                                   <Switch
                                     checked={Boolean(member.is_news_manager)}
                                     onCheckedChange={(checked) => handleNewsManagerToggle(member, checked)}
                                     disabled={!canEditMember(member) || isUpdating}
                                   />
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="text-center">
                                   <Switch
                                     checked={Boolean(member.is_event_manager)}
                                     onCheckedChange={(checked) => handleEventManagerToggle(member, checked)}
                                     disabled={!canEditMember(member) || isUpdating}
                                   />
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="text-center">
                                   <Switch
                                     checked={Boolean(member.is_receptionist)}
                                     onCheckedChange={(checked) => handleReceptionToggle(member, checked)}
@@ -1796,43 +1803,7 @@ const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => 
                                   />
                                 </TableCell>
                                 <TableCell>
-                                  <div className="flex flex-wrap justify-end gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleSendPasswordResetEmail(member)}
-                                      disabled={!canEditMember(member) || resettingPasswordId === member.id}
-                                    >
-                                      {resettingPasswordId === member.id ? (
-                                        <>
-                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                          Wird gesendet...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Mail className="mr-2 h-4 w-4" />
-                                          Reset-E-Mail
-                                        </>
-                                      )}
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleGeneratePasswordLink(member)}
-                                      disabled={!canEditMember(member) || resetLinkMemberId === member.id}
-                                    >
-                                      {resetLinkMemberId === member.id ? (
-                                        <>
-                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                          Wird erstellt...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Copy className="mr-2 h-4 w-4" />
-                                          Passwort-Link
-                                        </>
-                                      )}
-                                    </Button>
+                                  <div className="flex items-center justify-end gap-2">
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -1842,18 +1813,49 @@ const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => 
                                       <Pencil className="mr-2 h-4 w-4" />
                                       Bearbeiten
                                     </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      disabled={!canDeleteMember(member) || deletingUserId === member.id}
-                                      onClick={() => handleDeleteMember(member)}
-                                    >
-                                      {deletingUserId === member.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin text-destructive" />
-                                      ) : (
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      )}
-                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          onSelect={() => handleSendPasswordResetEmail(member)}
+                                          disabled={!canEditMember(member) || resettingPasswordId === member.id}
+                                        >
+                                          {resettingPasswordId === member.id ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Mail className="mr-2 h-4 w-4" />
+                                          )}
+                                          Reset-E-Mail
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onSelect={() => handleGeneratePasswordLink(member)}
+                                          disabled={!canEditMember(member) || resetLinkMemberId === member.id}
+                                        >
+                                          {resetLinkMemberId === member.id ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Copy className="mr-2 h-4 w-4" />
+                                          )}
+                                          Passwort-Link
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onSelect={() => handleDeleteMember(member)}
+                                          disabled={!canDeleteMember(member) || deletingUserId === member.id}
+                                          className="text-destructive focus:text-destructive"
+                                        >
+                                          {deletingUserId === member.id ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                          )}
+                                          Löschen
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                 </TableCell>
                               </TableRow>
