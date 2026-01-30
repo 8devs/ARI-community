@@ -20,7 +20,6 @@ import {
   Laptop,
   DoorClosed,
   Bell,
-  UserPlus,
   Users,
   UtensilsCrossed,
   ClipboardList,
@@ -132,7 +131,6 @@ export function Layout({ children }: LayoutProps) {
     }
     const items: NavItem[] = [
       { to: '/app', label: 'Übersicht', icon: LayoutDashboard },
-      { to: '/gruppen', label: 'Gruppen', icon: UserPlus },
       { to: '/personen', label: 'Who-is-Who', icon: Users },
       { to: '/nachrichten', label: 'Nachrichten', icon: MessageCircle },
       { to: '/pinnwand', label: 'Pinnwand', icon: Newspaper },

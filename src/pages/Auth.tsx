@@ -179,9 +179,15 @@ export default function Auth() {
       if (!response.ok) {
         toast.error(data.error ?? 'Registrierung fehlgeschlagen');
       } else {
-        toast.success('Einladung angenommen! Du kannst Dich jetzt anmelden.');
+        const { error: signInError } = await signIn(inviteInfo.email, validated.password);
+        if (signInError) {
+          toast.error('Einladung angenommen, Anmeldung fehlgeschlagen. Bitte melde Dich manuell an.');
+          return;
+        }
+        toast.success('Einladung angenommen! Willkommen in der ARI Community.');
         setSignupName('');
         setSignupPassword('');
+        navigate('/app');
       }
     } catch (error) {
       if (error instanceof z.ZodError) {

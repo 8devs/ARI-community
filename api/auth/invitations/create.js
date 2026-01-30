@@ -52,6 +52,11 @@ export default async function handler(req, res) {
 
   if (error) {
     console.error("create invitation failed", error);
+    if (error.code === "23505") {
+      return res.status(409).json({
+        error: "Für diese Organisation existiert bereits eine Einladung mit dieser E-Mail-Adresse.",
+      });
+    }
     return res.status(500).json({ error: "Einladung konnte nicht erstellt werden." });
   }
 

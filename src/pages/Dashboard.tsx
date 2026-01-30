@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import {
   Utensils,
   Loader2,
   Bell,
-  UserPlus,
   MessageCircle,
   Building2,
   CheckCircle2,
@@ -75,7 +74,6 @@ export default function Dashboard() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const { profile } = useCurrentProfile();
-  const [groupJoined, setGroupJoined] = useState(false);
   const [lunchParticipating, setLunchParticipating] = useState(false);
   const [onboardingDialogOpen, setOnboardingDialogOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
@@ -103,7 +101,6 @@ export default function Dashboard() {
     loadActivities();
     const interval = setInterval(loadActivities, 60000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -157,16 +154,19 @@ export default function Dashboard() {
     setOrgLogo(profile?.organization?.logo_url ?? brandLogo ?? null);
   }, [profile?.organization?.logo_url, brandLogo]);
 
-  const canSeeNews = (post: NewsItem) => {
-    if (post.audience === 'PUBLIC') return true;
-    if (!profile?.id) return false;
-    if (post.audience === 'INTERNAL') return true;
-    if (post.audience === 'ORG_ONLY') {
-      if (!profile.organization_id) return false;
-      return post.target_organization_id === profile.organization_id;
-    }
-    return false;
-  };
+  const canSeeNews = useCallback(
+    (post: NewsItem) => {
+      if (post.audience === 'PUBLIC') return true;
+      if (!profile?.id) return false;
+      if (post.audience === 'INTERNAL') return true;
+      if (post.audience === 'ORG_ONLY') {
+        if (!profile.organization_id) return false;
+        return post.target_organization_id === profile.organization_id;
+      }
+      return false;
+    },
+    [profile?.id, profile?.organization_id],
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -224,21 +224,11 @@ export default function Dashboard() {
       ignore = true;
       supabase.removeChannel(channel);
     };
-  }, [profile?.id, profile?.organization_id]);
+  }, [canSeeNews]);
 
   useEffect(() => {
     if (!profile?.id) return;
     let ignore = false;
-    const fetchGroups = async () => {
-      const { count, error } = await supabase
-        .from('group_members')
-        .select('group_id', { count: 'exact', head: true })
-        .eq('user_id', profile.id);
-      if (!ignore && !error) {
-        setGroupJoined((count ?? 0) > 0);
-      }
-    };
-
     const fetchLunch = async () => {
       const { count, error } = await supabase
         .from('match_participations')
@@ -249,7 +239,6 @@ export default function Dashboard() {
       }
     };
 
-    void fetchGroups();
     void fetchLunch();
     return () => {
       ignore = true;
@@ -392,13 +381,6 @@ export default function Dashboard() {
         completed: profileComplete,
       },
       {
-        id: 'groups',
-        title: 'Gruppe beitreten',
-        description: 'Community-Gruppe finden und mitreden.',
-        link: '/gruppen',
-        completed: groupJoined,
-      },
-      {
         id: 'notifications',
         title: 'Benachrichtigungen prüfen',
         description: 'Push- oder E-Mail-Alerts aktivieren.',
@@ -413,7 +395,7 @@ export default function Dashboard() {
         completed: lunchParticipating,
       },
     ],
-    [profileComplete, groupJoined, notificationsReady, lunchParticipating],
+    [profileComplete, notificationsReady, lunchParticipating],
   );
 
   const completedSteps = onboardingSteps.filter((step) => step.completed).length;
@@ -457,7 +439,6 @@ export default function Dashboard() {
   const quickActions = [
     { title: 'Pinnwand', icon: Newspaper, to: '/pinnwand' },
     { title: 'Events', icon: Calendar, to: '/events' },
-    { title: 'Gruppen', icon: UserPlus, to: '/gruppen' },
     { title: 'Nachrichten', icon: MessageCircle, to: '/nachrichten' },
     { title: 'Q&A', icon: MessageSquare, to: '/qa' },
     { title: 'Organisationen', icon: Building2, to: '/organisationen' },
@@ -491,10 +472,8 @@ export default function Dashboard() {
                   <p className="font-semibold text-foreground">{profile?.role ?? 'MITGLIED'}</p>
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
-                  <p className="text-xs uppercase tracking-wide">Gruppen</p>
-                  <p className="font-semibold text-foreground">
-                    {groupJoined ? 'Aktive Mitgliedschaft' : 'Noch nicht beigetreten'}
-                  </p>
+                  <p className="text-xs uppercase tracking-wide">Community</p>
+                  <p className="font-semibold text-foreground">Gruppen vorübergehend deaktiviert</p>
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                   <p className="text-xs uppercase tracking-wide">Lunch Roulette</p>
@@ -513,8 +492,8 @@ export default function Dashboard() {
                 <Button size="sm" asChild>
                   <Link to="/profil">Profil ansehen</Link>
                 </Button>
-                <Button size="sm" variant="outline" asChild>
-                  <Link to="/gruppen">Gruppen entdecken</Link>
+                <Button size="sm" variant="outline" disabled>
+                  Gruppen deaktiviert
                 </Button>
                 <Button size="sm" variant="outline" asChild>
                   <Link to="/benachrichtigungen">Benachrichtigungen</Link>
@@ -532,7 +511,7 @@ export default function Dashboard() {
                       <Bell className="h-5 w-5 text-primary" />
                       Neu in Version 0.4
                     </CardTitle>
-                    <CardDescription>Gruppen, Benachrichtigungscenter & mehr.</CardDescription>
+                    <CardDescription>Benachrichtigungscenter & mehr.</CardDescription>
                   </div>
                   <Button variant="ghost" size="icon" onClick={dismissVersionCard} aria-label="Hinweis ausblenden">
                     <X className="h-4 w-4" />
@@ -540,8 +519,8 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>★ Trete Community-Gruppen bei und chatte organisationsübergreifend.</p>
                 <p>★ Lass Dich per Push/E-Mail über neue Pinnwand- & Q&A-Beiträge informieren.</p>
+                <p>★ Mobile Optimierungen für Pinnwand, Räume & Aufgaben.</p>
                 <Button variant="ghost" size="sm" asChild className="w-full justify-between">
                   <Link to="/changelog">
                     Zum Changelog
