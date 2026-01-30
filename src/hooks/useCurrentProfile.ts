@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 
@@ -24,20 +23,17 @@ export function useCurrentProfile() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(`
-        *,
-        organization:organizations(name, logo_url, cost_center_code)
-      `)
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const response = await fetch('/api/data/profile', { credentials: 'include' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? 'Profil konnte nicht geladen werden.');
+      }
+      const payload = await response.json();
+      setProfile(payload.profile ?? null);
+    } catch (error) {
       console.error('Error loading profile', error);
       setProfile(null);
-    } else {
-      setProfile(data);
     }
 
     setLoading(false);
