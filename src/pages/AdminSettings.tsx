@@ -362,38 +362,36 @@ export default function AdminSettings() {
 
   const loadOrganizations = async () => {
     try {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('*')
-        .order('name');
-      if (error) throw error;
-      setOrganizations(data || []);
+      const response = await fetch('/api/data/organizations', { credentials: 'include' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? 'Organisationen konnten nicht geladen werden');
+      }
+      const payload = await response.json();
+      setOrganizations(payload.organizations || []);
     } catch (error: any) {
       console.error('Error loading organizations', error);
-      toast.error('Organisationen konnten nicht geladen werden');
+      toast.error(error.message || 'Organisationen konnten nicht geladen werden');
     }
   };
 
   const loadMembers = async () => {
     try {
-      let query = supabase
-        .from('profiles')
-        .select(`
-          *,
-          organization:organizations(name)
-        `)
-        .order('name');
-
-      if (!isSuperAdmin && currentProfile?.organization_id) {
-        query = query.eq('organization_id', currentProfile.organization_id);
+      const response = await fetch('/api/data/members', { credentials: 'include' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? 'Mitarbeitende konnten nicht geladen werden');
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setMembers(data || []);
+      const payload = await response.json();
+      const list = (payload.members || []) as ProfileRow[];
+      if (!isSuperAdmin && currentProfile?.organization_id) {
+        setMembers(list.filter((member) => member.organization_id === currentProfile.organization_id));
+      } else {
+        setMembers(list);
+      }
     } catch (error: any) {
       console.error('Error loading members', error);
-      toast.error('Mitarbeitende konnten nicht geladen werden');
+      toast.error(error.message || 'Mitarbeitende konnten nicht geladen werden');
     }
   };
 

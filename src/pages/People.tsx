@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Mail, Heart, Users, Phone, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface ProfileRow {
@@ -49,27 +48,16 @@ export default function People() {
 
   const loadProfiles = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          name,
-          email,
-          avatar_url,
-          bio,
-          skills_text,
-          first_aid_certified,
-          phone,
-          organization_id,
-          position,
-          organization:organizations(name)
-        `)
-        .order('name');
-      if (error) throw error;
-      setProfiles(data || []);
+      const response = await fetch('/api/data/members', { credentials: 'include' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? 'Profile konnten nicht geladen werden');
+      }
+      const payload = await response.json();
+      setProfiles(payload.members || []);
     } catch (error: any) {
       console.error('Error loading profiles', error);
-      toast.error('Profile konnten nicht geladen werden');
+      toast.error(error.message || 'Profile konnten nicht geladen werden');
     } finally {
       setLoading(false);
     }
@@ -77,12 +65,12 @@ export default function People() {
 
   const loadOrganizations = async () => {
     try {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('id, name')
-        .order('name');
-      if (error) throw error;
-      setOrganizations(data || []);
+      const response = await fetch('/api/data/organizations', { credentials: 'include' });
+      if (!response.ok) {
+        return;
+      }
+      const payload = await response.json();
+      setOrganizations(payload.organizations || []);
     } catch (error: any) {
       console.error('Error loading organizations', error);
     }
