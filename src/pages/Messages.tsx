@@ -215,7 +215,7 @@ export default function Messages() {
                 onChange={(event) => setSearchTerm(event.target.value)}
               />
             </div>
-            <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[50vh] lg:max-h-[70vh] overflow-y-auto pr-1">
               {coworkersQuery.isLoading && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -262,7 +262,7 @@ export default function Messages() {
           </CardContent>
         </Card>
 
-        <Card className="min-h-[70vh]">
+        <Card className="min-h-[50vh] lg:min-h-[70vh]">
           <CardHeader>
             <CardTitle>
               {selectedPartner ? `Chat mit ${selectedPartner.name}` : "Bitte Kolleg:in auswählen"}
@@ -271,7 +271,7 @@ export default function Messages() {
           <CardContent className="flex h-full flex-col gap-4 pb-24">
             <div
               ref={chatScrollRef}
-              className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4 min-h-[360px] max-h-[65vh]"
+              className="flex-1 overflow-y-auto rounded-xl border bg-muted/40 p-4 min-h-[280px] lg:min-h-[360px] max-h-[50vh] lg:max-h-[65vh]"
             >
               {!selectedPartner && (
                 <p className="text-muted-foreground text-sm">

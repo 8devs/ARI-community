@@ -72,7 +72,7 @@ export function NotificationsMenu({
       <DropdownMenuContent align="end" className="w-80 p-0">
         <DropdownMenuLabel className="px-4 py-3">Benachrichtigungen</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <ScrollArea className="max-h-96">
+        <ScrollArea className="max-h-[60vh]">
           {loading ? (
             <DropdownMenuItem className="text-muted-foreground text-sm">Lädt...</DropdownMenuItem>
           ) : notifications.length === 0 ? (

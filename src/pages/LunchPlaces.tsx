@@ -876,7 +876,7 @@ export default function LunchPlaces() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="relative h-[520px] w-full overflow-hidden rounded-2xl border border-border/60">
+                <div className="relative h-[300px] sm:h-[400px] lg:h-[520px] w-full overflow-hidden rounded-2xl border border-border/60">
                   <MapContainer
                     center={CAMPUS_COORDS}
                     zoom={15}

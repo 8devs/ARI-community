@@ -1151,7 +1151,7 @@ const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => 
                       <CardTitle className="text-base">Verwaltung</CardTitle>
                       <CardDescription>Bereiche schnell wechseln</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex-1 px-3 pb-4">{renderNavigationList()}</CardContent>
+                    <CardContent className="flex-1 overflow-y-auto px-3 pb-4">{renderNavigationList()}</CardContent>
                   </Card>
                 </div>
               </div>
@@ -1557,7 +1557,7 @@ const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => 
 
                     {/* Desktop: Tabelle mit Wrap und Scroll */}
                     <div className="hidden overflow-x-auto rounded-md border bg-card/50 md:block">
-                      <Table className="min-w-[1100px] table-auto">
+                      <Table className="min-w-[900px] table-auto">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="whitespace-nowrap">Person</TableHead>
@@ -1566,7 +1566,7 @@ const handleReceptionToggle = async (member: ProfileRow, nextState: boolean) => 
                             <TableHead className="whitespace-nowrap">Newsmanager</TableHead>
                             <TableHead className="whitespace-nowrap">Eventmanager</TableHead>
                             <TableHead className="whitespace-nowrap">Empfang</TableHead>
-                            <TableHead className="min-w-[220px] text-right">Aktionen</TableHead>
+                            <TableHead className="min-w-[180px] text-right">Aktionen</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
