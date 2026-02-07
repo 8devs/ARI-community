@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Tables } from "@/integrations/supabase/types";
+import { api } from "@/lib/api";
+import { connectSocket } from "@/lib/socket";
 import { toast } from "sonner";
 
-type NotificationRow = Tables<"notifications">;
+interface NotificationRow {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string | null;
+  type: string | null;
+  url: string | null;
+  read_at: string | null;
+  created_at: string;
+}
 
 interface UseNotificationsOptions {
   enablePush?: boolean;
@@ -22,43 +31,30 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", profileId)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (error) {
+    try {
+      const res = await api.query<{ data: NotificationRow[] }>("/api/notifications", { limit: String(limit) });
+      setItems(res.data);
+    } catch (error) {
       console.error("Error loading notifications", error);
       toast.error("Benachrichtigungen konnten nicht geladen werden");
-    } else {
-      setItems(data);
     }
-
     setLoading(false);
   }, [profileId, limit]);
 
   const markAsRead = useCallback(
     async (notificationId: string) => {
       if (!profileId) return;
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read_at: new Date().toISOString() })
-        .eq("id", notificationId)
-        .eq("user_id", profileId);
-
-      if (error) {
+      try {
+        await api.mutate(`/api/notifications/${notificationId}/read`, {}, "PATCH");
+        setItems((prev) =>
+          prev.map((notification) =>
+            notification.id === notificationId ? { ...notification, read_at: new Date().toISOString() } : notification,
+          ),
+        );
+      } catch (error) {
         console.error("Error updating notification", error);
         toast.error("Benachrichtigung konnte nicht aktualisiert werden");
-        return;
       }
-
-      setItems((prev) =>
-        prev.map((notification) =>
-          notification.id === notificationId ? { ...notification, read_at: new Date().toISOString() } : notification,
-        ),
-      );
     },
     [profileId],
   );
@@ -69,21 +65,15 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
     if (unreadCount === 0) return;
 
     const now = new Date().toISOString();
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read_at: now })
-      .eq("user_id", profileId)
-      .is("read_at", null);
-
-    if (error) {
+    try {
+      await api.mutate("/api/notifications/read-all", {});
+      setItems((prev) =>
+        prev.map((notification) => (notification.read_at ? notification : { ...notification, read_at: now })),
+      );
+    } catch (error) {
       console.error("Error marking notifications as read", error);
       toast.error("Benachrichtigungen konnten nicht aktualisiert werden");
-      return;
     }
-
-    setItems((prev) =>
-      prev.map((notification) => (notification.read_at ? notification : { ...notification, read_at: now })),
-    );
   }, [profileId, items]);
 
   const maybeShowNativeNotification = useCallback(
@@ -96,7 +86,7 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
       const dynamicIcon =
         document.querySelector('link[rel="icon"][data-dynamic-favicon="true"]') as HTMLLinkElement | null;
       new Notification(notification.title, {
-        body: notification.body,
+        body: notification.body ?? undefined,
         tag: notification.id,
         icon: dynamicIcon?.href ?? undefined,
         data: notification.url,
@@ -109,39 +99,35 @@ export function useNotifications(profileId?: string | null, options?: UseNotific
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // Socket.io realtime notifications
   useEffect(() => {
     if (!profileId) return;
 
-    const channel = supabase
-      .channel(`notifications-${profileId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${profileId}` },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            const notification = payload.new as NotificationRow;
-            setItems((prev) => [notification, ...prev].slice(0, limit));
-            maybeShowNativeNotification(notification);
-          } else if (payload.eventType === "UPDATE") {
-            const next = payload.new as NotificationRow;
-            setItems((prev) => prev.map((item) => (item.id === next.id ? next : item)));
-          } else if (payload.eventType === "DELETE") {
-            const removed = payload.old as NotificationRow;
-            setItems((prev) => prev.filter((item) => item.id !== removed.id));
-          }
-        },
-      );
+    const socket = connectSocket();
 
-    channel.subscribe();
+    const handleNew = (notification: NotificationRow) => {
+      setItems((prev) => [notification, ...prev].slice(0, limit));
+      maybeShowNativeNotification(notification);
+    };
+
+    const handleUpdated = (notification: NotificationRow) => {
+      setItems((prev) => prev.map((item) => (item.id === notification.id ? notification : item)));
+    };
+
+    socket.on("notification:new", handleNew);
+    socket.on("notification:updated", handleUpdated);
+
     return () => {
-      supabase.removeChannel(channel);
+      socket.off("notification:new", handleNew);
+      socket.off("notification:updated", handleUpdated);
     };
   }, [profileId, maybeShowNativeNotification, limit]);
 
+  // Polling fallback
   useEffect(() => {
     if (!profileId) return;
     const interval = setInterval(() => {
-      void fetchNotifications(false);
+      void fetchNotifications();
     }, 60000);
     return () => clearInterval(interval);
   }, [profileId, fetchNotifications]);

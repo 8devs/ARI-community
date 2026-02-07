@@ -12,16 +12,30 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Coffee as CoffeeIcon, Download } from 'lucide-react';
 import { format, startOfMonth, addMonths, parseISO } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { toast } from 'sonner';
 
-type CoffeeProduct = Tables<'coffee_products'>;
-type CoffeeTransaction = Tables<'coffee_transactions'> & {
+interface CoffeeProduct {
+  id: string;
+  name: string;
+  price_cents: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface CoffeeTransaction {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  product_id: string;
+  product_name_snapshot: string;
+  price_cents_snapshot: number;
+  created_at: string;
   user?: { name: string | null; email: string | null } | null;
-};
+  organization?: { name: string | null } | null;
+}
 
 const currencyFormatter = new Intl.NumberFormat('de-DE', {
   style: 'currency',
@@ -78,13 +92,7 @@ useEffect(() => {
   const loadProducts = async () => {
     setProductsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('coffee_products')
-        .select('*')
-        .eq('is_active', true)
-        .order('price_cents', { ascending: true });
-
-      if (error) throw error;
+      const { data } = await api.query<{ data: CoffeeProduct[] }>('/api/coffee/products');
       setProducts(data || []);
     } catch (error: any) {
       console.error('Error loading coffee products', error);
@@ -98,14 +106,9 @@ useEffect(() => {
     if (!user?.id) return;
     setTransactionsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('coffee_transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
+      const { data } = await api.query<{ data: CoffeeTransaction[] }>('/api/coffee/transactions', {
+        user_id: user.id,
+      });
       setTransactions(data || []);
     } catch (error: any) {
       console.error('Error loading coffee transactions', error);
@@ -117,12 +120,7 @@ useEffect(() => {
 
   const loadOrganizations = async () => {
     try {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('id, name, cost_center_code')
-        .order('name');
-
-      if (error) throw error;
+      const { data } = await api.query<{ data: { id: string; name: string; cost_center_code: string | null }[] }>('/api/organizations/simple');
       setOrgOptions(data || []);
     } catch (error: any) {
       console.error('Error loading organizations', error);
@@ -135,7 +133,7 @@ useEffect(() => {
 
     setSavingPurchase(true);
     try {
-      const { error } = await supabase.from('coffee_transactions').insert({
+      await api.mutate('/api/coffee/transactions', {
         user_id: user.id,
         organization_id: profile.organization_id,
         product_id: selectedProduct.id,
@@ -143,7 +141,6 @@ useEffect(() => {
         price_cents_snapshot: selectedProduct.price_cents,
       });
 
-      if (error) throw error;
       toast.success('Danke – Deine Transaktion wurde gespeichert');
       setProductDialogOpen(false);
       setSelectedProduct(null);
@@ -173,21 +170,12 @@ useEffect(() => {
 
     setExporting(true);
     try {
-      const { data, error } = await supabase
-        .from('coffee_transactions')
-        .select(`
-          id,
-          created_at,
-          price_cents_snapshot,
-          product_name_snapshot,
-          user:profiles!coffee_transactions_user_id_fkey(name, email)
-        `)
-        .eq('organization_id', selectedOrgId)
-        .gte('created_at', start.toISOString())
-        .lt('created_at', end.toISOString())
-        .order('created_at', { ascending: true });
+      const { data } = await api.query<{ data: CoffeeTransaction[] }>('/api/coffee/transactions', {
+        organization_id: selectedOrgId,
+        from: start.toISOString(),
+        to: end.toISOString(),
+      });
 
-      if (error) throw error;
       const records = data || [];
       if (records.length === 0) {
         toast.info('Keine Transaktionen für diesen Monat');

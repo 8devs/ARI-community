@@ -1,0 +1,789 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────
+
+enum AppRole {
+  SUPER_ADMIN
+  ORG_ADMIN
+  MEMBER
+  RECEPTION
+}
+
+enum AudienceType {
+  PUBLIC
+  INTERNAL
+  ORG_ONLY
+}
+
+enum BookingStatus {
+  REQUESTED
+  APPROVED
+  DECLINED
+  CANCELLED
+}
+
+enum ListingKind {
+  OFFER
+  REQUEST
+  LOST_FOUND
+  RIDESHARE
+}
+
+enum MatchKind {
+  LUNCH
+}
+
+enum MatchStatus {
+  DRAFT
+  OPEN
+  PAIRED
+  CLOSED
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum NotificationType {
+  INFO
+  EVENT
+  QNA
+  BOOKING
+  LUNCH
+  COFFEE
+  POLL
+  MESSAGE
+}
+
+enum GroupVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum GroupMemberRole {
+  MEMBER
+  ADMIN
+}
+
+enum ReceptionTaskDirection {
+  ORG_TODO
+  USER_NOTE
+}
+
+enum ReceptionTaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+}
+
+enum ReportTarget {
+  QUESTION
+  ANSWER
+  POST
+}
+
+// ─── Core Tables ─────────────────────────────────────────────────────
+
+model Organization {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  logoUrl         String?  @map("logo_url")
+  locationText    String   @default("") @map("location_text")
+  costCenterCode  String?  @map("cost_center_code")
+  contactEmail    String?  @map("contact_email")
+  contactName     String?  @map("contact_name")
+  contactPhone    String?  @map("contact_phone")
+  websiteUrl      String?  @map("website_url")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  profiles             Profile[]
+  appUsers             AppUser[]
+  employeeInvitations  EmployeeInvitation[]
+  coffeeTransactions   CoffeeTransaction[]
+  rooms                Room[]
+  roomResourceGroups   RoomResourceGroup[]
+  roomBookings         RoomBooking[]
+  receptionTasks       ReceptionTask[]
+  joinRequests         JoinRequest[]
+
+  @@map("organizations")
+}
+
+model AppUser {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique
+  passwordHash    String    @map("password_hash")
+  role            AppRole   @default(MEMBER)
+  organizationId  String?   @map("organization_id") @db.Uuid
+  name            String?
+  isEmailVerified Boolean   @default(false) @map("is_email_verified")
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  profile      Profile?
+  authTokens   AuthToken[]
+
+  @@map("app_users")
+}
+
+model AuthToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  tokenType String    @map("token_type")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("auth_tokens")
+}
+
+model Profile {
+  id                     String   @id @db.Uuid
+  localUserId            String?  @map("local_user_id") @db.Uuid
+  email                  String
+  name                   String
+  role                   AppRole  @default(MEMBER)
+  organizationId         String   @map("organization_id") @db.Uuid
+  bio                    String?
+  skillsText             String?  @map("skills_text")
+  firstAidCertified      Boolean? @map("first_aid_certified")
+  firstAidAvailable      Boolean? @map("first_aid_available")
+  firstAidAvailableSince String?  @map("first_aid_available_since")
+  phone                  String?
+  avatarUrl              String?  @map("avatar_url")
+  position               String?
+  isNewsManager          Boolean  @default(false) @map("is_news_manager")
+  isEventManager         Boolean  @default(false) @map("is_event_manager")
+  isReceptionist         Boolean  @default(false) @map("is_receptionist")
+  prefEmailNotifications Boolean  @default(true) @map("pref_email_notifications")
+  prefPushNotifications  Boolean  @default(false) @map("pref_push_notifications")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  appUser      AppUser      @relation(fields: [id], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  // Reverse relations
+  notifications          Notification[]
+  sentMessages           EmployeeMessage[]    @relation("sender")
+  receivedMessages       EmployeeMessage[]    @relation("recipient")
+  createdInfoPosts       InfoPost[]
+  createdQuestions        Question[]
+  createdAnswers         Answer[]
+  answerVotes            AnswerVote[]
+  ownedEvents            Event[]
+  coffeeTransactions     CoffeeTransaction[]
+  sentInvitations        EmployeeInvitation[]
+  lunchRounds            LunchRound[]
+  matchParticipations    MatchParticipation[]
+  matchPairsAsA          MatchPair[]          @relation("userA")
+  matchPairsAsB          MatchPair[]          @relation("userB")
+  createdRooms           Room[]
+  roomBookings           RoomBooking[]
+  resourceBookingsReq    ResourceBooking[]    @relation("requester")
+  resourceBookingsDec    ResourceBooking[]    @relation("decider")
+  createdReceptionTasks  ReceptionTask[]      @relation("creator")
+  assignedReceptionTasks ReceptionTask[]      @relation("assignee")
+  receptionTaskLogs      ReceptionTaskLog[]
+  kudosSent              Kudo[]               @relation("from")
+  kudosReceived          Kudo[]               @relation("to")
+  marketListings         MarketListing[]
+  createdPolls           Poll[]
+  pollVotes              PollVote[]
+  reports                Report[]
+  communityGroups        CommunityGroup[]
+  groupMembers           GroupMember[]
+  groupMessages          GroupMessage[]
+  approvedJoinRequests   JoinRequest[]
+  lunchPlaces            LunchPlace[]
+  lunchReviews           LunchReview[]
+  lunchOrders            LunchOrder[]
+
+  @@index([localUserId])
+  @@map("profiles")
+}
+
+// ─── Invitations ─────────────────────────────────────────────────────
+
+model EmployeeInvitation {
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String
+  organizationId String   @map("organization_id") @db.Uuid
+  invitedBy      String   @map("invited_by") @db.Uuid
+  role           AppRole  @default(MEMBER)
+  token          String   @default(uuid())
+  isNewsManager  Boolean  @default(false) @map("is_news_manager")
+  isEventManager Boolean  @default(false) @map("is_event_manager")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt      DateTime @default(dbgenerated("(now() + interval '14 days')")) @map("expires_at") @db.Timestamptz
+  acceptedAt     DateTime? @map("accepted_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  inviter      Profile      @relation(fields: [invitedBy], references: [id])
+
+  @@map("employee_invitations")
+}
+
+// ─── Messaging ───────────────────────────────────────────────────────
+
+model EmployeeMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  senderId    String    @map("sender_id") @db.Uuid
+  recipientId String   @map("recipient_id") @db.Uuid
+  body        String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  readAt      DateTime? @map("read_at") @db.Timestamptz
+
+  sender    Profile @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient Profile @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@map("employee_messages")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  title     String
+  body      String
+  type      NotificationType
+  url       String?
+  readAt    DateTime?        @map("read_at") @db.Timestamptz
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ─── Content ─────────────────────────────────────────────────────────
+
+model InfoPost {
+  id                   String       @id @default(uuid()) @db.Uuid
+  title                String
+  content              String
+  audience             AudienceType @default(PUBLIC)
+  targetOrganizationId String?      @map("target_organization_id") @db.Uuid
+  createdById          String       @map("created_by_id") @db.Uuid
+  attachmentUrl        String?      @map("attachment_url")
+  pinned               Boolean?     @default(false)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  createdBy          Profile       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("info_posts")
+}
+
+model Question {
+  id               String    @id @default(uuid()) @db.Uuid
+  title            String
+  body             String
+  tags             String[]  @default([])
+  createdById      String    @map("created_by_id") @db.Uuid
+  acceptedAnswerId String?   @map("accepted_answer_id") @db.Uuid
+  isSolved         Boolean?  @default(false) @map("is_solved")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  createdBy Profile  @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  answers   Answer[]
+
+  @@map("questions")
+}
+
+model Answer {
+  id          String   @id @default(uuid()) @db.Uuid
+  questionId  String   @map("question_id") @db.Uuid
+  body        String
+  createdById String   @map("created_by_id") @db.Uuid
+  upvotes     Int?     @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  question  Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdBy Profile      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  votes     AnswerVote[]
+
+  @@map("answers")
+}
+
+model AnswerVote {
+  id        String   @id @default(uuid()) @db.Uuid
+  answerId  String   @map("answer_id") @db.Uuid
+  voterId   String   @map("voter_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  answer Answer  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  voter  Profile @relation(fields: [voterId], references: [id], onDelete: Cascade)
+
+  @@unique([answerId, voterId])
+  @@map("answer_votes")
+}
+
+// ─── Events ──────────────────────────────────────────────────────────
+
+model Event {
+  id                      String       @id @default(uuid()) @db.Uuid
+  title                   String
+  startsAt                DateTime     @map("starts_at") @db.Timestamptz
+  endsAt                  DateTime     @map("ends_at") @db.Timestamptz
+  location                String?
+  description             String?
+  audience                AudienceType @default(PUBLIC)
+  audienceGroup           String?      @map("audience_group")
+  isOpenToAll             Boolean?     @default(false) @map("is_open_to_all")
+  externalRegistrationUrl String?      @map("external_registration_url")
+  ownerId                 String       @map("owner_id") @db.Uuid
+  createdAt               DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  owner Profile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("events")
+}
+
+// ─── Coffee System ───────────────────────────────────────────────────
+
+model CoffeeProduct {
+  id        String  @id @default(uuid()) @db.Uuid
+  name      String
+  priceCents Int    @map("price_cents")
+  isActive  Boolean? @default(true) @map("is_active")
+
+  transactions CoffeeTransaction[]
+
+  @@map("coffee_products")
+}
+
+model CoffeeTransaction {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
+  productId          String   @map("product_id") @db.Uuid
+  productNameSnapshot String  @map("product_name_snapshot")
+  priceCentsSnapshot Int      @map("price_cents_snapshot")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user         Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  product      CoffeeProduct  @relation(fields: [productId], references: [id])
+
+  @@map("coffee_transactions")
+}
+
+// ─── Lunch System ────────────────────────────────────────────────────
+
+model LunchRound {
+  id                String   @id @default(uuid()) @db.Uuid
+  title             String
+  responsibleUserId String   @map("responsible_user_id") @db.Uuid
+  deadlineAt        DateTime @map("deadline_at") @db.Timestamptz
+  reminderSent      Boolean? @default(false) @map("reminder_sent")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  responsibleUser Profile       @relation(fields: [responsibleUserId], references: [id])
+  options         LunchOption[]
+  orders          LunchOrder[]
+
+  @@map("lunch_rounds")
+}
+
+model LunchOption {
+  id      String @id @default(uuid()) @db.Uuid
+  roundId String @map("round_id") @db.Uuid
+  label   String
+
+  round  LunchRound   @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  orders LunchOrder[]
+
+  @@map("lunch_options")
+}
+
+model LunchOrder {
+  id        String   @id @default(uuid()) @db.Uuid
+  roundId   String   @map("round_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  optionId  String   @map("option_id") @db.Uuid
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  round  LunchRound  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user   Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  option LunchOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@map("lunch_orders")
+}
+
+model LunchPlace {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String
+  websiteUrl      String?   @map("website_url")
+  phone           String?
+  contactEmail    String?   @map("contact_email")
+  address         String
+  cuisine         String?
+  distanceMinutes Int?      @map("distance_minutes")
+  openingHours    String?   @map("opening_hours")
+  menuUrl         String?   @map("menu_url")
+  latitude        Decimal?
+  longitude       Decimal?
+  openDays        String[]  @default([]) @map("open_days")
+  createdBy       String    @map("created_by") @db.Uuid
+  lastReviewedAt  DateTime? @map("last_reviewed_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  creator Profile       @relation(fields: [createdBy], references: [id])
+  reviews LunchReview[]
+
+  @@map("lunch_places")
+}
+
+model LunchReview {
+  id              String   @id @default(uuid()) @db.Uuid
+  placeId         String   @map("place_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  rating          Int
+  waitTimeMinutes Int?     @map("wait_time_minutes")
+  comment         String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  place LunchPlace @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  user  Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([placeId, userId])
+  @@map("lunch_reviews")
+}
+
+// ─── Match / Lunch Roulette ──────────────────────────────────────────
+
+model MatchRound {
+  id            String       @id @default(uuid()) @db.Uuid
+  kind          MatchKind    @default(LUNCH)
+  scheduledDate String       @map("scheduled_date")
+  weekday       Int?
+  status        MatchStatus? @default(DRAFT)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  participations MatchParticipation[]
+  pairs          MatchPair[]
+
+  @@map("match_rounds")
+}
+
+model MatchParticipation {
+  id      String @id @default(uuid()) @db.Uuid
+  roundId String @map("round_id") @db.Uuid
+  userId  String @map("user_id") @db.Uuid
+
+  round MatchRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user  Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, userId])
+  @@map("match_participations")
+}
+
+model MatchPair {
+  id      String @id @default(uuid()) @db.Uuid
+  roundId String @map("round_id") @db.Uuid
+  userAId String @map("user_a_id") @db.Uuid
+  userBId String @map("user_b_id") @db.Uuid
+
+  round MatchRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  userA Profile    @relation("userA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB Profile    @relation("userB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@map("match_pairs")
+}
+
+// ─── Room Booking ────────────────────────────────────────────────────
+
+model RoomResourceGroup {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  organizationId  String?  @map("organization_id") @db.Uuid
+  chairsTotal     Int?     @map("chairs_total")
+  tablesTotal     Int?     @map("tables_total")
+  whiteboardsTotal Int?    @map("whiteboards_total")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  rooms        Room[]
+
+  @@map("room_resource_groups")
+}
+
+model Room {
+  id                      String  @id @default(uuid()) @db.Uuid
+  name                    String
+  organizationId          String? @map("organization_id") @db.Uuid
+  createdBy               String? @map("created_by") @db.Uuid
+  capacity                Int?
+  chairsCapacity          Int?    @map("chairs_capacity")
+  tablesCapacity          Int?    @map("tables_capacity")
+  chairsDefault           Int?    @map("chairs_default")
+  tablesDefault           Int?    @map("tables_default")
+  resourceGroupId         String? @map("resource_group_id") @db.Uuid
+  location                String?
+  description             String?
+  equipment               String?
+  infoDocumentUrl         String? @map("info_document_url")
+  bookingNotifyEmail      String? @map("booking_notify_email")
+  notifyOnBooking         Boolean @default(false) @map("notify_on_booking")
+  publicShareToken        String  @default(uuid()) @map("public_share_token")
+  requiresBeverageCatering Boolean @default(false) @map("requires_beverage_catering")
+  isActive                Boolean @default(true) @map("is_active")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization    Organization?      @relation(fields: [organizationId], references: [id])
+  creator         Profile?           @relation(fields: [createdBy], references: [id])
+  resourceGroup   RoomResourceGroup? @relation(fields: [resourceGroupId], references: [id])
+  bookings        RoomBooking[]
+  resourceBookings ResourceBooking[]
+
+  @@map("rooms")
+}
+
+model RoomBooking {
+  id                 String    @id @default(uuid()) @db.Uuid
+  roomId             String    @map("room_id") @db.Uuid
+  createdBy          String    @map("created_by") @db.Uuid
+  organizationId     String?   @map("organization_id") @db.Uuid
+  startTime          DateTime  @map("start_time") @db.Timestamptz
+  endTime            DateTime  @map("end_time") @db.Timestamptz
+  title              String
+  description        String?
+  expectedAttendees  Int?      @map("expected_attendees")
+  chairsNeeded       Int?      @map("chairs_needed")
+  tablesNeeded       Int?      @map("tables_needed")
+  whiteboardsNeeded  Int?      @map("whiteboards_needed")
+  requiresCatering   Boolean   @default(false) @map("requires_catering")
+  cateringDetails    String?   @map("catering_details")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  room         Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  creator      Profile       @relation(fields: [createdBy], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@map("room_bookings")
+}
+
+model ResourceBooking {
+  id          String         @id @default(uuid()) @db.Uuid
+  roomId      String         @map("room_id") @db.Uuid
+  requesterId String        @map("requester_id") @db.Uuid
+  startsAt    DateTime       @map("starts_at") @db.Timestamptz
+  endsAt      DateTime       @map("ends_at") @db.Timestamptz
+  status      BookingStatus? @default(REQUESTED)
+  notes       String?
+  decidedById String?        @map("decided_by_id") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  requester Profile  @relation("requester", fields: [requesterId], references: [id])
+  decider   Profile? @relation("decider", fields: [decidedById], references: [id])
+
+  @@map("resource_bookings")
+}
+
+// ─── Reception Tasks ─────────────────────────────────────────────────
+
+model ReceptionTask {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  title                String
+  createdBy            String                 @map("created_by") @db.Uuid
+  direction            ReceptionTaskDirection  @default(ORG_TODO)
+  status               ReceptionTaskStatus    @default(OPEN)
+  details              String?
+  dueAt                DateTime?              @map("due_at") @db.Timestamptz
+  assignedReceptionId  String?                @map("assigned_reception_id") @db.Uuid
+  organizationId       String?                @map("organization_id") @db.Uuid
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  creator           Profile       @relation("creator", fields: [createdBy], references: [id])
+  assignedReception Profile?      @relation("assignee", fields: [assignedReceptionId], references: [id])
+  organization      Organization? @relation(fields: [organizationId], references: [id])
+  logs              ReceptionTaskLog[]
+
+  @@map("reception_tasks")
+}
+
+model ReceptionTaskLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  entry     String
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  task    ReceptionTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  creator Profile?      @relation(fields: [createdBy], references: [id])
+
+  @@map("reception_task_logs")
+}
+
+// ─── Community Features ──────────────────────────────────────────────
+
+model Kudo {
+  id         String   @id @default(uuid()) @db.Uuid
+  fromUserId String   @map("from_user_id") @db.Uuid
+  toUserId   String   @map("to_user_id") @db.Uuid
+  message    String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  from Profile @relation("from", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to   Profile @relation("to", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@map("kudos")
+}
+
+model MarketListing {
+  id          String      @id @default(uuid()) @db.Uuid
+  kind        ListingKind
+  title       String
+  description String
+  contact     String
+  imageUrl    String?     @map("image_url")
+  createdById String      @map("created_by_id") @db.Uuid
+  expiresAt   DateTime?   @map("expires_at") @db.Timestamptz
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  createdBy Profile @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("market_listings")
+}
+
+model Poll {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String
+  options     String[]
+  closesAt    DateTime? @map("closes_at") @db.Timestamptz
+  createdById String    @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  createdBy Profile    @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  votes     PollVote[]
+
+  @@map("polls")
+}
+
+model PollVote {
+  id          String   @id @default(uuid()) @db.Uuid
+  pollId      String   @map("poll_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  optionIndex Int      @map("option_index")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  poll Poll    @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@map("poll_votes")
+}
+
+model Report {
+  id          String        @id @default(uuid()) @db.Uuid
+  targetType  ReportTarget  @map("target_type")
+  targetId    String        @map("target_id")
+  reason      String
+  createdById String        @map("created_by_id") @db.Uuid
+  status      ReportStatus? @default(OPEN)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  createdBy Profile @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+// ─── Groups ──────────────────────────────────────────────────────────
+
+model CommunityGroup {
+  id          String          @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  visibility  GroupVisibility @default(PUBLIC)
+  createdById String?         @map("created_by_id") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  createdBy Profile?       @relation(fields: [createdById], references: [id])
+  members   GroupMember[]
+  messages  GroupMessage[]
+
+  @@map("community_groups")
+}
+
+model GroupMember {
+  groupId   String          @map("group_id") @db.Uuid
+  userId    String          @map("user_id") @db.Uuid
+  role      GroupMemberRole @default(MEMBER)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  group CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  Profile        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@map("group_members")
+}
+
+model GroupMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  groupId   String   @map("group_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  group  CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender Profile        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("group_messages")
+}
+
+// ─── Join Requests ───────────────────────────────────────────────────
+
+model JoinRequest {
+  id             String             @id @default(uuid()) @db.Uuid
+  name           String
+  email          String
+  organizationId String?            @map("organization_id") @db.Uuid
+  status         JoinRequestStatus  @default(PENDING)
+  approvedBy     String?            @map("approved_by") @db.Uuid
+  approvedAt     DateTime?          @map("approved_at") @db.Timestamptz
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  approver     Profile?      @relation(fields: [approvedBy], references: [id])
+
+  @@map("join_requests")
+}
+
+// ─── Settings ────────────────────────────────────────────────────────
+
+model Setting {
+  key   String @id
+  value Json
+
+  @@map("settings")
+}

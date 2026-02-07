@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -35,30 +35,17 @@ export default function PersonProfile() {
     if (!id) return;
     const loadProfile = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(
-          `
-            id,
-            name,
-            email,
-            avatar_url,
-            bio,
-            skills_text,
-            first_aid_certified,
-            phone,
-            position,
-            organization:organizations(name, logo_url)
-          `,
-        )
-        .eq('id', id)
-        .maybeSingle();
-      if (error || !data) {
+      try {
+        const res = await api.query<{ data: ProfileDetail[] }>('/api/profiles');
+        const found = res.data.find((p) => p.id === id) ?? null;
+        if (!found) {
+          toast.error('Profil konnte nicht geladen werden');
+        } else {
+          setProfile(found);
+        }
+      } catch (error) {
         toast.error('Profil konnte nicht geladen werden');
-        setLoading(false);
-        return;
       }
-      setProfile(data as ProfileDetail);
       setLoading(false);
     };
 

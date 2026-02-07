@@ -22,8 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { api } from '@/lib/api';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -31,13 +30,23 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { CalendarDays, Clock, Globe, Lock, MapPin, Plus } from 'lucide-react';
 
-type EventRow = Tables<'events'> & {
+interface EventRow {
+  id: string;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string;
+  location: string | null;
+  audience: 'PUBLIC' | 'INTERNAL';
+  is_open_to_all: boolean;
+  external_registration_url: string | null;
+  owner_id: string;
   owner?: {
     name: string | null;
   } | null;
-};
+}
 
-const audienceOptions: Tables<'events'>['audience'][] = ['PUBLIC', 'INTERNAL'];
+const audienceOptions: EventRow['audience'][] = ['PUBLIC', 'INTERNAL'];
 
 export default function Events() {
   const { user } = useAuth();
@@ -57,7 +66,7 @@ export default function Events() {
     description: '',
     starts_at: '',
     ends_at: '',
-    audience: 'INTERNAL' as Tables<'events'>['audience'],
+    audience: 'INTERNAL' as EventRow['audience'],
     is_open_to_all: true,
     external_registration_url: '',
   });
@@ -80,34 +89,17 @@ export default function Events() {
       const rangeStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
       const rangeEnd = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 });
 
-      let query = supabase
-        .from('events')
-        .select(
-          `
-          id,
-          title,
-          description,
-          starts_at,
-          ends_at,
-          location,
-          audience,
-          is_open_to_all,
-          external_registration_url,
-          owner_id,
-          owner:profiles!events_owner_id_fkey(name)
-        `,
-        )
-        .gte('starts_at', rangeStart.toISOString())
-        .lte('starts_at', rangeEnd.toISOString())
-        .order('starts_at');
+      const params: Record<string, string> = {
+        from: rangeStart.toISOString(),
+        to: rangeEnd.toISOString(),
+      };
 
       if (!user || !showInternal) {
-        query = query.eq('audience', 'PUBLIC');
+        params.audience = 'PUBLIC';
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setEvents((data as EventRow[]) || []);
+      const { data } = await api.query<{ data: EventRow[] }>('/api/events', params);
+      setEvents(data || []);
     } catch (error) {
       console.error('Error loading events', error);
       toast.error('Events konnten nicht geladen werden.');
@@ -183,12 +175,12 @@ export default function Events() {
         owner_id: profile.id,
       };
 
-      const query = editingEvent
-        ? supabase.from('events').update(payload).eq('id', editingEvent.id)
-        : supabase.from('events').insert(payload);
+      if (editingEvent) {
+        await api.mutate(`/api/events/${editingEvent.id}`, payload, 'PATCH');
+      } else {
+        await api.mutate('/api/events', payload);
+      }
 
-      const { error } = await query;
-      if (error) throw error;
       toast.success(editingEvent ? 'Event aktualisiert' : 'Event erstellt');
       setDialogOpen(false);
       setEditingEvent(null);
@@ -204,13 +196,13 @@ export default function Events() {
   const handleDeleteEvent = async (eventId: string) => {
     if (!confirm('Event wirklich löschen?')) return;
     setDeletingId(eventId);
-    const { error } = await supabase.from('events').delete().eq('id', eventId);
-    if (error) {
-      console.error('Error deleting event', error);
-      toast.error('Event konnte nicht gelöscht werden');
-    } else {
+    try {
+      await api.mutate(`/api/events/${eventId}`, {}, 'DELETE');
       toast.success('Event gelöscht');
       loadEvents();
+    } catch (error) {
+      console.error('Error deleting event', error);
+      toast.error('Event konnte nicht gelöscht werden');
     }
     setDeletingId(null);
   };
@@ -478,7 +470,7 @@ export default function Events() {
                   <Label>Audience</Label>
                   <Select
                     value={eventForm.audience}
-                    onValueChange={(value: Tables<'events'>['audience']) =>
+                    onValueChange={(value: EventRow['audience']) =>
                       handleEventFormChange('audience', value)
                     }
                   >

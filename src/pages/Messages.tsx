@@ -8,8 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
-import { supabase } from "@/integrations/supabase/client";
-import { Tables } from "@/integrations/supabase/types";
+import { api } from "@/lib/api";
+import { connectSocket } from "@/lib/socket";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Search, Send, Smile } from "lucide-react";
 import { toast } from "sonner";
@@ -19,15 +19,24 @@ import { de } from "date-fns/locale";
 import { sendEmailNotification } from "@/lib/notifications";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 
-type MessageRow = Tables<"employee_messages">;
-type Coworker = Pick<
-  Tables<"profiles">,
-  "id" | "name" | "avatar_url" | "email" | "organization_id" | "pref_email_notifications"
-> & {
-  organization?: {
-    name: string | null;
-  } | null;
-};
+interface MessageRow {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+interface Coworker {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  email: string;
+  organization_id: string | null;
+  pref_email_notifications?: boolean;
+  organization?: { name: string | null } | null;
+}
 
 type ThreadSummary = {
   partner_id: string | null;
@@ -52,26 +61,8 @@ export default function Messages() {
     enabled: Boolean(profile?.id),
     queryFn: async () => {
       if (!profile?.id) return [];
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          `
-            id,
-            name,
-            email,
-            avatar_url,
-            organization_id,
-            pref_email_notifications,
-            organization:organizations(name)
-          `,
-        )
-        .neq("id", profile.id)
-        .order("name");
-      if (error) {
-        console.error("Error loading coworkers", error);
-        throw error;
-      }
-      return (data as Coworker[]) ?? [];
+      const res = await api.query<{ data: Coworker[] }>("/api/profiles");
+      return res.data.filter((p) => p.id !== profile.id);
     },
   });
 
@@ -80,12 +71,8 @@ export default function Messages() {
     enabled: Boolean(profile?.id),
     queryFn: async () => {
       if (!profile?.id) return [];
-      const { data, error } = await supabase.rpc("get_message_threads", { p_user_id: profile.id });
-      if (error) {
-        console.error("Error loading threads", error);
-        throw error;
-      }
-      return (data as ThreadSummary[]) ?? [];
+      const res = await api.query<{ data: ThreadSummary[] }>("/api/messages/threads");
+      return res.data;
     },
   });
 
@@ -94,18 +81,8 @@ export default function Messages() {
     enabled: Boolean(profile?.id && selectedPartnerId),
     queryFn: async () => {
       if (!profile?.id || !selectedPartnerId) return [];
-      const { data, error } = await supabase
-        .from("employee_messages")
-        .select("*")
-        .or(
-          `and(sender_id.eq.${profile.id},recipient_id.eq.${selectedPartnerId}),and(sender_id.eq.${selectedPartnerId},recipient_id.eq.${profile.id})`,
-        )
-        .order("created_at", { ascending: true });
-      if (error) {
-        console.error("Error loading messages", error);
-        throw error;
-      }
-      return (data as MessageRow[]) ?? [];
+      const res = await api.query<{ data: MessageRow[] }>(`/api/messages/${selectedPartnerId}`);
+      return res.data;
     },
   });
 
@@ -140,6 +117,7 @@ export default function Messages() {
     }
   }, [selectedPartnerId, threadsQuery.data, coworkersQuery.data]);
 
+  // Mark messages as read
   useEffect(() => {
     if (!profile?.id || !selectedPartnerId || !messagesQuery.data?.length) return;
     const unreadIds = messagesQuery.data
@@ -147,39 +125,32 @@ export default function Messages() {
       .map((message) => message.id);
     if (!unreadIds.length) return;
 
-    supabase
-      .from("employee_messages")
-      .update({ read_at: new Date().toISOString() })
-      .in("id", unreadIds)
+    api.mutate("/api/messages/read", { ids: unreadIds }, "PATCH")
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["message-threads", profile.id] });
       })
       .catch((error) => console.error("Error marking messages as read", error));
   }, [profile?.id, selectedPartnerId, messagesQuery.data, queryClient]);
 
+  // Socket.io realtime for new messages
   useEffect(() => {
     if (!profile?.id) return;
-    const channel = supabase
-      .channel(`employee-messages-${profile.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "employee_messages" },
-        (payload) => {
-          const message = payload.new as MessageRow;
-          if (message.sender_id !== profile.id && message.recipient_id !== profile.id) return;
-          queryClient.invalidateQueries({ queryKey: ["message-threads", profile.id] });
-          if (
-            selectedPartnerId &&
-            (message.sender_id === selectedPartnerId || message.recipient_id === selectedPartnerId)
-          ) {
-            queryClient.invalidateQueries({ queryKey: ["messages", profile.id, selectedPartnerId] });
-          }
-        },
-      );
+    const socket = connectSocket();
 
-    channel.subscribe();
+    const handleNewMessage = (message: MessageRow) => {
+      if (message.sender_id !== profile.id && message.recipient_id !== profile.id) return;
+      queryClient.invalidateQueries({ queryKey: ["message-threads", profile.id] });
+      if (
+        selectedPartnerId &&
+        (message.sender_id === selectedPartnerId || message.recipient_id === selectedPartnerId)
+      ) {
+        queryClient.invalidateQueries({ queryKey: ["messages", profile.id, selectedPartnerId] });
+      }
+    };
+
+    socket.on("message:new", handleNewMessage);
     return () => {
-      supabase.removeChannel(channel);
+      socket.off("message:new", handleNewMessage);
     };
   }, [profile?.id, queryClient, selectedPartnerId]);
 
@@ -198,16 +169,11 @@ export default function Messages() {
     if (!trimmed) return;
 
     setSending(true);
-    const { error } = await supabase.from("employee_messages").insert({
-      sender_id: profile.id,
-      recipient_id: selectedPartnerId,
-      body: trimmed,
-    });
-
-    if (error) {
-      console.error("Error sending message", error);
-      toast.error("Nachricht konnte nicht gesendet werden");
-    } else {
+    try {
+      await api.mutate("/api/messages", {
+        recipient_id: selectedPartnerId,
+        body: trimmed,
+      });
       setMessageText("");
       queryClient.invalidateQueries({ queryKey: ["messages", profile.id, selectedPartnerId] });
       queryClient.invalidateQueries({ queryKey: ["message-threads", profile.id] });
@@ -221,8 +187,10 @@ export default function Messages() {
           `<p>Hallo ${selectedPartner.name},</p><p>${profile.name} hat Dir in der ARI Community eine Nachricht gesendet:</p><blockquote>${preview}</blockquote><p><a href="${appUrl}">Hier klicken</a>, um direkt zu antworten.</p>`,
         );
       }
+    } catch (error) {
+      console.error("Error sending message", error);
+      toast.error("Nachricht konnte nicht gesendet werden");
     }
-
     setSending(false);
   };
 

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import defaultBrandLogo from '@/assets/ari-logo.png';
 
@@ -67,14 +67,7 @@ export default function Auth() {
     const loadInvitation = async () => {
       setInviteLoading(true);
       try {
-        const response = await fetch(`/api/auth/invitations/details?token=${inviteToken}`);
-        if (!response.ok) {
-          const data = await response.json();
-          setInviteError(data.error ?? 'Einladung konnte nicht gefunden werden.');
-          setInviteInfo(null);
-          return;
-        }
-        const record = await response.json();
+        const record = await api.auth.invitations.details(inviteToken);
         if (record.accepted_at) {
           setInviteError('Diese Einladung wurde bereits verwendet.');
           setInviteInfo(null);
@@ -108,7 +101,7 @@ export default function Auth() {
     try {
       const validated = loginSchema.parse({ email, password });
       const { error } = await signIn(validated.email, validated.password);
-      
+
       if (error) {
         if (error.message.includes('Invalid login credentials')) {
           toast.error('E-Mail oder Passwort falsch');
@@ -137,19 +130,12 @@ export default function Auth() {
 
     setResetLoading(true);
     try {
-      const response = await fetch('/api/auth/password/request-reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail.trim() }),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        toast.error(data.error ?? 'E-Mail konnte nicht gesendet werden.');
-      } else {
-        toast.success('Wenn die Adresse existiert, erhältst Du gleich eine E-Mail zum Zurücksetzen.');
-        setShowResetForm(false);
-        setResetEmail('');
-      }
+      await api.auth.requestPasswordReset(resetEmail.trim());
+      toast.success('Wenn die Adresse existiert, erhältst Du gleich eine E-Mail zum Zurücksetzen.');
+      setShowResetForm(false);
+      setResetEmail('');
+    } catch (error) {
+      toast.error('E-Mail konnte nicht gesendet werden.');
     } finally {
       setResetLoading(false);
     }
@@ -166,32 +152,26 @@ export default function Auth() {
         password: signupPassword,
       });
 
-      const response = await fetch('/api/auth/invitations/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: inviteToken,
-          password: validated.password,
-          name: validated.name,
-        }),
+      await api.auth.invitations.accept({
+        token: inviteToken,
+        password: validated.password,
+        name: validated.name,
       });
-      const data = await response.json();
-      if (!response.ok) {
-        toast.error(data.error ?? 'Registrierung fehlgeschlagen');
-      } else {
-        const { error: signInError } = await signIn(inviteInfo.email, validated.password);
-        if (signInError) {
-          toast.error('Einladung angenommen, Anmeldung fehlgeschlagen. Bitte melde Dich manuell an.');
-          return;
-        }
-        toast.success('Einladung angenommen! Willkommen in der ARI Community.');
-        setSignupName('');
-        setSignupPassword('');
-        navigate('/app');
+
+      const { error: signInError } = await signIn(inviteInfo.email, validated.password);
+      if (signInError) {
+        toast.error('Einladung angenommen, Anmeldung fehlgeschlagen. Bitte melde Dich manuell an.');
+        return;
       }
+      toast.success('Einladung angenommen! Willkommen in der ARI Community.');
+      setSignupName('');
+      setSignupPassword('');
+      navigate('/app');
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
+      } else {
+        toast.error('Registrierung fehlgeschlagen');
       }
     } finally {
       setSignupLoading(false);
@@ -210,18 +190,8 @@ export default function Auth() {
 
     const fetchBranding = async () => {
       try {
-        const { data, error } = await supabase
-          .from('settings')
-          .select('value')
-          .eq('key', 'app_branding')
-          .maybeSingle();
-        if (error) {
-          if (error.code !== '42501') {
-            console.error('Error loading branding', error);
-          }
-          return;
-        }
-        const value = (data?.value ?? null) as { logo_url?: string | null } | null;
+        const result = await api.query<{ data: { value: any } | null }>('/api/settings/app_branding');
+        const value = (result.data?.value ?? null) as { logo_url?: string | null } | null;
         setBrandLogo(value?.logo_url ?? null);
       } catch (error) {
         console.error('Unexpected branding error', error);
@@ -301,7 +271,7 @@ export default function Auth() {
               </Button>
               <div className="text-sm text-center space-y-1">
                 <p className="text-muted-foreground">
-                  Neue Mitarbeitende werden von Organisations-Admins eingeladen. 
+                  Neue Mitarbeitende werden von Organisations-Admins eingeladen.
                   Eine Selbst-Registrierung ist nur über einen Einladungslink möglich.
                 </p>
                 <button

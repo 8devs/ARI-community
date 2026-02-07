@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { Layout } from '@/components/Layout';
-import { Tables } from '@/integrations/supabase/types';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,11 +44,40 @@ import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip as LeafletTooltip
 import L, { Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-type LunchPlace = Tables<'lunch_places'> & { open_days?: string[] | null };
-type Profile = Tables<'profiles'>;
-type LunchReview = Tables<'lunch_reviews'> & {
+interface LunchPlace {
+  id: string;
+  name: string;
+  address: string;
+  website_url: string | null;
+  phone: string | null;
+  contact_email: string | null;
+  cuisine: string | null;
+  distance_minutes: number | null;
+  opening_hours: string | null;
+  menu_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  open_days: string[] | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+interface Profile {
+  id: string;
+  name: string | null;
+  avatar_url: string | null;
+}
+
+interface LunchReview {
+  id: string;
+  place_id: string;
+  user_id: string;
+  rating: number;
+  wait_time_minutes: number | null;
+  comment: string | null;
+  created_at: string;
   profiles?: Profile | null;
-};
+}
 
 const cuisineOptions = [
   'Hausmannskost',
@@ -151,34 +179,31 @@ export default function LunchPlaces() {
 
   const loadPlaces = async () => {
     setLoadingPlaces(true);
-    const { data, error } = await supabase.from('lunch_places').select('*').order('name');
-    if (error) {
+    try {
+      const { data } = await api.query<{ data: (LunchPlace & { reviews?: LunchReview[] })[] }>('/api/lunch-places');
+      const allPlaces: LunchPlace[] = [];
+      const allReviews: LunchReview[] = [];
+      (data ?? []).forEach((place) => {
+        const { reviews: placeReviews, ...placeData } = place;
+        allPlaces.push(placeData);
+        if (placeReviews) {
+          allReviews.push(...placeReviews);
+        }
+      });
+      setPlaces(allPlaces);
+      setReviews(allReviews);
+      if (!selectedPlaceId && allPlaces.length) {
+        setSelectedPlaceId(allPlaces[0].id);
+      }
+    } catch (error) {
       console.error('load places failed', error);
       toast.error('Orte konnten nicht geladen werden.');
-    } else {
-      setPlaces(data ?? []);
-      if (!selectedPlaceId && data && data.length) {
-        setSelectedPlaceId(data[0].id);
-      }
     }
     setLoadingPlaces(false);
   };
 
-  const loadReviews = async () => {
-    const { data, error } = await supabase
-      .from('lunch_reviews')
-      .select('*, profiles:profiles(name, avatar_url)')
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.error('load reviews failed', error);
-    } else {
-      setReviews(data ?? []);
-    }
-  };
-
   useEffect(() => {
     loadPlaces();
-    loadReviews();
   }, []);
 
   const averageRating = (placeId: string) => {
@@ -311,18 +336,15 @@ export default function LunchPlaces() {
     setSavingPlace(true);
     let menuUrl = editingPlace?.menu_url ?? null;
     if (menuFile) {
-      const filePath = `menus/${Date.now()}-${menuFile.name}`;
-      const { error: uploadError } = await supabase.storage.from('lunch-menus').upload(filePath, menuFile, {
-        upsert: true,
-      });
-      if (uploadError) {
+      try {
+        const uploadResult = await api.upload('menu', menuFile, editingPlace?.menu_url ?? undefined);
+        menuUrl = uploadResult.url;
+      } catch (uploadError) {
         console.error('menu upload failed', uploadError);
         toast.error('Speisekarte konnte nicht hochgeladen werden.');
         setSavingPlace(false);
         return;
       }
-      const { data } = supabase.storage.from('lunch-menus').getPublicUrl(filePath);
-      menuUrl = data.publicUrl;
     }
     const payload = {
       name: placeForm.name.trim(),
@@ -341,12 +363,10 @@ export default function LunchPlaces() {
     };
     try {
       if (editingPlace) {
-        const { error } = await supabase.from('lunch_places').update(payload).eq('id', editingPlace.id);
-        if (error) throw error;
+        await api.mutate(`/api/lunch-places/${editingPlace.id}`, payload, 'PATCH');
         toast.success('Ort aktualisiert');
       } else {
-        const { error } = await supabase.from('lunch_places').insert({ ...payload, created_by: profile?.id });
-        if (error) throw error;
+        await api.mutate('/api/lunch-places', { ...payload, created_by: profile?.id });
         toast.success('Neuer Ort gespeichert');
       }
       setAddDialogOpen(false);
@@ -384,11 +404,9 @@ export default function LunchPlaces() {
         wait_time_minutes: reviewForm.wait_time_minutes ? Number(reviewForm.wait_time_minutes) : null,
         comment: reviewForm.comment.trim() || null,
       };
-      const { error } = await supabase.from('lunch_reviews').upsert(payload, { onConflict: 'place_id,user_id' });
-      if (error) throw error;
+      await api.mutate('/api/lunch-reviews', payload);
       toast.success('Bewertung gespeichert');
       setReviewDialogOpen(false);
-      loadReviews();
       loadPlaces();
     } catch (error) {
       console.error('save review failed', error);
@@ -401,33 +419,32 @@ export default function LunchPlaces() {
   const handleDeletePlace = async (placeId: string) => {
     if (!placeId) return;
     setDeletingPlaceId(placeId);
-    const { error } = await supabase.from('lunch_places').delete().eq('id', placeId);
-    setDeletingPlaceId(null);
-    if (error) {
+    try {
+      await api.mutate(`/api/lunch-places/${placeId}`, {}, 'DELETE');
+      toast.success('Ort gelöscht');
+      if (selectedPlaceId === placeId) {
+        setSelectedPlaceId(null);
+      }
+      void loadPlaces();
+    } catch (error) {
       console.error('delete place failed', error);
       toast.error('Ort konnte nicht gelöscht werden.');
-      return;
     }
-    toast.success('Ort gelöscht');
-    if (selectedPlaceId === placeId) {
-      setSelectedPlaceId(null);
-    }
-    void loadPlaces();
+    setDeletingPlaceId(null);
   };
 
   const handleDeleteReview = async (reviewId: string) => {
     if (!reviewId) return;
     setDeletingReviewId(reviewId);
-    const { error } = await supabase.from('lunch_reviews').delete().eq('id', reviewId);
-    setDeletingReviewId(null);
-    if (error) {
+    try {
+      await api.mutate(`/api/lunch-reviews/${reviewId}`, {}, 'DELETE');
+      toast.success('Bewertung gelöscht');
+      void loadPlaces();
+    } catch (error) {
       console.error('delete review failed', error);
       toast.error('Bewertung konnte nicht gelöscht werden.');
-      return;
     }
-    toast.success('Bewertung gelöscht');
-    void loadReviews();
-    void loadPlaces();
+    setDeletingReviewId(null);
   };
 
   const selectedPlaceReviews = reviews.filter((review) => review.place_id === selectedPlaceId);

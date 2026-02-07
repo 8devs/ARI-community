@@ -41,7 +41,8 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationsMenu } from '@/components/NotificationsMenu';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
+import { connectSocket } from '@/lib/socket';
 import { cn } from '@/lib/utils';
 import defaultBrandLogo from '@/assets/ari-logo.png';
 import { APP_VERSION } from '@/version';
@@ -248,20 +249,9 @@ export function Layout({ children }: LayoutProps) {
 
     const fetchBranding = async () => {
       try {
-        const { data, error } = await supabase
-          .from('settings')
-          .select('value')
-          .eq('key', 'app_branding')
-          .maybeSingle();
-        if (error) {
-          if (error.code === '42501') {
-            return;
-          }
-          console.error('Error loading branding', error);
-          return;
-        }
+        const res = await api.query<{ data: any }>('/api/settings/app_branding');
         if (!ignore) {
-          const value = (data?.value ?? null) as { logo_url?: string | null } | null;
+          const value = (res.data ?? null) as { logo_url?: string | null } | null;
           setBrandLogoUrl(value?.logo_url ?? null);
         }
       } catch (error) {
@@ -275,11 +265,11 @@ export function Layout({ children }: LayoutProps) {
       setBrandLogoUrl(event.detail?.logoUrl ?? null);
     };
 
-    window.addEventListener('app-branding-updated', handleBrandingUpdate);
+    window.addEventListener('app-branding-updated', handleBrandingUpdate as EventListener);
 
     return () => {
       ignore = true;
-      window.removeEventListener('app-branding-updated', handleBrandingUpdate);
+      window.removeEventListener('app-branding-updated', handleBrandingUpdate as EventListener);
     };
   }, []);
 
@@ -315,51 +305,31 @@ export function Layout({ children }: LayoutProps) {
     }
 
     let cancelled = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const fetchPending = async () => {
-      let query = supabase
-        .from('join_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'PENDING');
-
-      if (profile?.role === 'ORG_ADMIN') {
-        if (!profile.organization_id) {
-          setPendingJoinRequests(0);
-          return;
+      try {
+        const res = await api.query<{ data: any[] }>('/api/join-requests');
+        const pending = res.data.filter((r) => r.status === 'PENDING');
+        if (!cancelled) {
+          setPendingJoinRequests(pending.length);
         }
-        query = query.eq('organization_id', profile.organization_id);
-      }
-
-      const { count, error } = await query;
-
-      if (error) {
+      } catch (error) {
         console.error('Error loading join requests count', error);
-        return;
-      }
-      if (!cancelled) {
-        setPendingJoinRequests(count ?? 0);
       }
     };
 
     fetchPending();
 
-    channel = supabase
-      .channel('join-requests-watch')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'join_requests' },
-        () => {
-          fetchPending();
-        },
-      )
-      .subscribe();
+    // Socket.io realtime for join request changes
+    const socket = connectSocket();
+    const handleJoinRequestChanged = () => {
+      fetchPending();
+    };
+    socket.on('join-request:changed', handleJoinRequestChanged);
 
     return () => {
       cancelled = true;
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      socket.off('join-request:changed', handleJoinRequestChanged);
     };
   }, [canAccessAdmin, profile?.role, profile?.organization_id]);
 

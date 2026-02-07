@@ -3,15 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Building2, MapPin, Phone, Mail, Users, Globe } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
-type Organization = Tables<'organizations'> & {
+interface Organization {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  location_text: string | null;
+  cost_center_code: string | null;
+  contact_email: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  website_url: string | null;
+  created_at: string;
   member_count: number;
-};
+}
 
 export default function Organizations() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -26,9 +35,8 @@ export default function Organizations() {
   const loadOrganizations = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_organizations_with_counts');
-      if (error) throw error;
-      setOrganizations((data as Organization[]) || []);
+      const res = await api.query<{ data: Organization[] }>('/api/organizations');
+      setOrganizations(res.data || []);
     } catch (error: any) {
       console.error('Error loading organizations', error);
       toast.error('Organisationen konnten nicht geladen werden');

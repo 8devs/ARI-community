@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Settings, Plus, Users, Shuffle, CheckCircle2, Calendar, Trash2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { format, addDays, nextThursday, parseISO } from 'date-fns';
@@ -29,7 +29,7 @@ interface MatchRound {
   scheduled_date: string;
   status: string;
   weekday: number;
-  participants: { count: number }[];
+  participations: { id: string; user_id: string }[];
 }
 
 export default function AdminLunchRoulette() {
@@ -47,15 +47,9 @@ export default function AdminLunchRoulette() {
 
   const loadSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'lunch_roulette_weekday')
-        .maybeSingle();
-
-      if (error) throw error;
-      if (data) {
-        setWeekday(parseInt(data.value as string));
+      const result = await api.query<{ data: string | null }>('/api/settings/lunch_roulette_weekday');
+      if (result.data) {
+        setWeekday(parseInt(result.data));
       }
     } catch (error: any) {
       console.error('Error loading settings:', error);
@@ -64,18 +58,8 @@ export default function AdminLunchRoulette() {
 
   const loadRounds = async () => {
     try {
-      const { data, error } = await supabase
-        .from('match_rounds')
-        .select(`
-          *,
-          participants:match_participations(count)
-        `)
-        .eq('kind', 'LUNCH')
-        .order('scheduled_date', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      setRounds(data || []);
+      const result = await api.query<{ data: MatchRound[] }>('/api/match-rounds');
+      setRounds(result.data || []);
     } catch (error: any) {
       console.error('Error loading rounds:', error);
       toast.error('Fehler beim Laden der Runden');
@@ -91,16 +75,11 @@ export default function AdminLunchRoulette() {
     }
 
     try {
-      const { error } = await supabase
-        .from('match_rounds')
-        .insert({
-          kind: 'LUNCH',
-          scheduled_date: newRoundDate,
-          status: 'OPEN',
-          weekday: weekday,
-        });
-
-      if (error) throw error;
+      await api.mutate('/api/match-rounds', {
+        scheduled_date: newRoundDate,
+        status: 'OPEN',
+        weekday: weekday,
+      });
 
       toast.success('Runde erstellt!');
       setNewRoundDate('');
@@ -113,26 +92,25 @@ export default function AdminLunchRoulette() {
 
   const deleteRound = async (roundId: string) => {
     setDeletingRoundId(roundId);
-    const { error } = await supabase.from('match_rounds').delete().eq('id', roundId);
-    setDeletingRoundId(null);
-    if (error) {
+    try {
+      await api.mutate(`/api/match-rounds/${roundId}`, {}, 'DELETE');
+      toast.success('Runde gelöscht');
+      loadRounds();
+    } catch (error: any) {
       console.error('Error deleting round:', error);
       toast.error('Runde konnte nicht gelöscht werden');
-      return;
+    } finally {
+      setDeletingRoundId(null);
     }
-    toast.success('Runde gelöscht');
-    loadRounds();
   };
 
   const createPairings = async (roundId: string) => {
     try {
-      // Get all participants
-      const { data: participants, error: partError } = await supabase
-        .from('match_participations')
-        .select('user_id')
-        .eq('round_id', roundId);
+      // Find the round to get participants
+      const round = rounds.find((r) => r.id === roundId);
+      if (!round) return;
 
-      if (partError) throw partError;
+      const participants = round.participations;
 
       if (!participants || participants.length < 2) {
         toast.error('Mindestens 2 Teilnehmende erforderlich');
@@ -141,7 +119,7 @@ export default function AdminLunchRoulette() {
 
       // Shuffle participants
       const shuffled = [...participants].sort(() => Math.random() - 0.5);
-      
+
       // Create pairs
       const pairs = [];
       for (let i = 0; i < shuffled.length; i += 2) {
@@ -155,7 +133,6 @@ export default function AdminLunchRoulette() {
         } else {
           // Odd one out - add to last pair (making it a trio)
           if (pairs.length > 0) {
-            // This is a simplification - in production you'd handle trios properly
             pairs.push({
               round_id: roundId,
               user_a_id: shuffled[i].user_id,
@@ -166,19 +143,10 @@ export default function AdminLunchRoulette() {
       }
 
       // Insert pairs
-      const { error: pairError } = await supabase
-        .from('match_pairs')
-        .insert(pairs);
-
-      if (pairError) throw pairError;
+      await api.mutate('/api/match-pairs', { pairs });
 
       // Update round status
-      const { error: updateError } = await supabase
-        .from('match_rounds')
-        .update({ status: 'PAIRED' })
-        .eq('id', roundId);
-
-      if (updateError) throw updateError;
+      await api.mutate(`/api/match-rounds/${roundId}`, { status: 'PAIRED' }, 'PATCH');
 
       toast.success(`${pairs.length} Paarungen erstellt!`);
       loadRounds();
@@ -192,14 +160,7 @@ export default function AdminLunchRoulette() {
 
   const updateWeekday = async () => {
     try {
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'lunch_roulette_weekday',
-          value: weekday.toString(),
-        });
-
-      if (error) throw error;
+      await api.mutate('/api/settings/lunch_roulette_weekday', { value: weekday.toString() }, 'PUT');
       toast.success('Wochentag aktualisiert');
     } catch (error: any) {
       console.error('Error updating weekday:', error);
@@ -321,7 +282,7 @@ export default function AdminLunchRoulette() {
                           {format(parseISO(round.scheduled_date), 'EEEE, d. MMMM yyyy', { locale: de })}
                         </CardTitle>
                         <CardDescription>
-                          {round.participants[0]?.count || 0} Teilnehmende
+                          {round.participations?.length || 0} Teilnehmende
                         </CardDescription>
                       </div>
                       {getStatusBadge(round.status)}
@@ -332,7 +293,7 @@ export default function AdminLunchRoulette() {
                       {round.status === 'OPEN' && (
                         <Button
                           onClick={() => createPairings(round.id)}
-                          disabled={!round.participants[0]?.count || round.participants[0].count < 2}
+                          disabled={!round.participations?.length || round.participations.length < 2}
                         >
                           <Shuffle className="h-4 w-4 mr-2" />
                           Paarungen erstellen

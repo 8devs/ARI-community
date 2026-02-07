@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Newspaper, Plus, Pin, Edit, Trash2, Paperclip } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -38,6 +38,11 @@ interface InfoPost {
   } | null;
 }
 
+interface Organization {
+  id: string;
+  name: string;
+}
+
 export default function Pinnwand() {
   const [posts, setPosts] = useState<InfoPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +63,7 @@ export default function Pinnwand() {
   const { profile } = useCurrentProfile();
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [removeAttachment, setRemoveAttachment] = useState(false);
-  const [availableOrgs, setAvailableOrgs] = useState<{ id: string; name: string }[]>([]);
+  const [availableOrgs, setAvailableOrgs] = useState<Organization[]>([]);
   const [sendEmployeeNotification, setSendEmployeeNotification] = useState(true);
 
   useEffect(() => {
@@ -73,31 +78,11 @@ export default function Pinnwand() {
 
   const loadPosts = async () => {
     try {
-      let query = supabase
-        .from('info_posts')
-        .select(`
-          id,
-          title,
-          content,
-          audience,
-          pinned,
-          created_at,
-          created_by_id,
-          attachment_url,
-          target_organization_id,
-          created_by:profiles!info_posts_created_by_id_fkey(name),
-          target_organization:organizations(name)
-        `)
-        .order('pinned', { ascending: false })
-        .order('created_at', { ascending: false });
-
+      const params: Record<string, string> = {};
       if (!isAuthenticated) {
-        query = query.eq('audience', 'PUBLIC');
+        params.audience = 'PUBLIC';
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const { data } = await api.query<{ data: InfoPost[] }>('/api/info-posts', params);
       setPosts(data || []);
     } catch (error: any) {
       toast.error('Fehler beim Laden der Beiträge');
@@ -109,9 +94,8 @@ export default function Pinnwand() {
 
   const loadOrganizations = async () => {
     try {
-      const { data, error } = await supabase.from('organizations').select('id, name').order('name');
-      if (error) throw error;
-      setAvailableOrgs(data || []);
+      const { organizations } = await api.data.organizations();
+      setAvailableOrgs(organizations || []);
     } catch (error) {
       console.error('Error loading organizations', error);
     }
@@ -119,14 +103,9 @@ export default function Pinnwand() {
 
   const triggerPostNotifications = async (postId: string) => {
     try {
-      const { error } = await supabase.functions.invoke('notify-info-post', {
-        body: { post_id: postId },
-      });
-      if (error) {
-        console.error('notify-info-post failed', error);
-      }
+      await api.mutate('/api/notifications/info-post', { post_id: postId });
     } catch (error) {
-      console.error('notify-info-post unexpected', error);
+      console.error('notify-info-post failed', error);
     }
   };
 
@@ -190,43 +169,31 @@ export default function Pinnwand() {
         attachmentUrl = null;
       }
       if (attachmentFile) {
-        attachmentUrl = await uploadAttachment(attachmentFile);
+        const uploadResult = await api.upload('attachment', attachmentFile, newPost.attachment_url ?? undefined);
+        attachmentUrl = uploadResult.url;
       }
 
-      let error;
       let insertedPostId: string | null = null;
       if (editingPostId) {
-        ({ error } = await supabase
-          .from('info_posts')
-          .update({
-            title: newPost.title.trim(),
-            content: newPost.content.trim(),
-            audience: newPost.audience,
-            pinned: newPost.pinned,
-            attachment_url: attachmentUrl,
-            target_organization_id: targetOrgId,
-          })
-          .eq('id', editingPostId));
+        await api.mutate(`/api/info-posts/${editingPostId}`, {
+          title: newPost.title.trim(),
+          content: newPost.content.trim(),
+          audience: newPost.audience,
+          pinned: newPost.pinned,
+          attachment_url: attachmentUrl,
+          target_organization_id: targetOrgId,
+        }, 'PATCH');
       } else {
-        const { data, error: insertError } = await supabase
-          .from('info_posts')
-          .insert({
-            title: newPost.title.trim(),
-            content: newPost.content.trim(),
-            audience: newPost.audience,
-            pinned: newPost.pinned,
-            attachment_url: attachmentUrl,
-            target_organization_id: targetOrgId,
-            created_by_id: user.id,
-          })
-          .select('id')
-          .single();
-        error = insertError;
-        insertedPostId = data?.id ?? null;
-      }
-
-      if (error) {
-        throw error;
+        const result = await api.mutate<{ data: { id: string } }>('/api/info-posts', {
+          title: newPost.title.trim(),
+          content: newPost.content.trim(),
+          audience: newPost.audience,
+          pinned: newPost.pinned,
+          attachment_url: attachmentUrl,
+          target_organization_id: targetOrgId,
+          created_by_id: user.id,
+        });
+        insertedPostId = result.data?.id ?? null;
       }
 
       toast.success(editingPostId ? 'Beitrag aktualisiert' : 'Beitrag veröffentlicht');
@@ -256,13 +223,13 @@ export default function Pinnwand() {
 
   const handleDeletePost = async (postId: string) => {
     setDeletingId(postId);
-    const { error } = await supabase.from('info_posts').delete().eq('id', postId);
-    if (error) {
-      console.error('Error deleting post:', error);
-      toast.error('Beitrag konnte nicht gelöscht werden');
-    } else {
+    try {
+      await api.mutate(`/api/info-posts/${postId}`, {}, 'DELETE');
       toast.success('Beitrag gelöscht');
       loadPosts();
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast.error('Beitrag konnte nicht gelöscht werden');
     }
     setDeletingId(null);
   };
@@ -274,25 +241,6 @@ export default function Pinnwand() {
     return profile?.is_news_manager && user.id === post.created_by_id;
   };
   const canSelectTargetOrg = profile?.role === 'SUPER_ADMIN';
-
-  const generateAttachmentPath = (file: File) => {
-    const ext = file.name.split('.').pop();
-    const randomId =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    return `attachments/${randomId}.${ext}`;
-  };
-
-  const uploadAttachment = async (file: File) => {
-    const filePath = generateAttachmentPath(file);
-    const { error } = await supabase.storage.from('info-post-attachments').upload(filePath, file, {
-      upsert: true,
-    });
-    if (error) throw error;
-    const { data } = supabase.storage.from('info-post-attachments').getPublicUrl(filePath);
-    return data.publicUrl;
-  };
 
   return (
     <Layout>

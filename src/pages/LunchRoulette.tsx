@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Utensils, Users, Calendar, CheckCircle2, Clock, UserPlus } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -25,6 +25,8 @@ interface MatchRound {
   scheduled_date: string;
   status: string;
   weekday: number;
+  participations?: Participation[];
+  pairs?: MatchPair[];
 }
 
 interface MatchPair {
@@ -39,6 +41,8 @@ interface MatchPair {
     email: string;
     organization: { name: string } | null;
   } | null;
+  user_a_id?: string;
+  user_b_id?: string;
 }
 
 interface Participation {
@@ -75,18 +79,16 @@ export default function LunchRoulette() {
     try {
       setLoading(true);
 
-      // Get current or upcoming round
-      const { data: rounds, error: roundError } = await supabase
-        .from('match_rounds')
-        .select('*')
-        .eq('kind', 'LUNCH')
-        .gte('scheduled_date', new Date().toISOString().split('T')[0])
-        .order('scheduled_date')
-        .limit(1);
+      // Get all match rounds (the endpoint includes participations and pairs)
+      const { data: rounds } = await api.query<{ data: MatchRound[] }>('/api/match-rounds');
 
-      if (roundError) throw roundError;
+      // Find current or upcoming LUNCH round
+      const today = new Date().toISOString().split('T')[0];
+      const upcomingRounds = (rounds || [])
+        .filter((r: any) => r.scheduled_date >= today && r.kind === 'LUNCH')
+        .sort((a: any, b: any) => a.scheduled_date.localeCompare(b.scheduled_date));
 
-      const round = rounds?.[0] || null;
+      const round = upcomingRounds[0] || null;
       setCurrentRound(round);
 
       if (!round) {
@@ -94,52 +96,22 @@ export default function LunchRoulette() {
         return;
       }
 
-      // Check if user has opted in
-      const { data: participation, error: partError } = await supabase
-        .from('match_participations')
-        .select('id, user_id')
-        .eq('round_id', round.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (partError) throw partError;
-      setHasOptedIn(!!participation);
+      // Check if user has opted in using participations from the response
+      const participations = round.participations || [];
+      const userParticipation = participations.find((p: Participation) => p.user_id === user.id);
+      setHasOptedIn(!!userParticipation);
 
       // Get total participants count
-      const { count, error: countError } = await supabase
-        .from('match_participations')
-        .select('id', { count: 'exact', head: true })
-        .eq('round_id', round.id);
+      setParticipants(participations.length);
 
-      if (countError) throw countError;
-      setParticipants(count || 0);
-
-      // If round is paired, get user's match
+      // If round is paired, get user's match from the pairs in the response
       if (round.status === 'PAIRED' || round.status === 'CLOSED') {
-        const { data: pairs, error: pairError } = await supabase
-          .from('match_pairs')
-          .select(`
-            id,
-            user_a_id,
-            user_b_id,
-            user_a:profiles!match_pairs_user_a_id_fkey(
-              name,
-              email,
-              organization:organizations(name)
-            ),
-            user_b:profiles!match_pairs_user_b_id_fkey(
-              name,
-              email,
-              organization:organizations(name)
-            )
-          `)
-          .eq('round_id', round.id)
-          .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
-
-        if (pairError) throw pairError;
-
-        if (pairs && pairs.length > 0) {
-          setMyPair(pairs[0] as any);
+        const pairs = round.pairs || [];
+        const myMatch = pairs.find(
+          (p: any) => p.user_a_id === user.id || p.user_b_id === user.id
+        );
+        if (myMatch) {
+          setMyPair(myMatch as MatchPair);
         }
       }
     } catch (error: any) {
@@ -154,27 +126,21 @@ export default function LunchRoulette() {
     if (!user || !currentRound) return;
 
     try {
-      const { error } = await supabase
-        .from('match_participations')
-        .insert({
-          round_id: currentRound.id,
-          user_id: user.id,
-        });
+      await api.mutate('/api/match-participations', {
+        round_id: currentRound.id,
+        user_id: user.id,
+      });
 
-      if (error) {
-        if (error.code === '23505') {
-          toast.error('Du hast Dich bereits angemeldet');
-        } else {
-          throw error;
-        }
-      } else {
-        toast.success('Erfolgreich angemeldet!');
-        setHasOptedIn(true);
-        setParticipants(p => p + 1);
-      }
+      toast.success('Erfolgreich angemeldet!');
+      setHasOptedIn(true);
+      setParticipants(p => p + 1);
     } catch (error: any) {
       console.error('Error opting in:', error);
-      toast.error('Fehler bei der Anmeldung');
+      if (error.message?.includes('duplicate') || error.status === 409) {
+        toast.error('Du hast Dich bereits angemeldet');
+      } else {
+        toast.error('Fehler bei der Anmeldung');
+      }
     }
   };
 
@@ -182,13 +148,7 @@ export default function LunchRoulette() {
     if (!user || !currentRound) return;
 
     try {
-      const { error } = await supabase
-        .from('match_participations')
-        .delete()
-        .eq('round_id', currentRound.id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      await api.mutate('/api/match-participations', { round_id: currentRound.id }, 'DELETE');
 
       toast.success('Abmeldung erfolgreich');
       setHasOptedIn(false);

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Loader2, Newspaper } from 'lucide-react';
@@ -45,23 +45,8 @@ const Index = () => {
 
   const loadPublicPosts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('info_posts')
-        .select(`
-          id,
-          title,
-          content,
-          created_at,
-          pinned,
-          created_by:profiles!info_posts_created_by_id_fkey(name)
-        `)
-        .eq('audience', 'PUBLIC')
-        .order('pinned', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(PUBLIC_POST_LIMIT);
-
-      if (error) throw error;
-      setPosts(data || []);
+      const res = await api.query<{ data: InfoPost[] }>('/api/info-posts/public', { limit: String(PUBLIC_POST_LIMIT) });
+      setPosts(res.data || []);
     } catch (error: any) {
       console.error('Error loading public posts', error);
       toast.error('Öffentliche Beiträge konnten nicht geladen werden.');
@@ -78,14 +63,11 @@ const Index = () => {
     }
     setJoining(true);
     try {
-      const { error } = await supabase.functions.invoke('submit-join-request', {
-        body: {
-          name: joinForm.name.trim(),
-          email: joinForm.email.trim(),
-          organization_id: joinForm.organization_id,
-        },
+      await api.mutate('/api/join-requests', {
+        name: joinForm.name.trim(),
+        email: joinForm.email.trim(),
+        organization_id: joinForm.organization_id,
       });
-      if (error) throw error;
       toast.success('Vielen Dank! Wir prüfen Deine Anfrage zeitnah.');
       setJoinForm({
         name: '',
@@ -102,9 +84,8 @@ const Index = () => {
 
   const loadOrganizations = async () => {
     try {
-      const { data, error } = await supabase.from('organizations').select('id, name').order('name');
-      if (error) throw error;
-      setOrganizations(data || []);
+      const res = await api.query<{ data: { id: string; name: string }[] }>('/api/organizations/simple');
+      setOrganizations(res.data || []);
     } catch (error) {
       console.error('Error loading organizations', error);
     }

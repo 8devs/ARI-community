@@ -19,8 +19,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { api } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
@@ -38,31 +37,59 @@ type ActivityItem = {
   url: string;
 };
 
-type FeaturedPerson = Pick<Tables<'profiles'>, 'id' | 'name' | 'position' | 'avatar_url'> & {
+interface FeaturedPerson {
+  id: string;
+  name: string;
+  position: string | null;
+  avatar_url: string | null;
   organization?: {
     name: string | null;
   } | null;
-};
+}
 
-type NewsItem = Pick<
-  Tables<'info_posts'>,
-  'id' | 'title' | 'content' | 'created_at' | 'pinned' | 'audience' | 'target_organization_id'
-> & {
+interface NewsItem {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  pinned: boolean;
+  audience: string;
+  target_organization_id: string | null;
   created_by: {
     name: string | null;
   } | null;
-};
+}
 
-type ReceptionStatus = Tables<'reception_tasks'>['status'];
+type ReceptionStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
 
-type ReceptionDashboardTask = Pick<
-  Tables<'reception_tasks'>,
-  'id' | 'title' | 'status' | 'direction' | 'created_at'
-> & {
+interface ReceptionDashboardTask {
+  id: string;
+  title: string;
+  status: ReceptionStatus;
+  direction: string;
+  created_at: string;
   organization?: {
     name: string | null;
   } | null;
-};
+}
+
+interface ActivityPost {
+  id: string;
+  title: string;
+  created_at: string;
+}
+
+interface ActivityQuestion {
+  id: string;
+  title: string;
+  created_at: string;
+}
+
+interface ActivityEvent {
+  id: string;
+  title: string;
+  starts_at: string;
+}
 
 const RECEPTION_STATUS_LABELS: Record<ReceptionStatus, string> = {
   OPEN: 'Offen',
@@ -108,14 +135,9 @@ export default function Dashboard() {
     const loadWhoIsWho = async () => {
       setWhoLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, name, position, avatar_url, organization:organizations(name)')
-          .order('updated_at', { ascending: false })
-          .limit(6);
-        if (error) throw error;
+        const { data } = await api.query<{ data: FeaturedPerson[] }>('/api/profiles');
         if (!ignore) {
-          setFeaturedPeople(data ?? []);
+          setFeaturedPeople((data ?? []).slice(0, 6));
         }
       } catch (error) {
         console.error('Error loading Who-is-Who', error);
@@ -174,24 +196,7 @@ export default function Dashboard() {
     const loadLatestNews = async () => {
       setNewsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('info_posts')
-          .select(
-            `
-            id,
-            title,
-            content,
-            created_at,
-            pinned,
-            audience,
-            target_organization_id,
-            created_by:profiles!info_posts_created_by_id_fkey(name)
-          `,
-          )
-          .order('pinned', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(8);
-        if (error) throw error;
+        const { data } = await api.query<{ data: NewsItem[] }>('/api/info-posts');
         if (!ignore) {
           const filtered = (data ?? []).filter(canSeeNews);
           setLatestNews(filtered.slice(0, 4));
@@ -209,20 +214,15 @@ export default function Dashboard() {
     };
 
     void loadLatestNews();
-    const channel = supabase
-      .channel('dashboard-news-feed')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'info_posts' },
-        () => {
-          void loadLatestNews();
-        },
-      )
-      .subscribe();
+
+    // Poll every 60s instead of realtime subscription
+    const interval = setInterval(() => {
+      void loadLatestNews();
+    }, 60000);
 
     return () => {
       ignore = true;
-      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [canSeeNews]);
 
@@ -230,12 +230,13 @@ export default function Dashboard() {
     if (!profile?.id) return;
     let ignore = false;
     const fetchLunch = async () => {
-      const { count, error } = await supabase
-        .from('match_participations')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', profile.id);
-      if (!ignore && !error) {
-        setLunchParticipating((count ?? 0) > 0);
+      try {
+        const { data } = await api.query<{ data: { id: string }[] }>('/api/match-rounds');
+        if (!ignore) {
+          setLunchParticipating((data ?? []).length > 0);
+        }
+      } catch (error) {
+        console.error('Error loading lunch participation', error);
       }
     };
 
@@ -255,35 +256,9 @@ export default function Dashboard() {
     const fetchReceptionTasks = async () => {
       setReceptionTasksLoading(true);
       try {
-        let query = supabase
-          .from('reception_tasks')
-          .select(
-            `
-              id,
-              title,
-              status,
-              direction,
-              created_at,
-              organization:organizations(name)
-            `,
-          )
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (profile.is_receptionist) {
-          query = query.in('status', ['OPEN', 'IN_PROGRESS']);
-        } else {
-          const filters = [`created_by.eq.${profile.id}`];
-          if (profile.organization_id) {
-            filters.push(`and(direction.eq.ORG_TODO,organization_id.eq.${profile.organization_id})`);
-          }
-          query = query.or(filters.join(','));
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
+        const { data } = await api.query<{ data: ReceptionDashboardTask[] }>('/api/reception-tasks');
         if (!ignore) {
-          setReceptionTasks(data ?? []);
+          setReceptionTasks((data ?? []).slice(0, 5));
         }
       } catch (error) {
         if (!ignore) {
@@ -307,26 +282,14 @@ export default function Dashboard() {
     setActivityLoading(true);
     try {
       const [postsRes, questionsRes, eventsRes] = await Promise.all([
-        supabase
-          .from('info_posts')
-          .select('id, title, created_at')
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase
-          .from('questions')
-          .select('id, title, created_at')
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase
-          .from('events')
-          .select('id, title, starts_at')
-          .order('starts_at', { ascending: false })
-          .limit(5),
+        api.query<{ data: ActivityPost[] }>('/api/info-posts'),
+        api.query<{ data: ActivityQuestion[] }>('/api/questions'),
+        api.query<{ data: ActivityEvent[] }>('/api/events'),
       ]);
 
       const next: ActivityItem[] = [];
 
-      postsRes.data?.forEach((post) =>
+      (postsRes.data ?? []).slice(0, 5).forEach((post) =>
         next.push({
           id: `post-${post.id}`,
           type: 'POST',
@@ -337,7 +300,7 @@ export default function Dashboard() {
         }),
       );
 
-      questionsRes.data?.forEach((question) =>
+      (questionsRes.data ?? []).slice(0, 5).forEach((question) =>
         next.push({
           id: `question-${question.id}`,
           type: 'QUESTION',
@@ -348,7 +311,7 @@ export default function Dashboard() {
         }),
       );
 
-      eventsRes.data?.forEach((event) =>
+      (eventsRes.data ?? []).slice(0, 5).forEach((event) =>
         next.push({
           id: `event-${event.id}`,
           type: 'EVENT',

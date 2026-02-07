@@ -1,4 +1,3 @@
-import { Tables } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,9 +13,18 @@ import { de } from "date-fns/locale";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Link } from "react-router-dom";
 
+interface NotificationRow {
+  id: string;
+  title: string;
+  body: string | null;
+  url: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
 interface NotificationsMenuProps {
   unread: number;
-  notifications: Tables<"notifications">[];
+  notifications: NotificationRow[];
   loading: boolean;
   onMarkAsRead: (id: string) => void | Promise<void>;
   onOpenNotifications?: () => void;
@@ -33,7 +41,7 @@ export function NotificationsMenu({
   onNavigate,
   onMarkAllAsRead,
 }: NotificationsMenuProps) {
-  const handleNavigate = (notification: Tables<"notifications">) => {
+  const handleNavigate = (notification: NotificationRow) => {
     if (!notification.read_at) {
       void onMarkAsRead(notification.id);
     }

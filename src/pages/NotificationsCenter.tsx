@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
-import { supabase } from "@/integrations/supabase/client";
-import { Tables } from "@/integrations/supabase/types";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +25,16 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import PullToRefresh from "react-simple-pull-to-refresh";
 
-const PAGE_SIZE = 25;
-
-type NotificationRow = Tables<"notifications">;
+interface NotificationRow {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string | null;
+  type: string | null;
+  url: string | null;
+  read_at: string | null;
+  created_at: string;
+}
 
 type FilterValue = "all" | "unread" | "read";
 
@@ -66,31 +72,28 @@ export default function NotificationsCenter() {
         setLoading(true);
       }
 
-      const offset = append ? notificationsLengthRef.current : 0;
-      const { data, error, count } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact" })
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
+      try {
+        const limit = 25;
+        const result = await api.query<{ data: NotificationRow[] }>('/api/notifications', { limit: String(limit) });
+        const rows = result.data ?? [];
 
-      if (error) {
-        console.error("Error loading notifications center", error);
-        toast.error("Benachrichtigungen konnten nicht geladen werden");
-      } else {
-        const rows = data ?? [];
-        setNotifications((prev) => (append ? [...prev, ...rows] : rows));
-        const loadedTotal = append ? notificationsLengthRef.current + rows.length : rows.length;
-        setTotalCount(count ?? loadedTotal);
-        if (typeof count === "number") {
-          setHasMore(loadedTotal < count);
+        if (append) {
+          setNotifications((prev) => [...prev, ...rows]);
         } else {
-          setHasMore(rows.length === PAGE_SIZE);
+          setNotifications(rows);
         }
+
+        const loadedTotal = append ? notificationsLengthRef.current + rows.length : rows.length;
+        setTotalCount(loadedTotal);
+        setHasMore(rows.length === limit);
+      } catch (err) {
+        console.error("Error loading notifications center", err);
+        toast.error("Benachrichtigungen konnten nicht geladen werden");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
 
-      setLoading(false);
-      setLoadingMore(false);
       return true;
     },
     [profile?.id],
@@ -113,56 +116,44 @@ export default function NotificationsCenter() {
   const handleMarkAsRead = async (notification: NotificationRow) => {
     if (!profile?.id || notification.read_at) return;
     setActionId(notification.id);
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("id", notification.id)
-      .eq("user_id", profile.id);
-
-    if (error) {
-      console.error("Error marking notification", error);
-      toast.error("Benachrichtigung konnte nicht aktualisiert werden");
-    } else {
+    try {
+      await api.mutate(`/api/notifications/${notification.id}/read`, {}, 'PATCH');
       setNotifications((prev) =>
         prev.map((item) => (item.id === notification.id ? { ...item, read_at: new Date().toISOString() } : item)),
       );
+    } catch (err) {
+      console.error("Error marking notification", err);
+      toast.error("Benachrichtigung konnte nicht aktualisiert werden");
     }
-
     setActionId(null);
   };
 
   const handleDelete = async (notificationId: string) => {
     if (!profile?.id) return;
     setActionId(notificationId);
-    const { error } = await supabase
-      .from("notifications")
-      .delete()
-      .eq("id", notificationId)
-      .eq("user_id", profile.id);
-
-    if (error) {
-      console.error("Error deleting notification", error);
-      toast.error("Benachrichtigung konnte nicht gelöscht werden");
-    } else {
+    try {
+      await api.mutate(`/api/notifications/${notificationId}`, {}, 'DELETE');
       toast.success("Benachrichtigung gelöscht");
       await fetchNotifications(false);
+    } catch (err) {
+      console.error("Error deleting notification", err);
+      toast.error("Benachrichtigung konnte nicht gelöscht werden");
     }
-
     setActionId(null);
   };
 
   const handleClearAll = async () => {
     if (!profile?.id) return;
     setClearing(true);
-    const { error } = await supabase.from("notifications").delete().eq("user_id", profile.id);
-    if (error) {
-      console.error("Error clearing notifications", error);
-      toast.error("Benachrichtigungen konnten nicht gelöscht werden");
-    } else {
+    try {
+      await api.mutate('/api/notifications/all', {}, 'DELETE');
       toast.success("Alle Benachrichtigungen gelöscht");
       setNotifications([]);
       setHasMore(false);
       setTotalCount(0);
+    } catch (err) {
+      console.error("Error clearing notifications", err);
+      toast.error("Benachrichtigungen konnten nicht gelöscht werden");
     }
     setClearing(false);
   };
@@ -173,21 +164,17 @@ export default function NotificationsCenter() {
     if (!profile?.id) return;
     const unreadIds = notifications.filter((notification) => !notification.read_at).map((notification) => notification.id);
     if (unreadIds.length === 0) return;
-    const now = new Date().toISOString();
-    supabase
-      .from("notifications")
-      .update({ read_at: now })
-      .in("id", unreadIds)
-      .then(({ error }) => {
-        if (error) {
-          console.error("Error marking notifications as viewed", error);
-          return;
-        }
+    api.mutate('/api/notifications/read-all', {})
+      .then(() => {
+        const now = new Date().toISOString();
         setNotifications((prev) =>
           prev.map((notification) =>
             unreadIds.includes(notification.id) ? { ...notification, read_at: now } : notification,
           ),
         );
+      })
+      .catch((err) => {
+        console.error("Error marking notifications as viewed", err);
       });
   }, [notifications, profile?.id]);
 
@@ -195,11 +182,11 @@ export default function NotificationsCenter() {
     <Layout>
       <PullToRefresh
         onRefresh={() => fetchNotifications(false)}
-        pullingContent={<p className="text-xs text-muted-foreground py-2 text-center">Zum Aktualisieren nach unten ziehen…</p>}
+        pullingContent={<p className="text-xs text-muted-foreground py-2 text-center">Zum Aktualisieren nach unten ziehen...</p>}
         refreshingContent={
           <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Aktualisiere…
+            Aktualisiere...
           </div>
         }
         className="h-full"
@@ -325,10 +312,10 @@ export default function NotificationsCenter() {
                               if (!notification.read_at) {
                                 void handleMarkAsRead(notification);
                               }
-                              if (notification.url.startsWith("http")) {
-                                window.open(notification.url, "_blank", "noopener,noreferrer");
+                              if (notification.url!.startsWith("http")) {
+                                window.open(notification.url!, "_blank", "noopener,noreferrer");
                               } else {
-                                navigate(notification.url);
+                                navigate(notification.url!);
                               }
                             }}
                           >

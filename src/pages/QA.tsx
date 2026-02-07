@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Plus, CheckCircle2, Edit, Trash2, ThumbsUp } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -60,6 +60,10 @@ interface Answer {
   };
 }
 
+interface AnswerVote {
+  answer_id: string;
+}
+
 export default function QA() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,29 +111,7 @@ export default function QA() {
 
   const loadQuestions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('questions')
-        .select(`
-          id,
-          title,
-          body,
-          tags,
-          is_solved,
-          created_at,
-          created_by_id,
-          created_by:profiles!questions_created_by_id_fkey(name),
-          answers(
-            id,
-            body,
-            created_at,
-            created_by_id,
-            upvotes,
-            created_by:profiles!answers_created_by_id_fkey(name)
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const { data } = await api.query<{ data: Question[] }>('/api/questions');
       setQuestions(data || []);
     } catch (error: any) {
       toast.error('Fehler beim Laden der Fragen');
@@ -142,11 +124,7 @@ export default function QA() {
   const loadUserVotes = async () => {
     if (!user?.id) return;
     try {
-      const { data, error } = await supabase
-        .from('answer_votes')
-        .select('answer_id')
-        .eq('voter_id', user.id);
-      if (error) throw error;
+      const { data } = await api.query<{ data: AnswerVote[] }>('/api/answer-votes');
       setUserVotes(new Set((data || []).map((vote) => vote.answer_id)));
     } catch (error) {
       console.error('Error loading answer votes', error);
@@ -171,14 +149,9 @@ const openEditDialog = (question: Question) => {
 
 const triggerQuestionNotification = async (questionId: string) => {
   try {
-    const { error } = await supabase.functions.invoke('notify-qna-question', {
-      body: { question_id: questionId },
-    });
-    if (error) {
-      console.error('notify-qna-question failed', error);
-    }
+    await api.mutate('/api/notifications/qna', { question_id: questionId });
   } catch (error) {
-    console.error('notify-qna-question unexpected', error);
+    console.error('notify-qna-question failed', error);
   }
 };
 
@@ -199,36 +172,24 @@ const triggerQuestionNotification = async (questionId: string) => {
       .map((tag) => tag.trim())
       .filter(Boolean);
 
-    let error;
-    let insertedQuestionId: string | null = null;
-    if (editingQuestionId) {
-      ({ error } = await supabase
-        .from('questions')
-        .update({
+    try {
+      let insertedQuestionId: string | null = null;
+      if (editingQuestionId) {
+        await api.mutate(`/api/questions/${editingQuestionId}`, {
           title: newQuestion.title.trim(),
           body: newQuestion.body.trim(),
           tags: tags.length ? tags : null,
-        })
-        .eq('id', editingQuestionId));
-    } else {
-      const { data, error: insertError } = await supabase
-        .from('questions')
-        .insert({
+        }, 'PATCH');
+      } else {
+        const result = await api.mutate<{ data: { id: string } }>('/api/questions', {
           title: newQuestion.title.trim(),
           body: newQuestion.body.trim(),
           tags: tags.length ? tags : null,
           created_by_id: user.id,
-        })
-        .select('id')
-        .single();
-      insertedQuestionId = data?.id ?? null;
-      error = insertError;
-    }
+        });
+        insertedQuestionId = result.data?.id ?? null;
+      }
 
-    if (error) {
-      console.error('Error creating question:', error);
-      toast.error('Frage konnte nicht gespeichert werden');
-    } else {
       toast.success(editingQuestionId ? 'Frage aktualisiert' : 'Frage veröffentlicht');
       setNewQuestion({ title: '', body: '', tags: '' });
       setEditingQuestionId(null);
@@ -237,6 +198,9 @@ const triggerQuestionNotification = async (questionId: string) => {
       if (!editingQuestionId && insertedQuestionId) {
         void triggerQuestionNotification(insertedQuestionId);
       }
+    } catch (error) {
+      console.error('Error creating question:', error);
+      toast.error('Frage konnte nicht gespeichert werden');
     }
 
     setCreating(false);
@@ -272,27 +236,25 @@ const triggerQuestionNotification = async (questionId: string) => {
     }
     setAnswerSubmittingId(questionId);
     const question = questions.find((q) => q.id === questionId);
-    const { error } = await supabase.from('answers').insert({
-      question_id: questionId,
-      body,
-      created_by_id: user.id,
-    });
-    if (error) {
-      console.error('Error creating answer', error);
-      toast.error('Antwort konnte nicht gespeichert werden');
-    } else {
+    try {
+      await api.mutate('/api/answers', {
+        question_id: questionId,
+        body,
+        created_by_id: user.id,
+      });
       toast.success('Antwort veröffentlicht');
       setAnswerInputs((prev) => ({ ...prev, [questionId]: '' }));
       if (question && question.created_by_id !== user.id) {
         const notificationBody = `${profile?.name ?? 'Ein Teammitglied'} hat auf Deine Frage "${question.title}" geantwortet.`;
-        const { error: notificationError } = await supabase.rpc('create_notification', {
-          _user_id: question.created_by_id,
-          _title: 'Neue Antwort auf Deine Frage',
-          _body: notificationBody,
-          _type: 'QNA',
-          _url: `/qa?question=${question.id}`,
-        });
-        if (notificationError) {
+        try {
+          await api.mutate('/api/notifications/qna', {
+            user_id: question.created_by_id,
+            title: 'Neue Antwort auf Deine Frage',
+            body: notificationBody,
+            type: 'QNA',
+            url: `/qa?question=${question.id}`,
+          });
+        } catch (notificationError) {
           console.error('Error sending Q&A notification', notificationError);
         }
       }
@@ -301,6 +263,9 @@ const triggerQuestionNotification = async (questionId: string) => {
       params.set('question', questionId);
       setSearchParams(params, { replace: true });
       loadQuestions();
+    } catch (error) {
+      console.error('Error creating answer', error);
+      toast.error('Antwort konnte nicht gespeichert werden');
     }
     setAnswerSubmittingId(null);
   };
@@ -314,24 +279,23 @@ const triggerQuestionNotification = async (questionId: string) => {
       toast.info('Du hast diese Antwort bereits hochgevotet');
       return;
     }
-    const { error } = await supabase.from('answer_votes').insert({
-      answer_id: answerId,
-      voter_id: user.id,
-    });
-    if (error) {
-      if (error.code === '23505') {
+    try {
+      await api.mutate('/api/answer-votes', {
+        answer_id: answerId,
+      });
+      const next = new Set(userVotes);
+      next.add(answerId);
+      setUserVotes(next);
+      toast.success('Danke für Dein Voting');
+      loadQuestions();
+    } catch (error: any) {
+      if (error?.message?.includes('duplicate') || error?.status === 409) {
         toast.info('Du hast diese Antwort bereits hochgevotet');
       } else {
         console.error('Error upvoting answer', error);
         toast.error('Stimme konnte nicht gespeichert werden');
       }
-      return;
     }
-    const next = new Set(userVotes);
-    next.add(answerId);
-    setUserVotes(next);
-    toast.success('Danke für Dein Voting');
-    loadQuestions();
   };
 
   const handleStartEditAnswer = (answer: Answer) => {
@@ -350,40 +314,40 @@ const triggerQuestionNotification = async (questionId: string) => {
       return;
     }
     setSavingAnswerId(answerId);
-    const { error } = await supabase.from('answers').update({ body }).eq('id', answerId);
-    if (error) {
-      console.error('Error updating answer', error);
-      toast.error('Antwort konnte nicht aktualisiert werden');
-    } else {
+    try {
+      await api.mutate(`/api/answers/${answerId}`, { body }, 'PATCH');
       toast.success('Antwort aktualisiert');
       setEditingAnswerId(null);
       loadQuestions();
+    } catch (error) {
+      console.error('Error updating answer', error);
+      toast.error('Antwort konnte nicht aktualisiert werden');
     }
     setSavingAnswerId(null);
   };
 
   const handleDeleteAnswer = async (answerId: string) => {
     setDeletingAnswerId(answerId);
-    const { error } = await supabase.from('answers').delete().eq('id', answerId);
-    if (error) {
-      console.error('Error deleting answer', error);
-      toast.error('Antwort konnte nicht gelöscht werden');
-    } else {
+    try {
+      await api.mutate(`/api/answers/${answerId}`, {}, 'DELETE');
       toast.success('Antwort gelöscht');
       loadQuestions();
+    } catch (error) {
+      console.error('Error deleting answer', error);
+      toast.error('Antwort konnte nicht gelöscht werden');
     }
     setDeletingAnswerId(null);
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
     setDeletingId(questionId);
-    const { error } = await supabase.from('questions').delete().eq('id', questionId);
-    if (error) {
-      console.error('Error deleting question:', error);
-      toast.error('Frage konnte nicht gelöscht werden');
-    } else {
+    try {
+      await api.mutate(`/api/questions/${questionId}`, {}, 'DELETE');
       toast.success('Frage gelöscht');
       loadQuestions();
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      toast.error('Frage konnte nicht gelöscht werden');
     }
     setDeletingId(null);
   };

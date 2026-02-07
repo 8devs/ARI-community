@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
-import { supabase } from '@/integrations/supabase/client';
-import type { Database, Tables } from '@/integrations/supabase/types';
+import { api } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,22 +9,52 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Loader2, Users, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-type ReceptionTaskStatus = Database['public']['Enums']['reception_task_status'];
-type ReceptionTaskDirection = Database['public']['Enums']['reception_task_direction'];
-type ReceptionTaskRow = Tables<'reception_tasks'> & {
-  organization?: { name: string | null } | null;
-  creator?: { id: string; name: string | null; email: string | null } | null;
-  assignee?: { id: string; name: string | null } | null;
-  logs?: (Tables<'reception_task_logs'> & { actor?: { name: string | null } | null })[];
-};
+interface ReceptionTaskLog {
+  id: string;
+  task_id: string;
+  entry: string;
+  created_by: string;
+  created_at: string;
+  creator?: { id: string; name: string | null } | null;
+}
 
-type Recipient = { id: string; email: string | null; name: string | null };
+interface ReceptionTaskRow {
+  id: string;
+  title: string;
+  details: string | null;
+  direction: ReceptionTaskDirection;
+  status: ReceptionTaskStatus;
+  created_by: string;
+  organization_id: string | null;
+  assigned_reception_id: string | null;
+  due_at: string | null;
+  created_at: string;
+  updated_at: string;
+  organization?: { name: string | null } | null;
+  creator?: { id: string; name: string | null; organization_id?: string | null } | null;
+  assigned_reception?: { id: string; name: string | null } | null;
+  reception_task_logs?: ReceptionTaskLog[];
+}
+
+type ReceptionTaskStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
+type ReceptionTaskDirection = 'USER_NOTE' | 'ORG_TODO';
 
 const STATUS_LABELS: Record<ReceptionTaskStatus, string> = {
   OPEN: 'Offen',
@@ -75,43 +104,28 @@ export default function ReceptionTasks() {
 
   const loadOrganizations = async () => {
     setLoadingOrganizations(true);
-    const { data, error } = await supabase.from('organizations').select('id, name').order('name');
-    setLoadingOrganizations(false);
-    if (error) {
-      console.error('Error loading organizations', error);
+    try {
+      const result = await api.query<{ data: { id: string; name: string }[] }>('/api/organizations/simple');
+      setOrganizations(result.data ?? []);
+    } catch (err) {
+      console.error('Error loading organizations', err);
       toast.error('Organisationen konnten nicht geladen werden');
-      return;
+    } finally {
+      setLoadingOrganizations(false);
     }
-    setOrganizations(data ?? []);
   };
 
   const loadTasks = async () => {
     setLoadingTasks(true);
-    const { data, error } = await supabase
-      .from('reception_tasks')
-      .select(
-        `
-          *,
-          organization:organizations(name),
-          creator:profiles!reception_tasks_created_by_fkey(id, name, email),
-          assignee:profiles!reception_tasks_assigned_reception_id_fkey(id, name),
-          logs:reception_task_logs(
-            id,
-            entry,
-            created_at,
-            created_by,
-            actor:profiles(name)
-          )
-        `,
-      )
-      .order('created_at', { ascending: false });
-    setLoadingTasks(false);
-    if (error) {
-      console.error('Error loading reception tasks', error);
+    try {
+      const result = await api.query<{ data: ReceptionTaskRow[] }>('/api/reception-tasks');
+      setTasks(result.data ?? []);
+    } catch (err) {
+      console.error('Error loading reception tasks', err);
       toast.error('Aufgaben konnten nicht geladen werden');
-      return;
+    } finally {
+      setLoadingTasks(false);
     }
-    setTasks((data as ReceptionTaskRow[]) ?? []);
   };
 
   const visibleTasks = useMemo(() => {
@@ -125,57 +139,6 @@ export default function ReceptionTasks() {
     return base.filter((task) => task.status === statusFilter);
   }, [tasks, canManageReception, profile?.id, profile?.organization_id, statusFilter]);
 
-  const recipientsForReception = async (): Promise<Recipient[]> => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, name')
-      .eq('is_receptionist', true);
-    if (error) {
-      console.error('Error loading reception recipients', error);
-      return [];
-    }
-    return data ?? [];
-  };
-
-  const recipientsForOrganization = async (organizationId: string): Promise<Recipient[]> => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, name')
-      .eq('organization_id', organizationId)
-      .in('role', ['ORG_ADMIN', 'SUPER_ADMIN']);
-    if (error) {
-      console.error('Error loading org recipients', error);
-      return [];
-    }
-    return data ?? [];
-  };
-
-  const notifyRecipients = async (recipients: Recipient[], subject: string, body: string, badge: string) => {
-    if (!recipients.length) return;
-    await Promise.all(
-      recipients.map(async (recipient) => {
-        await supabase.rpc('create_notification', {
-          _user_id: recipient.id,
-          _title: subject,
-          _body: body,
-          _type: 'MESSAGE',
-          _url: '#/empfang',
-        });
-      }),
-    );
-    const emails = recipients.map((recipient) => recipient.email).filter((email): email is string => Boolean(email));
-    if (emails.length) {
-      await supabase.functions.invoke('send-email-notification', {
-        body: {
-          to: emails,
-          subject,
-          html: `<p>${body}</p><p>Zur Übersicht: <a href="https://www.ari-worms.de/#/empfang">Empfang & Aufgaben</a></p>`,
-          badge,
-        },
-      });
-    }
-  };
-
   const handleCreateReport = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!profile?.id) return;
@@ -184,33 +147,22 @@ export default function ReceptionTasks() {
       return;
     }
     setSavingReport(true);
-    const { data, error } = await supabase
-      .from('reception_tasks')
-      .insert({
+    try {
+      await api.mutate('/api/reception-tasks', {
         title: reportForm.title.trim(),
         details: reportForm.details.trim() || null,
         direction: 'USER_NOTE',
-        created_by: profile.id,
         organization_id: profile.organization_id || null,
-      })
-      .select('id, title, details')
-      .single();
-    setSavingReport(false);
-    if (error) {
-      console.error('Error creating reception report', error);
+      });
+      setReportForm({ title: '', details: '' });
+      toast.success('Meldung wurde an den Empfang gesendet');
+      loadTasks();
+    } catch (err) {
+      console.error('Error creating reception report', err);
       toast.error('Meldung konnte nicht übermittelt werden');
-      return;
+    } finally {
+      setSavingReport(false);
     }
-    setReportForm({ title: '', details: '' });
-    toast.success('Meldung wurde an den Empfang gesendet');
-    loadTasks();
-    const recipients = await recipientsForReception();
-    await notifyRecipients(
-      recipients,
-      `Neue Meldung: ${data?.title ?? 'Empfang'}`,
-      `Es liegt eine neue Meldung vom Empfang an: ${data?.details ?? ''}`.trim(),
-      'Empfang',
-    );
   };
 
   const handleCreateOrgTask = async (event: React.FormEvent) => {
@@ -221,35 +173,22 @@ export default function ReceptionTasks() {
       return;
     }
     setSavingOrgTask(true);
-    const { data, error } = await supabase
-      .from('reception_tasks')
-      .insert({
+    try {
+      await api.mutate('/api/reception-tasks', {
         title: orgTaskForm.title.trim(),
         details: orgTaskForm.details.trim() || null,
         direction: 'ORG_TODO',
-        created_by: profile.id,
         organization_id: orgTaskForm.organization_id,
         due_at: orgTaskForm.due_at ? new Date(orgTaskForm.due_at).toISOString() : null,
-      })
-      .select('id, title, details, organization_id')
-      .single();
-    setSavingOrgTask(false);
-    if (error) {
-      console.error('Error creating org task', error);
+      });
+      setOrgTaskForm({ title: '', details: '', organization_id: '', due_at: '' });
+      toast.success('Aufgabe veröffentlicht');
+      loadTasks();
+    } catch (err) {
+      console.error('Error creating org task', err);
       toast.error('Aufgabe konnte nicht erstellt werden');
-      return;
-    }
-    setOrgTaskForm({ title: '', details: '', organization_id: '', due_at: '' });
-    toast.success('Aufgabe veröffentlicht');
-    loadTasks();
-    if (data?.organization_id) {
-      const recipients = await recipientsForOrganization(data.organization_id);
-      await notifyRecipients(
-        recipients,
-        `Neue Aufgabe vom Empfang: ${data.title}`,
-        `Für Eure Organisation liegt eine neue Aufgabe vor: ${data.details ?? ''}`.trim(),
-        'Empfang',
-      );
+    } finally {
+      setSavingOrgTask(false);
     }
   };
 
@@ -259,14 +198,15 @@ export default function ReceptionTasks() {
       return;
     }
     setUpdatingTaskId(taskId);
-    const { error } = await supabase.from('reception_tasks').update({ status: nextStatus }).eq('id', taskId);
-    setUpdatingTaskId(null);
-    if (error) {
-      console.error('Error updating task status', error);
+    try {
+      await api.mutate(`/api/reception-tasks/${taskId}`, { status: nextStatus }, 'PATCH');
+      loadTasks();
+    } catch (err) {
+      console.error('Error updating task status', err);
       toast.error('Status konnte nicht aktualisiert werden');
-      return;
+    } finally {
+      setUpdatingTaskId(null);
     }
-    loadTasks();
   };
 
   const handleAssignToMe = async (taskId: string) => {
@@ -275,17 +215,15 @@ export default function ReceptionTasks() {
       return;
     }
     setUpdatingTaskId(taskId);
-    const { error } = await supabase
-      .from('reception_tasks')
-      .update({ assigned_reception_id: profile.id, status: 'IN_PROGRESS' })
-      .eq('id', taskId);
-    setUpdatingTaskId(null);
-    if (error) {
-      console.error('Error assigning task', error);
+    try {
+      await api.mutate(`/api/reception-tasks/${taskId}`, { assigned_reception_id: profile.id, status: 'IN_PROGRESS' }, 'PATCH');
+      loadTasks();
+    } catch (err) {
+      console.error('Error assigning task', err);
       toast.error('Aufgabe konnte nicht übernommen werden');
-      return;
+    } finally {
+      setUpdatingTaskId(null);
     }
-    loadTasks();
   };
 
   const handleAddLog = async (taskId: string) => {
@@ -296,15 +234,16 @@ export default function ReceptionTasks() {
     const text = (logDrafts[taskId] ?? '').trim();
     if (!text) return;
     setAddingLogId(taskId);
-    const { error } = await supabase.from('reception_task_logs').insert({ task_id: taskId, entry: text });
-    setAddingLogId(null);
-    if (error) {
-      console.error('Error adding log entry', error);
+    try {
+      await api.mutate('/api/reception-task-logs', { task_id: taskId, entry: text });
+      setLogDrafts((prev) => ({ ...prev, [taskId]: '' }));
+      loadTasks();
+    } catch (err) {
+      console.error('Error adding log entry', err);
       toast.error('Protokoll konnte nicht gespeichert werden');
-      return;
+    } finally {
+      setAddingLogId(null);
     }
-    setLogDrafts((prev) => ({ ...prev, [taskId]: '' }));
-    loadTasks();
   };
 
   const handleDeleteTask = async (taskId: string) => {
@@ -313,15 +252,16 @@ export default function ReceptionTasks() {
       return;
     }
     setDeletingTaskId(taskId);
-    const { error } = await supabase.from('reception_tasks').delete().eq('id', taskId);
-    setDeletingTaskId(null);
-    if (error) {
-      console.error('Error deleting reception task', error);
+    try {
+      await api.mutate(`/api/reception-tasks/${taskId}`, {}, 'DELETE');
+      toast.success('Aufgabe gelöscht');
+      loadTasks();
+    } catch (err) {
+      console.error('Error deleting reception task', err);
       toast.error('Aufgabe konnte nicht gelöscht werden');
-      return;
+    } finally {
+      setDeletingTaskId(null);
     }
-    toast.success('Aufgabe gelöscht');
-    loadTasks();
   };
 
   const canUpdateTask = canManageReception;
@@ -465,7 +405,7 @@ export default function ReceptionTasks() {
                 ) : (
                   visibleTasks.map((task) => {
                     const directionInfo = DIRECTION_LABELS[task.direction];
-                    const assigneeName = task.assignee?.name || 'Empfang';
+                    const assigneeName = task.assigned_reception?.name || 'Empfang';
                     return (
                       <div key={task.id} className="space-y-3 rounded-2xl border bg-card/70 p-4 shadow-sm">
                         <div className="flex flex-wrap items-center gap-2">
@@ -558,11 +498,11 @@ export default function ReceptionTasks() {
                           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Vorgangsprotokoll
                           </p>
-                          {task.logs && task.logs.length > 0 ? (
+                          {task.reception_task_logs && task.reception_task_logs.length > 0 ? (
                             <div className="space-y-2">
-                              {task.logs.map((log) => (
+                              {task.reception_task_logs.map((log) => (
                                 <div key={log.id} className="rounded-lg border bg-background/70 p-2 text-sm">
-                                  <p className="font-medium">{log.actor?.name ?? 'System'}</p>
+                                  <p className="font-medium">{log.creator?.name ?? 'System'}</p>
                                   <p className="text-muted-foreground">{log.entry}</p>
                                   <p className="text-xs text-muted-foreground">
                                     {formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: de })}

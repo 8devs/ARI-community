@@ -19,8 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { api } from '@/lib/api';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
 import { toast } from 'sonner';
 import { addHours, addMinutes, addMonths, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths } from 'date-fns';
@@ -29,20 +28,64 @@ import { Loader2, CalendarDays, MapPin, Users, Plus, Edit, DoorClosed, Trash2, S
 import { cn } from '@/lib/utils';
 import { sendEmailNotification } from '@/lib/notifications';
 
-type Room = Tables<'rooms'>;
-type Booking = Tables<'room_bookings'> & {
+interface Room {
+  id: string;
+  name: string;
+  location: string | null;
+  description: string | null;
+  capacity: number | null;
+  equipment: string | null;
+  is_active: boolean | null;
+  chairs_capacity: number | null;
+  chairs_default: number | null;
+  tables_capacity: number | null;
+  tables_default: number | null;
+  notify_on_booking: boolean | null;
+  booking_notify_email: string | null;
+  info_document_url: string | null;
+  resource_group_id: string | null;
+  organization_id: string | null;
+  created_by: string | null;
+  public_share_token: string | null;
+  created_at: string;
+}
+
+interface Booking {
+  id: string;
+  room_id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  organization_id: string | null;
+  created_by: string | null;
+  expected_attendees: number | null;
+  chairs_needed: number | null;
+  tables_needed: number | null;
+  whiteboards_needed: number | null;
+  requires_catering: boolean | null;
+  catering_details: string | null;
+  created_at: string;
   creator?: {
     name: string | null;
   } | null;
   organization?: {
     name: string | null;
   } | null;
-};
-type RoomResourceGroup = Tables<'room_resource_groups'> & {
+}
+
+interface RoomResourceGroup {
+  id: string;
+  name: string;
+  tables_total: number | null;
+  chairs_total: number | null;
+  whiteboards_total: number | null;
+  organization_id: string | null;
+  created_at: string;
   organization?: {
     name: string | null;
   } | null;
-};
+}
 
 const emptyRoomForm = {
   name: '',
@@ -158,23 +201,9 @@ export default function Rooms() {
     }
   };
 
-  const generateDocumentPath = (file: File) => {
-    const ext = file.name.split('.').pop();
-    const randomId =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    return `room-documents/${randomId}.${ext}`;
-  };
-
-  const uploadRoomDocument = async (file: File) => {
-    const filePath = generateDocumentPath(file);
-    const { error } = await supabase.storage.from('room-documents').upload(filePath, file, {
-      upsert: true,
-    });
-    if (error) throw error;
-    const { data } = supabase.storage.from('room-documents').getPublicUrl(filePath);
-    return data.publicUrl;
+  const uploadRoomDocument = async (file: File, oldUrl?: string) => {
+    const result = await api.upload('document', file, oldUrl || undefined);
+    return result.url;
   };
 
   const notifyRoomBookingContact = async (
@@ -229,11 +258,7 @@ export default function Rooms() {
   const loadRooms = async () => {
     setRoomsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('rooms')
-        .select('*')
-        .order('name');
-      if (error) throw error;
+      const { data } = await api.query<{ data: Room[] }>('/api/rooms');
       setRooms(data || []);
       if (!selectedRoomId && data && data.length > 0) {
         const activeRoom = data.find(room => room.is_active) || data[0];
@@ -249,13 +274,8 @@ export default function Rooms() {
 
   const loadResourceGroups = async () => {
     try {
-      let query = supabase.from('room_resource_groups').select('*, organization:organizations(name)').order('name');
-      if (profile?.role !== 'SUPER_ADMIN' && profile?.organization_id) {
-        query = query.eq('organization_id', profile.organization_id);
-      }
-      const { data, error } = await query;
-      if (error) throw error;
-      setResourceGroups((data as RoomResourceGroup[]) ?? []);
+      const { data } = await api.query<{ data: RoomResourceGroup[] }>('/api/room-resource-groups');
+      setResourceGroups(data ?? []);
     } catch (error) {
       console.error('Error loading resource groups', error);
     }
@@ -264,22 +284,9 @@ export default function Rooms() {
   const loadBookings = async (month: Date) => {
     setBookingsLoading(true);
     try {
-      const rangeStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-      const rangeEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
-
-      const { data, error } = await supabase
-        .from('room_bookings')
-        .select(`
-          *,
-          creator:profiles!room_bookings_created_by_fkey(name),
-          organization:organizations(name)
-        `)
-        .gte('start_time', rangeStart.toISOString())
-        .lte('start_time', rangeEnd.toISOString())
-        .order('start_time');
-      if (error) throw error;
+      const { data } = await api.query<{ data: Booking[] }>('/api/room-bookings');
       const todayStart = startOfDay(new Date());
-      const filtered = ((data as Booking[]) || []).filter(
+      const filtered = (data || []).filter(
         (booking) => new Date(booking.end_time) >= todayStart,
       );
       setBookings(filtered);
@@ -308,8 +315,7 @@ export default function Rooms() {
     let ignore = false;
     const fetchOrganizations = async () => {
       try {
-        const { data, error } = await supabase.from('organizations').select('id, name').order('name');
-        if (error) throw error;
+        const { data } = await api.query<{ data: { id: string; name: string | null }[] }>('/api/organizations/simple');
         if (!ignore) {
           setOrganizations(data ?? []);
         }
@@ -487,27 +493,29 @@ export default function Rooms() {
     if (groupRoomIds.length === 0) {
       return true;
     }
-    const { data, error } = await supabase
-      .from('room_bookings')
-      .select('id, tables_needed, chairs_needed, whiteboards_needed, start_time, end_time')
-      .in('room_id', groupRoomIds)
-      .lt('start_time', endIso)
-      .gt('end_time', startIso);
-    if (error) {
+    try {
+      const { data } = await api.query<{ data: Booking[] }>('/api/room-bookings');
+      const overlappingAll = (data ?? []).filter((row) => {
+        if (!groupRoomIds.includes(row.room_id)) return false;
+        if (row.start_time >= endIso) return false;
+        if (row.end_time <= startIso) return false;
+        return true;
+      });
+      const overlapping = overlappingAll.filter((row) => !editingBooking || row.id !== editingBooking.id);
+      for (const item of needsValidation) {
+        const used = overlapping.reduce((sum, row) => sum + ((row as any)[item.key] ?? 0), 0);
+        const available = (item.total ?? 0) - used;
+        if ((item.requested ?? 0) > available) {
+          toast.error(`Im Pool "${group.name}" sind nur noch ${Math.max(available, 0)} ${item.label} verfügbar.`);
+          return false;
+        }
+      }
+      return true;
+    } catch (error) {
       console.error('Error validating shared tables', error);
       toast.error('Die gemeinsamen Ressourcen konnten nicht geprüft werden.');
       return false;
     }
-    const overlapping = (data ?? []).filter((row) => !editingBooking || row.id !== editingBooking.id);
-    for (const item of needsValidation) {
-      const used = overlapping.reduce((sum, row) => sum + (row[item.key] ?? 0), 0);
-      const available = (item.total ?? 0) - used;
-      if ((item.requested ?? 0) > available) {
-        toast.error(`Im Pool "${group.name}" sind nur noch ${Math.max(available, 0)} ${item.label} verfügbar.`);
-        return false;
-      }
-    }
-    return true;
   };
 
   const handleSaveRoom = async (e: React.FormEvent) => {
@@ -535,7 +543,7 @@ export default function Rooms() {
         infoDocumentUrl = null;
       }
       if (roomDocumentFile) {
-        infoDocumentUrl = await uploadRoomDocument(roomDocumentFile);
+        infoDocumentUrl = await uploadRoomDocument(roomDocumentFile, editingRoom?.info_document_url ?? undefined);
       }
     } catch (error) {
       console.error('Error uploading document', error);
@@ -563,19 +571,14 @@ export default function Rooms() {
 
     try {
       if (editingRoom) {
-        const { error } = await supabase
-          .from('rooms')
-          .update(commonPayload)
-          .eq('id', editingRoom.id);
-        if (error) throw error;
+        await api.mutate(`/api/rooms/${editingRoom.id}`, commonPayload, 'PATCH');
         toast.success('Raum aktualisiert');
       } else {
-        const { error } = await supabase.from('rooms').insert({
+        await api.mutate('/api/rooms', {
           ...commonPayload,
           organization_id: profile.organization_id,
           created_by: profile.id,
         });
-        if (error) throw error;
         toast.success('Raum angelegt');
       }
       setRoomDialogOpen(false);
@@ -620,12 +623,10 @@ export default function Rooms() {
         organization_id: targetOrgId,
       };
       if (editingGroup) {
-        const { error } = await supabase.from('room_resource_groups').update(payload).eq('id', editingGroup.id);
-        if (error) throw error;
+        await api.mutate(`/api/room-resource-groups/${editingGroup.id}`, payload, 'PATCH');
         toast.success('Pool aktualisiert');
       } else {
-        const { error } = await supabase.from('room_resource_groups').insert(payload);
-        if (error) throw error;
+        await api.mutate('/api/room-resource-groups', payload);
         toast.success('Pool angelegt');
       }
       setGroupDialogOpen(false);
@@ -715,18 +716,13 @@ export default function Rooms() {
     setSavingBooking(true);
     try {
       if (editingBooking) {
-        const { error } = await supabase
-          .from('room_bookings')
-          .update(payload)
-          .eq('id', editingBooking.id);
-        if (error) throw error;
+        await api.mutate(`/api/room-bookings/${editingBooking.id}`, payload, 'PATCH');
         toast.success('Buchung aktualisiert');
       } else {
-        const { error } = await supabase.from('room_bookings').insert({
+        await api.mutate('/api/room-bookings', {
           ...payload,
           created_by: profile.id,
         });
-        if (error) throw error;
         toast.success('Raum gebucht');
       }
       if (selectedRoom.notify_on_booking && selectedRoom.booking_notify_email) {
@@ -764,8 +760,7 @@ export default function Rooms() {
     if (!selectedRoomId) return;
     setDeletingBookingId(bookingId);
     try {
-      const { error } = await supabase.from('room_bookings').delete().eq('id', bookingId);
-      if (error) throw error;
+      await api.mutate(`/api/room-bookings/${bookingId}`, {}, 'DELETE');
       toast.success('Buchung gelöscht');
       loadBookings(currentMonth);
     } catch (error) {
@@ -1915,7 +1910,7 @@ export default function Rooms() {
                   <Textarea
                     id="booking-catering-details"
                     rows={3}
-                    placeholder="z. B. Kaffee & Tee, Gebäck, vegetarische Snacks …"
+                    placeholder="z. B. Kaffee & Tee, Gebäck, vegetarische Snacks …"
                     value={bookingForm.catering_details}
                     onChange={(e) => handleBookingFormChange('catering_details', e.target.value)}
                   />

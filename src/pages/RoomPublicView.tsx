@@ -5,22 +5,46 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, CalendarDays, Users, MapPin, FileText, Droplet } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { api } from '@/lib/api';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-type RoomRow = Tables<'rooms'> & {
-  organization?: {
-    name: string | null;
-  } | null;
-};
+interface RoomRow {
+  id: string;
+  name: string;
+  organization_id: string | null;
+  capacity: number | null;
+  chairs_capacity: number | null;
+  tables_capacity: number | null;
+  chairs_default: number | null;
+  tables_default: number | null;
+  location: string | null;
+  description: string | null;
+  equipment: string | null;
+  info_document_url: string | null;
+  public_share_token: string | null;
+  requires_beverage_catering: boolean | null;
+  is_active: boolean | null;
+  created_at: string;
+  updated_at: string;
+  organization?: { name: string | null } | null;
+}
 
-type PublicBooking = Tables<'room_bookings'> & {
-  creator?: {
-    name: string | null;
-  } | null;
-};
+interface PublicBooking {
+  id: string;
+  room_id: string;
+  title: string | null;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  expected_attendees: number | null;
+  chairs_needed: number | null;
+  tables_needed: number | null;
+  requires_catering: boolean | null;
+  catering_details: string | null;
+  created_at: string;
+  creator?: { id: string; name: string | null } | null;
+}
 
 export default function RoomPublicView() {
   const { token } = useParams<{ token: string }>();
@@ -35,36 +59,20 @@ export default function RoomPublicView() {
       setLoading(true);
       setError(null);
       try {
-        const { data: roomRows, error: roomError } = await supabase.rpc('get_room_public_details', {
-          p_token: token,
-        });
-        if (roomError) throw roomError;
-        const rpcRoom = (roomRows?.[0] ?? null) as (RoomRow & { organization_name?: string | null }) | null;
+        const roomResult = await api.query<{ data: RoomRow }>('/api/rooms/public/' + token);
+        const rpcRoom = roomResult.data ?? null;
         if (!rpcRoom) {
           setError('Der Raum wurde nicht gefunden.');
           setRoom(null);
           setBookings([]);
           return;
         }
-        const { organization_name, ...restRoom } = rpcRoom;
-        setRoom({
-          ...(restRoom as RoomRow),
-          organization: organization_name ? { name: organization_name } : null,
-        });
+        setRoom(rpcRoom);
 
-        const { data: bookingRows, error: bookingError } = await supabase.rpc('get_room_public_bookings', {
-          p_token: token,
-        });
-        if (bookingError) throw bookingError;
+        const bookingsResult = await api.query<{ data: PublicBooking[] }>('/api/rooms/public/' + token + '/bookings');
         const now = new Date();
-        const normalized = (bookingRows ?? []).map((row) => {
-          const { creator_name, ...rest } = row as PublicBooking & { creator_name?: string | null };
-          return {
-            ...(rest as PublicBooking),
-            creator: creator_name ? { name: creator_name } : null,
-          };
-        });
-        const futureBookings = normalized.filter((booking) => new Date(booking.end_time) >= now);
+        const allBookings = bookingsResult.data ?? [];
+        const futureBookings = allBookings.filter((booking) => new Date(booking.end_time) >= now);
         setBookings(futureBookings);
       } catch (err) {
         console.error('Public room view failed', err);

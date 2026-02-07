@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCurrentProfile } from '@/hooks/useCurrentProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Loader2, Building2, UserRound, Bell, Mail } from 'lucide-react';
 
@@ -80,9 +80,8 @@ export default function Profile() {
     if (!profile) return;
 
     setSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({
+    try {
+      await api.mutate(`/api/profiles/${profile.id}`, {
         name: form.name,
         bio: form.bio,
         skills_text: form.skills_text,
@@ -91,17 +90,13 @@ export default function Profile() {
         position: form.position.trim() || null,
         pref_email_notifications: form.pref_email_notifications,
         pref_push_notifications: form.pref_push_notifications,
-      })
-      .eq('id', profile.id);
-
-    if (error) {
-      console.error('Error updating profile', error);
-      toast.error('Profil konnte nicht gespeichert werden');
-    } else {
+      }, 'PATCH');
       toast.success('Profil gespeichert');
       refresh();
+    } catch (error) {
+      console.error('Error updating profile', error);
+      toast.error('Profil konnte nicht gespeichert werden');
     }
-
     setSaving(false);
   };
 
@@ -143,19 +138,8 @@ export default function Profile() {
 
     setAvatarUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const filePath = `profiles/${profile.id}-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('profile-avatars').upload(filePath, file, {
-        upsert: true,
-      });
-      if (error) throw error;
-      const { data } = supabase.storage.from('profile-avatars').getPublicUrl(filePath);
-      const publicUrl = data.publicUrl;
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', profile.id);
-      if (updateError) throw updateError;
+      const { url } = await api.upload('avatar', file, profile.avatar_url ?? undefined);
+      await api.mutate(`/api/profiles/${profile.id}`, { avatar_url: url }, 'PATCH');
       toast.success('Profilbild aktualisiert');
       refresh();
     } catch (error) {

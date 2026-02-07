@@ -1,14 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Tables } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 
-type Profile = Tables<'profiles'> & {
+interface Profile {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url: string | null;
+  bio: string | null;
+  skills_text: string | null;
+  first_aid_certified: boolean | null;
+  phone: string | null;
+  position: string | null;
+  role: string;
+  organization_id: string | null;
+  pref_email_notifications: boolean | null;
+  pref_push_notifications: boolean | null;
+  is_news_manager: boolean | null;
+  is_event_manager: boolean | null;
+  is_receptionist: boolean | null;
+  created_at: string;
   organization?: {
     name: string | null;
     logo_url?: string | null;
     cost_center_code?: string | null;
   } | null;
-};
+}
 
 export function useCurrentProfile() {
   const { user } = useAuth();
