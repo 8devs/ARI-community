@@ -1,127 +1,302 @@
-# Welcome to your Lovable project
+# ARI Community App
 
-## Project info
+Community-App fuer den Adenhauerring in Worms. Vollstaendig self-hosted mit Docker.
 
-**URL**: https://lovable.dev/projects/56d9ef2e-2542-47e2-bd08-0f8ad0483b89
+## Tech-Stack
 
-## How can I edit this code?
+| Bereich | Technologie |
+|---------|-------------|
+| Frontend | React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui |
+| Backend | Express 5 + Prisma ORM + PostgreSQL 16 + Socket.io |
+| Auth | JWT + bcrypt (Session-Cookies) |
+| Deployment | Docker Compose |
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## Docker Installation (Produktion)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/56d9ef2e-2542-47e2-bd08-0f8ad0483b89) and start prompting.
+### Voraussetzungen
 
-Changes made via Lovable will be committed automatically to this repo.
+- Docker und Docker Compose (v2+)
+- Ein Server mit mindestens 1 GB RAM
+- (Optional) Reverse Proxy (nginx, Traefik, Caddy) fuer HTTPS
 
-**Use your preferred IDE**
+### 1. Repository klonen
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+git clone <repo-url> ari-community
+cd ari-community
 ```
 
-**Edit a file directly in GitHub**
+### 2. Environment-Datei erstellen
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## Self-hosted email relay
-
-The Supabase Edge Function `send-email-notification` now expects an HTTP relay at `EMAIL_RELAY_URL` that forwards payloads to your own SMTP server. Zwei Varianten stehen bereit:
-
-1. **Serverless (Vercel)**: Datei `api/relay.ts` implementiert eine Vercel Function unter `/api/relay`. Hinterlege dort die SMTP-Werte als Environment Variables im Vercel-Projekt.
-2. **Eigenständiger Server**: `relay/server.ts` kann lokal mit `npm run relay` gestartet und beispielsweise hinter einem eigenen Reverse Proxy betrieben werden.
-
-Für beide Varianten werden dieselben Variablen verwendet:
-
-```
-RELAY_SMTP_HOST=<smtp.example.com>
-RELAY_SMTP_PORT=465         # or 587
-RELAY_SMTP_SECURE=true      # false to use STARTTLS
-RELAY_SMTP_USERNAME=<user>
-RELAY_SMTP_PASSWORD=<pass>
-RELAY_AUTH_TOKEN=<shared secret used by Supabase>
-RELAY_FROM_FALLBACK=notifications@example.com
-RELAY_PORT=8788             # optional HTTP port
+```bash
+cp .env.docker.example .env.docker
 ```
 
-Expose die jeweilige `/api/relay`- bzw. `/send`-Route (z. B. hinter HTTPS) und setze anschließend die Supabase-Secrets:
+Dann `.env.docker` bearbeiten:
+
+```env
+# ─── Database ──────────────────────────────────────────────────────
+POSTGRES_DB=ari_community
+POSTGRES_USER=ari
+POSTGRES_PASSWORD=HIER_EIN_SICHERES_PASSWORT        # PFLICHT
+POSTGRES_PORT=5432
+
+# ─── App ───────────────────────────────────────────────────────────
+APP_PORT=3000
+PUBLIC_SITE_URL=https://ari.deine-domain.de          # PFLICHT
+
+# ─── Auth ──────────────────────────────────────────────────────────
+# Generiere mit: openssl rand -hex 32
+AUTH_SESSION_SECRET=HIER_EIN_LANGER_ZUFAELLIGER_STRING   # PFLICHT
+AUTH_BCRYPT_ROUNDS=12
+
+# ─── Email (SMTP) ─────────────────────────────────────────────────
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USERNAME=notifications@example.com
+SMTP_PASSWORD=SMTP_PASSWORT
+SMTP_FROM=notifications@example.com
+```
+
+### Pflicht-Variablen
+
+| Variable | Beschreibung |
+|----------|-------------|
+| `POSTGRES_PASSWORD` | Datenbank-Passwort. Wird nur intern zwischen App- und DB-Container verwendet. Muss sicher sein. |
+| `AUTH_SESSION_SECRET` | JWT-Signierungsschluessel. Mindestens 32 Zeichen. Generieren mit `openssl rand -hex 32`. Wenn dieser Wert geaendert wird, werden alle bestehenden Sessions ungueltig. |
+| `PUBLIC_SITE_URL` | Die oeffentliche URL der App (z.B. `https://ari.example.com`). Wird fuer Links in E-Mails und Einladungen verwendet. |
+
+### Optionale Variablen
+
+| Variable | Default | Beschreibung |
+|----------|---------|-------------|
+| `POSTGRES_DB` | `ari_community` | Name der Datenbank |
+| `POSTGRES_USER` | `ari` | Datenbank-Benutzer |
+| `POSTGRES_PORT` | `5432` | Externer Port fuer PostgreSQL (nur fuer Debugging) |
+| `APP_PORT` | `3000` | Port auf dem die App erreichbar ist |
+| `AUTH_BCRYPT_ROUNDS` | `12` | Bcrypt Hashing-Runden (hoeher = sicherer, aber langsamer) |
+| `SMTP_HOST` | *(leer)* | SMTP-Server. **Wenn leer, werden keine E-Mails versendet** (Einladungen, Benachrichtigungen, Passwort-Reset). |
+| `SMTP_PORT` | `465` | SMTP-Port |
+| `SMTP_SECURE` | `true` | `true` fuer SSL/TLS (Port 465), `false` fuer STARTTLS (Port 587) |
+| `SMTP_USERNAME` | *(leer)* | SMTP-Benutzername |
+| `SMTP_PASSWORD` | *(leer)* | SMTP-Passwort |
+| `SMTP_FROM` | `notifications@ari-worms.de` | Absender-Adresse fuer ausgehende E-Mails |
+
+### 3. Container starten
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+Beim ersten Start passiert automatisch:
+
+1. PostgreSQL wird gestartet (mit Healthcheck)
+2. Die App wird gebaut (Multi-Stage: Frontend + Backend)
+3. `prisma migrate deploy` erstellt alle Datenbank-Tabellen
+4. Der Express-Server startet auf Port 3000
+
+### 4. Admin-Benutzer anlegen
+
+Beim allerersten Start muss der initiale Admin-User per Seed erstellt werden:
+
+```bash
+docker compose --env-file .env.docker exec app npx prisma db seed
+```
+
+Das erstellt:
+
+- **Organisation:** ARI Community
+- **Admin-Login:** `admin@ari-worms.de` / `admin123`
+
+> **Wichtig:** Aendere das Admin-Passwort sofort nach dem ersten Login unter **Profil > Passwort aendern**!
+
+### 5. App aufrufen
+
+Die App ist erreichbar unter `http://<server-ip>:3000` (bzw. dem konfigurierten `APP_PORT`).
+
+---
+
+## HTTPS mit Reverse Proxy
+
+Fuer Produktion sollte ein Reverse Proxy mit SSL/TLS vor der App geschaltet werden.
+
+### Caddy (automatisches HTTPS)
 
 ```
-EMAIL_RELAY_URL=https://your-relay.example.com/send
-EMAIL_RELAY_TOKEN=<same shared secret>
-NOTIFY_FROM_EMAIL=notifications@example.com
+ari.deine-domain.de {
+    reverse_proxy localhost:3000
+}
 ```
 
-After updating the secrets, redeploy the function with
+### nginx
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name ari.deine-domain.de;
+
+    ssl_certificate     /etc/letsencrypt/live/ari.deine-domain.de/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ari.deine-domain.de/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket Support (Socket.io) – wichtig fuer Echtzeit-Benachrichtigungen
+    location /ws {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```
+
+> **Wichtig:** Der WebSocket-Pfad `/ws` muss separat mit Upgrade-Headern konfiguriert werden, sonst funktionieren Echtzeit-Benachrichtigungen und Live-Nachrichten nicht.
+
+---
+
+## Verwaltung
+
+### Logs anzeigen
+
+```bash
+docker compose --env-file .env.docker logs -f app     # App-Logs
+docker compose --env-file .env.docker logs -f db       # Datenbank-Logs
+```
+
+### App neustarten
+
+```bash
+docker compose --env-file .env.docker restart app
+```
+
+### Update deployen
+
+```bash
+git pull
+docker compose --env-file .env.docker up -d --build
+```
+
+Datenbank-Migrationen werden automatisch beim Container-Start ausgefuehrt (`prisma migrate deploy`).
+
+### Backup der Datenbank
+
+```bash
+docker compose --env-file .env.docker exec db \
+  pg_dump -U ari ari_community > backup_$(date +%Y%m%d).sql
+```
+
+### Datenbank wiederherstellen
+
+```bash
+cat backup.sql | docker compose --env-file .env.docker exec -T db \
+  psql -U ari ari_community
+```
+
+---
+
+## Lokale Entwicklung
+
+### Voraussetzungen
+
+- Node.js 20+
+- npm
+
+### 1. Datenbank starten (Docker)
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Startet nur PostgreSQL auf `localhost:5432` (User: `ari`, Passwort: `ari_dev_password`).
+
+### 2. Dependencies installieren
+
+```bash
+npm install
+```
+
+### 3. Datenbank-Schema und Seed
+
+```bash
+npx prisma db push
+npm run db:seed
+```
+
+### 4. App starten
+
+```bash
+npm run dev:all
+```
+
+Startet gleichzeitig:
+
+- **Vite Dev-Server** auf `http://localhost:8080` (mit Hot Module Replacement)
+- **Express Backend** auf `http://localhost:3000`
+
+Der Vite-Proxy leitet `/api/*`, `/uploads/*` und `/ws` automatisch an den Backend-Server weiter.
+
+### 5. Im Browser oeffnen
 
 ```
-supabase functions deploy send-email-notification --project-ref <project>
+http://localhost:8080
 ```
 
-## Versioning & Changelog
+Login: `admin@ari-worms.de` / `admin123`
 
-- Die aktuelle Produktversion wird in `package.json`, `src/version.ts` und im UI angezeigt. Passe `APP_VERSION` und `APP_RELEASE_DATE` für jedes Release an.
-- Ergänze neue Einträge in `src/data/changelog.ts` (und damit automatisch auf `/changelog`). Nutze das gleiche Schema wie für die bestehenden Versionen, um Highlights und Details festzuhalten.
-- Dokumentiere zusätzlich im Repository die Änderungen in `CHANGELOG.md`, damit externe Leser:innen denselben Überblick erhalten.
+### Nuetzliche Befehle
 
-## How can I deploy this project?
+| Befehl | Beschreibung |
+|--------|-------------|
+| `npm run dev:all` | Frontend + Backend gleichzeitig starten |
+| `npm run build` | Frontend fuer Produktion bauen |
+| `npm run build:server` | Backend TypeScript kompilieren |
+| `npm run build:all` | Beides bauen |
+| `npm run db:studio` | Prisma Studio (DB-Browser) auf Port 5555 |
+| `npm run db:push` | Schema-Aenderungen auf die Datenbank anwenden (Entwicklung) |
+| `npm run db:seed` | Admin-User und Testdaten anlegen |
 
-Simply open [Lovable](https://lovable.dev/projects/56d9ef2e-2542-47e2-bd08-0f8ad0483b89) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## Projektstruktur
 
-Yes, you can!
+```
+.
+├── src/                    # Frontend (React + TypeScript)
+│   ├── components/         # UI-Komponenten
+│   ├── hooks/              # React Hooks (useAuth, useCurrentProfile, ...)
+│   ├── lib/                # API-Client, Socket.io-Client, Hilfsfunktionen
+│   └── pages/              # Seiten (Pinnwand, Events, Rooms, Q&A, ...)
+├── server/                 # Backend (Express + TypeScript)
+│   ├── routes/             # API-Routen (auth, crud, data, notifications, upload)
+│   ├── services/           # Email, Realtime (Socket.io), Storage
+│   ├── middleware/          # Auth-Middleware (JWT-Verifizierung)
+│   └── lib/                # JWT, Passwort-Hashing, Prisma-Client
+├── prisma/                 # Datenbank
+│   ├── schema.prisma       # Schema (37 Tabellen, 12 Enums)
+│   └── seed.ts             # Initiale Daten
+├── docker-compose.yml      # Produktion (App + PostgreSQL)
+├── docker-compose.dev.yml  # Entwicklung (nur PostgreSQL)
+├── Dockerfile              # Multi-Stage Build (deps → frontend → backend → production)
+└── .env.docker.example     # Template fuer Produktions-Environment
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Volumes und Persistenz
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Docker Compose erstellt zwei benannte Volumes:
 
-## Supabase Auth Redirects & Custom Domain
+| Volume | Pfad im Container | Beschreibung |
+|--------|-------------------|-------------|
+| `postgres_data` | `/var/lib/postgresql/data` | Datenbank-Dateien |
+| `uploads` | `/app/uploads` | Hochgeladene Dateien (Avatare, Logos, Dokumente, Menues) |
 
-- Die App verwendet einen HashRouter, daher müssen Supabase-Weiterleitungen mit `/#/…` beginnen (z. B. `https://deine-domain.de/#/passwort/neu`), damit der Host immer `index.html` liefert und React die Route rendert.
-- Setze in Supabase → Authentication → URL configuration die `Site URL` auf Deine Domain und ergänze unter „Redirect URLs“ mindestens `https://deine-domain.de/#/login` sowie `https://deine-domain.de/#/passwort/neu`.
-- Beim `signUp`, `signInWithOtp` und `resetPasswordForEmail` werden diese Hash-URLs automatisch verwendet, deshalb greifen die obigen Werte sofort.
-- Falls Mail-Links nicht mehr auf `*.supabase.co` zeigen sollen, richte dort zusätzlich eine Custom Domain (z. B. `auth.deine-domain.de`) ein und folge den DNS-Schritten; Supabase kümmert sich um das Zertifikat.
-
-## Standardpasswort für neue Nutzer:innen
-
-- Die Edge Function `admin-set-password` setzt das Passwort per Service Role auf den Standardwert `Adenauerring1`. Das Admin-Menü bietet dafür einen Button („Standardpasswort“), genau wie eine Aktion zum Generieren eines Recovery-Links.
-- Nach dem Versand einer Einladung ruft das Frontend automatisch dieselbe Funktion auf, sodass neue Accounts sofort dieses Passwort besitzen. Admins können den Wert direkt kommunizieren oder anschließend über den Reset-Link eine Änderung auslösen.
-- Passe den Wert bei Bedarf per Function-Environment `DEFAULT_USER_PASSWORD` an.
-- Nach Änderungen an den Funktionen unbedingt deployen: `supabase functions deploy admin-set-password generate-password-link --project-ref <project>`.
+> **Achtung:** `docker compose down` behaelt die Volumes. Nur `docker compose down -v` loescht sie – dabei gehen **alle Daten** verloren!
