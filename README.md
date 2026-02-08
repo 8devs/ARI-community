@@ -7,7 +7,7 @@ Community-App fuer den Adenhauerring in Worms. Vollstaendig self-hosted mit Dock
 | Bereich | Technologie |
 |---------|-------------|
 | Frontend | React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui |
-| Backend | Express 5 + Prisma ORM + PostgreSQL 16 + Socket.io |
+| Backend | Express 5 + Prisma ORM + PostgreSQL 18 + Socket.io |
 | Auth | JWT + bcrypt (Session-Cookies) |
 | Deployment | Docker Compose |
 
@@ -41,7 +41,6 @@ Dann `.env.docker` bearbeiten:
 POSTGRES_DB=ari_community
 POSTGRES_USER=ari
 POSTGRES_PASSWORD=HIER_EIN_SICHERES_PASSWORT        # PFLICHT
-POSTGRES_PORT=5432
 
 # ─── App ───────────────────────────────────────────────────────────
 APP_PORT=3000
@@ -75,7 +74,6 @@ SMTP_FROM=notifications@example.com
 |----------|---------|-------------|
 | `POSTGRES_DB` | `ari_community` | Name der Datenbank |
 | `POSTGRES_USER` | `ari` | Datenbank-Benutzer |
-| `POSTGRES_PORT` | `5432` | Externer Port fuer PostgreSQL (nur fuer Debugging) |
 | `APP_PORT` | `3000` | Port auf dem die App erreichbar ist |
 | `AUTH_BCRYPT_ROUNDS` | `12` | Bcrypt Hashing-Runden (hoeher = sicherer, aber langsamer) |
 | `SMTP_HOST` | *(leer)* | SMTP-Server. **Wenn leer, werden keine E-Mails versendet** (Einladungen, Benachrichtigungen, Passwort-Reset). |
@@ -93,7 +91,7 @@ docker compose --env-file .env.docker up -d --build
 
 Beim ersten Start passiert automatisch:
 
-1. PostgreSQL wird gestartet (mit Healthcheck)
+1. PostgreSQL 18 wird gestartet (mit Healthcheck)
 2. Die App wird gebaut (Multi-Stage: Frontend + Backend)
 3. `prisma migrate deploy` erstellt alle Datenbank-Tabellen
 4. Der Express-Server startet auf Port 3000
@@ -116,6 +114,42 @@ Das erstellt:
 ### 5. App aufrufen
 
 Die App ist erreichbar unter `http://<server-ip>:3000` (bzw. dem konfigurierten `APP_PORT`).
+
+---
+
+## Sicherheitshinweise
+
+### Datenbank nicht oeffentlich erreichbar
+
+Die PostgreSQL-Datenbank ist bewusst **nicht** nach aussen exponiert. Sie ist ausschliesslich ueber das interne Docker-Netzwerk erreichbar (`db:5432`). Der App-Container verbindet sich intern – es wird kein Port auf dem Host geoeffnet.
+
+Fuer Datenbank-Debugging waehrend der Entwicklung nutze `docker compose exec`:
+
+```bash
+docker compose --env-file .env.docker exec db psql -U ari ari_community
+```
+
+### Non-Root Container
+
+Der App-Container laeuft als eingeschraenkter User (`appuser`), nicht als Root. Nur das `/app/uploads`-Verzeichnis ist beschreibbar.
+
+### Upload-Beschraenkungen
+
+Datei-Uploads sind auf erlaubte Typen beschraenkt:
+
+| Bucket | Erlaubte Dateitypen | Max. Groesse |
+|--------|-------------------|-------------|
+| Avatare, Logos | JPG, PNG, WebP, SVG, GIF | 10 MB |
+| Menues | JPG, PNG, WebP, SVG, GIF, PDF | 10 MB |
+| Dokumente, Anhaenge | Bilder + PDF, DOC(X), XLS(X), TXT | 10 MB |
+
+Nicht erlaubte Dateitypen (z.B. `.exe`, `.sh`, `.zip`) werden serverseitig abgelehnt.
+
+### Environment-Dateien
+
+`.env` und `.env.docker` sind in `.gitignore` und werden **nicht** ins Repository committed. Im Repo liegt nur das Template:
+
+- `.env.docker.example` – Template fuer die Environment-Variablen
 
 ---
 
@@ -204,69 +238,6 @@ cat backup.sql | docker compose --env-file .env.docker exec -T db \
 
 ---
 
-## Lokale Entwicklung
-
-### Voraussetzungen
-
-- Node.js 20+
-- npm
-
-### 1. Datenbank starten (Docker)
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-Startet nur PostgreSQL auf `localhost:5432` (User: `ari`, Passwort: `ari_dev_password`).
-
-### 2. Dependencies installieren
-
-```bash
-npm install
-```
-
-### 3. Datenbank-Schema und Seed
-
-```bash
-npx prisma db push
-npm run db:seed
-```
-
-### 4. App starten
-
-```bash
-npm run dev:all
-```
-
-Startet gleichzeitig:
-
-- **Vite Dev-Server** auf `http://localhost:8080` (mit Hot Module Replacement)
-- **Express Backend** auf `http://localhost:3000`
-
-Der Vite-Proxy leitet `/api/*`, `/uploads/*` und `/ws` automatisch an den Backend-Server weiter.
-
-### 5. Im Browser oeffnen
-
-```
-http://localhost:8080
-```
-
-Login: `admin@ari-worms.de` / `admin123`
-
-### Nuetzliche Befehle
-
-| Befehl | Beschreibung |
-|--------|-------------|
-| `npm run dev:all` | Frontend + Backend gleichzeitig starten |
-| `npm run build` | Frontend fuer Produktion bauen |
-| `npm run build:server` | Backend TypeScript kompilieren |
-| `npm run build:all` | Beides bauen |
-| `npm run db:studio` | Prisma Studio (DB-Browser) auf Port 5555 |
-| `npm run db:push` | Schema-Aenderungen auf die Datenbank anwenden (Entwicklung) |
-| `npm run db:seed` | Admin-User und Testdaten anlegen |
-
----
-
 ## Projektstruktur
 
 ```
@@ -284,10 +255,9 @@ Login: `admin@ari-worms.de` / `admin123`
 ├── prisma/                 # Datenbank
 │   ├── schema.prisma       # Schema (37 Tabellen, 12 Enums)
 │   └── seed.ts             # Initiale Daten
-├── docker-compose.yml      # Produktion (App + PostgreSQL)
-├── docker-compose.dev.yml  # Entwicklung (nur PostgreSQL)
-├── Dockerfile              # Multi-Stage Build (deps → frontend → backend → production)
-└── .env.docker.example     # Template fuer Produktions-Environment
+├── docker-compose.yml      # Docker Compose (App + PostgreSQL)
+├── Dockerfile              # Multi-Stage Build (non-root User)
+└── .env.docker.example     # Template fuer Environment-Variablen
 ```
 
 ## Volumes und Persistenz

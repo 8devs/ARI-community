@@ -13,8 +13,9 @@ dist-ssr
 server-dist
 uploads
 *.local
-.env.local
 .env
+.env.local
+.env.docker
 
 # Editor directories and files
 .vscode/*
