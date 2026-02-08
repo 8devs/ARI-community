@@ -54,13 +54,20 @@ app.use("/api/notifications", notificationRoutes);
 // ─── WebSocket (Socket.io) ───────────────────────────────────────────
 setupSocketIO(httpServer);
 
+// ─── API 404 handler – must come BEFORE the SPA fallback ─────────────
+// Express 5 uses path-to-regexp v8: wildcard needs named param {*path}
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Route nicht gefunden." });
+});
+
 // ─── Serve Frontend (production) ─────────────────────────────────────
 if (!isDev) {
   const distPath = path.join(__dirname, "..", "dist");
   app.use(express.static(distPath));
 
   // SPA fallback – serve index.html for all non-API, non-upload routes
-  app.get("*", (_req, res) => {
+  // Express 5: use {*splat} instead of * for catch-all
+  app.get("/{*splat}", (_req, res) => {
     res.sendFile(path.join(distPath, "index.html"));
   });
 }
