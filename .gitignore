@@ -14,6 +14,7 @@ server-dist
 uploads
 *.local
 .env.local
+.env
 
 # Editor directories and files
 .vscode/*

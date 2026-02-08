@@ -1,9 +1,9 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ari_community}
       POSTGRES_USER: ${POSTGRES_USER:-ari}
@@ -13,9 +13,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-
+    networks:
+      default: null
   app:
     build: .
     restart: unless-stopped
@@ -39,7 +38,12 @@ services:
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
       NODE_ENV: production
       PORT: "3000"
-
+    networks:
+      default: null
+networks:
+  default:
+    driver: bridge
+    attachable: true
 volumes:
   postgres_data:
   uploads:
