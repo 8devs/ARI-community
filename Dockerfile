@@ -1,5 +1,5 @@
 # ─── Stage 1: Install all dependencies ────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -20,7 +20,7 @@ RUN npx prisma generate
 RUN npx tsc -p tsconfig.server.json
 
 # ─── Stage 4: Production image ───────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 
 # Install only production deps
@@ -33,12 +33,12 @@ RUN npx prisma generate
 COPY --from=frontend /app/dist ./dist
 COPY --from=backend /app/server-dist ./server-dist
 
-# Create non-root user and upload directories
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
-    && mkdir -p /app/uploads/avatars /app/uploads/logos /app/uploads/documents /app/uploads/menus /app/uploads/attachments \
-    && chown -R appuser:appgroup /app/uploads
+# Create non-root user for the project
+RUN addgroup -g 1001 -S ari && \
+    adduser -S ari -u 1001 -G ari
+RUN chown -R ari:ari /app
 
-USER appuser
+USER ari
 
 EXPOSE 3000
 
