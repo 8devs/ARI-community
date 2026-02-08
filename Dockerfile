@@ -33,8 +33,12 @@ RUN npx prisma generate
 COPY --from=frontend /app/dist ./dist
 COPY --from=backend /app/server-dist ./server-dist
 
-# Create uploads directory
-RUN mkdir -p /app/uploads/avatars /app/uploads/logos /app/uploads/documents /app/uploads/menus /app/uploads/attachments
+# Create non-root user and upload directories
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && mkdir -p /app/uploads/avatars /app/uploads/logos /app/uploads/documents /app/uploads/menus /app/uploads/attachments \
+    && chown -R appuser:appgroup /app/uploads
+
+USER appuser
 
 EXPOSE 3000
 
