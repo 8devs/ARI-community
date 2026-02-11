@@ -62,7 +62,7 @@ app.use("/api", (_req, res) => {
 
 // ─── Serve Frontend (production) ─────────────────────────────────────
 if (!isDev) {
-  const distPath = path.join(__dirname, "..", "dist");
+  const distPath = path.join(__dirname, "..", "..", "dist");
   app.use(express.static(distPath));
 
   // SPA fallback – serve index.html for all non-API, non-upload routes

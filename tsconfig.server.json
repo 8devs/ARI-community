@@ -7,10 +7,10 @@
     "strict": false,
     "skipLibCheck": true,
     "outDir": "server-dist",
-    "rootDir": "server",
+    "rootDir": ".",
     "declaration": false,
     "sourceMap": false
   },
-  "include": ["server/**/*.ts"],
+  "include": ["server/**/*.ts", "prisma/seed.ts"],
   "exclude": ["node_modules"]
 }

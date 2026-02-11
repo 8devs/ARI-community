@@ -43,4 +43,4 @@ USER ari
 EXPOSE 3000
 
 # Run migrations then start server
-CMD ["sh", "-c", "npx prisma migrate deploy && node server-dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node server-dist/server/index.js"]
